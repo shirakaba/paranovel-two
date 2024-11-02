@@ -1,74 +1,220 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import Ionicons from '@expo/vector-icons/Foundation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQuery } from '@tanstack/react-query';
+import { readDirectoryAsync } from 'expo-file-system';
+import * as React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Button,
+  Pressable,
+  useColorScheme,
+  SafeAreaView,
+} from 'react-native';
+import { pickDirectory } from 'react-native-document-picker';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { makeBookmark, readBookmark } from '../../modules/bookmarks';
 
-export default function HomeScreen() {
+type Ingredients = any;
+
+export default function LibraryScreen() {
+  const [library, setLibrary] = React.useState<Ingredients[]>([]);
+
+  // Check whether we've got an already-saved directory where the novels are
+  // stored.
+  const query = useQuery({
+    queryKey: ['checkExistingNovelDirectory'],
+    queryFn: async () => {
+      const clearNovelRoot = () =>
+        AsyncStorage.removeItem('novel_root').catch(error => {
+          console.error('Failed to clear novel_root', error);
+        });
+
+      try {
+        const novelRoot = await AsyncStorage.getItem('novel_root');
+        if (!novelRoot) {
+          return false;
+        }
+        const bookmark = readBookmark(novelRoot);
+        if (!bookmark) {
+          console.log('No existing novel directory.');
+          await clearNovelRoot();
+          return false;
+        }
+
+        console.log(`Reading existing novel directory: ${bookmark}`);
+        const library = await readLibrary(bookmark);
+        if (library) {
+          setLibrary(library);
+        }
+        return true;
+      } catch (error) {
+        console.error('Failed to populate from persisted bookmark', error);
+
+        await clearNovelRoot();
+      }
+
+      return false;
+    },
+  });
+
+  // Prompt the user to pick the directory where the novels are stored.
+  const onPressPicker = React.useCallback(async () => {
+    try {
+      // Gives a percent-encoded URI.
+      const result = await pickDirectory();
+      if (!result) {
+        return null;
+      }
+
+      try {
+        const createdBookmark = makeBookmark(result.uri);
+        if (createdBookmark) {
+          await AsyncStorage.setItem('novel_root', createdBookmark);
+        }
+      } catch (error) {
+        console.error('Failed to make bookmark', error);
+      }
+
+      const library = await readLibrary(result.uri);
+      if (library) {
+        setLibrary(library);
+      }
+    } catch (error) {
+      if ((error as any).code === 'DOCUMENT_PICKER_CANCELED') {
+        return null;
+      }
+
+      console.error('Error reading library', error);
+    }
+  }, []);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <SafeAreaView style={styles.container}>
+      <Button
+        disabled={!query.isFetched}
+        title="Select folder"
+        onPress={onPressPicker}
+      />
+
+      <View style={styles.directory}>
+        {library.map(ingredients => {
+          return (
+            <File
+              key={ingredients.title}
+              onPress={() => {
+                // navigation.navigate('Novel', { ingredients })
+              }}
+              ingredients={ingredients}
+            />
+          );
+        })}
+      </View>
+    </SafeAreaView>
   );
 }
 
+function File({
+  onPress,
+  ingredients: { title },
+}: {
+  onPress: () => void;
+  ingredients: Ingredients;
+}) {
+  const scheme = useColorScheme();
+
+  return (
+    <Pressable onPress={onPress}>
+      <View style={styles.file}>
+        <Ionicons
+          color={scheme === 'dark' ? 'white' : 'black'}
+          name={'book'}
+          size={64}
+        />
+        <Text
+          style={[
+            styles.fileTitle,
+            { color: scheme === 'dark' ? 'white' : 'black' },
+          ]}>
+          {title}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+async function readLibrary(directoryPath: string) {
+  // The path will have come from the file picker, and so is percent-encoded.
+  directoryPath = directoryPath.replace(/\/*$/, '');
+  console.log('DirectoryPath:', directoryPath);
+
+  try {
+    // readDirectoryAsync can take raw or percent-encoded paths as input, but
+    // always outputs file/folder names as raw.
+    const handles = await readDirectoryAsync(directoryPath);
+    console.log('handles:', handles);
+
+    const library: Ingredients[] = [];
+    for (const handle of handles) {
+      const subdir = `${directoryPath}/${encodeURIComponent(handle)}`;
+      const subhandles = await readDirectoryAsync(subdir);
+      console.log('reading directory:', subdir, subhandles);
+
+      const lines = subhandles.find(subhandle => subhandle.endsWith('.txt'));
+      const audio = subhandles.find(subhandle => subhandle.endsWith('.mp3'));
+      const alignment = subhandles.find(subhandle =>
+        subhandle.endsWith('.tsv'),
+      );
+      if (!lines || !audio || !alignment) {
+        continue;
+      }
+
+      library.push({
+        title: handle,
+        linesTXT: `${subdir}/${encodeURIComponent(lines)}`,
+        audiobookMP3: `${subdir}/${encodeURIComponent(audio)}`,
+        alignmentsTSV: `${subdir}/${encodeURIComponent(alignment)}`,
+      });
+    }
+
+    return library;
+  } catch (error) {
+    if ((error as any).code === 'DOCUMENT_PICKER_CANCELED') {
+      return null;
+    }
+
+    console.error('Error reading library', error);
+  }
+
+  return null;
+}
+
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+    // backgroundColor: '#fff',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'flex-start',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  directory: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  file: {
+    flex: 0,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+  fileTitle: {
+    // color: 'white',
+    // backgroundColor: 'rgba(0,0,0,0.4)',
+    // borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    overflow: 'hidden',
   },
 });
