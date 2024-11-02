@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-quick-sqlite/ios/QuickSQLite.mm b/node_modules/react-native-quick-sqlite/ios/QuickSQLite.mm
-index 519f31a..7aad899 100644
+index 308f746..a5fc7ea 100644
 --- a/node_modules/react-native-quick-sqlite/ios/QuickSQLite.mm
 +++ b/node_modules/react-native-quick-sqlite/ios/QuickSQLite.mm
 @@ -49,8 +49,7 @@ @implementation QuickSQLite
