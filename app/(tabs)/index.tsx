@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Foundation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
-import { readDirectoryAsync } from 'expo-file-system';
+import { getInfoAsync, readDirectoryAsync } from 'expo-file-system';
 import * as React from 'react';
 import {
   View,
@@ -16,10 +16,22 @@ import { pickDirectory } from 'react-native-document-picker';
 
 import { makeBookmark, readBookmark } from '../../modules/bookmarks';
 
-type Ingredients = any;
+// TODO: To test books, try out `xcrun devicectl device copy` to copy files onto
+// the simulator
+type Book =
+  | {
+      type: 'html';
+      title: string;
+      pathToHTML: string;
+    }
+  | {
+      type: 'ebook';
+      title: string;
+      pathToDirectory: string;
+    };
 
 export default function LibraryScreen() {
-  const [library, setLibrary] = React.useState<Ingredients[]>([]);
+  const [library, setLibrary] = React.useState(new Array<Book>());
 
   // Check whether we've got an already-saved directory where the novels are
   // stored.
@@ -99,14 +111,18 @@ export default function LibraryScreen() {
       />
 
       <View style={styles.directory}>
-        {library.map(ingredients => {
+        {library.map(book => {
+          if (book.type !== 'html') {
+            return null;
+          }
+
           return (
             <File
-              key={ingredients.title}
+              key={book.title}
               onPress={() => {
-                // navigation.navigate('Novel', { ingredients })
+                // navigation.navigate('Novel', { books })
               }}
-              ingredients={ingredients}
+              book={book}
             />
           );
         })}
@@ -117,10 +133,10 @@ export default function LibraryScreen() {
 
 function File({
   onPress,
-  ingredients: { title },
+  book: { title },
 }: {
   onPress: () => void;
-  ingredients: Ingredients;
+  book: Book;
 }) {
   const scheme = useColorScheme();
 
@@ -155,26 +171,43 @@ async function readLibrary(directoryPath: string) {
     const handles = await readDirectoryAsync(directoryPath);
     console.log('handles:', handles);
 
-    const library: Ingredients[] = [];
+    const library = new Array<Book>();
     for (const handle of handles) {
-      const subdir = `${directoryPath}/${encodeURIComponent(handle)}`;
-      const subhandles = await readDirectoryAsync(subdir);
-      console.log('reading directory:', subdir, subhandles);
+      const handleFullPath = `${directoryPath}/${encodeURIComponent(handle)}`;
 
-      const lines = subhandles.find(subhandle => subhandle.endsWith('.txt'));
-      const audio = subhandles.find(subhandle => subhandle.endsWith('.mp3'));
-      const alignment = subhandles.find(subhandle =>
-        subhandle.endsWith('.tsv'),
-      );
-      if (!lines || !audio || !alignment) {
+      if (handle.endsWith('.html')) {
+        library.push({
+          type: 'html',
+          title: handle.split('.html')[0],
+          pathToHTML: handleFullPath,
+        });
         continue;
       }
 
+      const subdir = handleFullPath;
+      const { isDirectory } = await getInfoAsync(subdir);
+      if (!isDirectory) {
+        continue;
+      }
+
+      // TODO: grab the relevant files out of the subdirectory
+
+      // const subhandles = await readDirectoryAsync(subdir);
+      // console.log('reading directory:', subdir, subhandles);
+
+      // const lines = subhandles.find(subhandle => subhandle.endsWith('.txt'));
+      // const audio = subhandles.find(subhandle => subhandle.endsWith('.mp3'));
+      // const alignment = subhandles.find(subhandle =>
+      //   subhandle.endsWith('.tsv'),
+      // );
+      // if (!lines || !audio || !alignment) {
+      //   continue;
+      // }
+
       library.push({
+        type: 'ebook',
         title: handle,
-        linesTXT: `${subdir}/${encodeURIComponent(lines)}`,
-        audiobookMP3: `${subdir}/${encodeURIComponent(audio)}`,
-        alignmentsTSV: `${subdir}/${encodeURIComponent(alignment)}`,
+        pathToDirectory: subdir,
       });
     }
 
