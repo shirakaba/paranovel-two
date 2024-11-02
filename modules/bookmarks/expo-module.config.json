@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios", "android", "web"],
+  "ios": {
+    "modules": ["BookmarksModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.bookmarks.BookmarksModule"]
+  }
+}

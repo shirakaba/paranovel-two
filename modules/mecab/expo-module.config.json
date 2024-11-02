@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios"],
+  "ios": {
+    "modules": ["ExpoMecabModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.mecab.ExpoMecabModule"]
+  }
+}

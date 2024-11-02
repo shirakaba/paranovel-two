@@ -282,6 +282,16 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/React-cxxreact/React-cxxreact_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/boost/boost_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/glog/glog_privacy.bundle",
+				"${PODS_ROOT}/mecab-ko/Assets/AUTHORS",
+				"${PODS_ROOT}/mecab-ko/Assets/BSD",
+				"${PODS_ROOT}/mecab-ko/Assets/ChangeLog",
+				"${PODS_ROOT}/mecab-ko/Assets/COPYING",
+				"${PODS_ROOT}/mecab-ko/Assets/GPL",
+				"${PODS_ROOT}/mecab-ko/Assets/LGPL",
+				"${PODS_ROOT}/mecab-ko/Assets/mecabrc",
+				"${PODS_ROOT}/mecab-ko/Assets/NEWS",
+				"${PODS_ROOT}/mecab-ko/Assets/README",
+				"${PODS_CONFIGURATION_BUILD_DIR}/mecab-naist-jdic-utf-8/mecab-naist-jdic-utf-8.bundle",
 			);
 			name = "[CP] Copy Pods Resources";
 			outputPaths = (
@@ -294,6 +304,16 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/React-cxxreact_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/boost_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/glog_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/AUTHORS",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/BSD",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ChangeLog",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/COPYING",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GPL",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/LGPL",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/mecabrc",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/NEWS",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/README",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/mecab-naist-jdic-utf-8.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

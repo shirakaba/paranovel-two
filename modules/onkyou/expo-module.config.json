@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios"],
+  "ios": {
+    "modules": ["OnkyouModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.onkyou.OnkyouModule"]
+  }
+}
