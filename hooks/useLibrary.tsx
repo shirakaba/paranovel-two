@@ -3,7 +3,11 @@ import { Book } from '@/types/book.types';
 import { readBookmark } from '@/modules/bookmarks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
-import { readDirectoryAsync, getInfoAsync } from 'expo-file-system';
+import {
+  readDirectoryAsync,
+  getInfoAsync,
+  readAsStringAsync,
+} from 'expo-file-system';
 
 export function LibraryProvider({ children }: React.PropsWithChildren) {
   const { query, library, setLibrary } = useExistingLibrary();
@@ -86,41 +90,35 @@ export async function readLibrary(directoryPath: string) {
 
     const library = new Array<Book>();
     for (const handle of handles) {
-      const handleFullPath = `${directoryPath}/${encodeURIComponent(handle)}`;
+      const handlePath = `${directoryPath}/${encodeURIComponent(handle)}`;
 
-      if (handle.endsWith('.html')) {
-        library.push({
-          type: 'html',
-          title: handle.split('.html')[0],
-          path: handleFullPath,
-        });
-        continue;
-      }
-
-      const subdir = handleFullPath;
-      const { isDirectory } = await getInfoAsync(subdir);
+      const { isDirectory } = await getInfoAsync(handlePath);
       if (!isDirectory) {
         continue;
       }
 
-      // TODO: grab the relevant files out of the subdirectory
+      const subhandles = await readDirectoryAsync(handlePath);
+      console.log('loading directory:', handlePath, subhandles);
+      if (!subhandles.includes('content.opf')) {
+        continue;
+      }
 
-      // const subhandles = await readDirectoryAsync(subdir);
-      // console.log('loading directory:', subdir, subhandles);
+      const opf = await readAsStringAsync(`${handlePath}/content.opf`, {
+        encoding: 'utf8',
+      });
+      console.log({ opf });
 
-      // const lines = subhandles.find(subhandle => subhandle.endsWith('.txt'));
-      // const audio = subhandles.find(subhandle => subhandle.endsWith('.mp3'));
-      // const alignment = subhandles.find(subhandle =>
-      //   subhandle.endsWith('.tsv'),
-      // );
-      // if (!lines || !audio || !alignment) {
-      //   continue;
-      // }
+      const matches = opf.match(/<dc:title>\s*([\s\S]*)\s*<\/dc:title>/);
+      if (!matches) {
+        continue;
+      }
+      console.log({ matches });
+      const [_fullMatch, title] = matches;
 
       library.push({
-        type: 'ebook',
-        title: handle,
-        path: subdir,
+        type: 'opf',
+        title,
+        folderPath: handlePath,
       });
     }
 

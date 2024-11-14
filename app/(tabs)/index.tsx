@@ -61,7 +61,7 @@ export default function LibraryScreen() {
 
       <View style={styles.directory}>
         {library.map(book => {
-          if (book.type !== 'html') {
+          if (book.type !== 'opf') {
             return null;
           }
 
