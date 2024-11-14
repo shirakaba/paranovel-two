@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@bacons/link-assets": "^1.1.0",
+    "@dr.pogodin/react-native-fs": "^2.29.1",
+    "@dr.pogodin/react-native-static-server": "^0.18.0",
     "@expo/vector-icons": "^14.0.2",
     "@react-native-async-storage/async-storage": "^2.0.0",
     "@react-navigation/bottom-tabs": "7.0.0-rc.36",
