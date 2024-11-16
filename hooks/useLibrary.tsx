@@ -10,13 +10,13 @@ import {
 } from 'expo-file-system';
 
 export function LibraryProvider({ children }: React.PropsWithChildren) {
-  const { query, library, setLibrary } = useExistingLibrary();
+  const { query, library, setLibrary, libraryDir } = useExistingLibrary();
 
   return (
     <LibraryContext.Provider
       value={
         query.isFetched
-          ? { type: 'loaded', library, setLibrary }
+          ? { type: 'loaded', library, setLibrary, libraryDir }
           : { type: 'loading' }
       }>
       {children}
@@ -34,6 +34,7 @@ export function useLibrary() {
 }
 
 function useExistingLibrary() {
+  const [libraryDir, setLibraryDir] = React.useState('');
   const [library, setLibrary] = React.useState(new Array<Book>());
 
   // Check whether we've got an already-saved directory where the novels are
@@ -62,6 +63,7 @@ function useExistingLibrary() {
         const library = await readLibrary(bookmark);
         if (library) {
           setLibrary(library);
+          setLibraryDir(bookmark);
         }
         return true;
       } catch (error) {
@@ -74,7 +76,7 @@ function useExistingLibrary() {
     },
   });
 
-  return { library, setLibrary, query };
+  return { library, setLibrary, libraryDir, query };
 }
 
 export async function readLibrary(directoryPath: string) {
@@ -106,19 +108,20 @@ export async function readLibrary(directoryPath: string) {
       const opf = await readAsStringAsync(`${handlePath}/content.opf`, {
         encoding: 'utf8',
       });
-      console.log({ opf });
+      // console.log({ opf });
 
       const matches = opf.match(/<dc:title>\s*([\s\S]*)\s*<\/dc:title>/);
       if (!matches) {
         continue;
       }
-      console.log({ matches });
+      // console.log({ matches });
       const [_fullMatch, title] = matches;
 
       library.push({
         type: 'opf',
         title,
-        folderPath: handlePath,
+        folderUri: handlePath,
+        folderName: handle,
       });
     }
 
@@ -140,6 +143,7 @@ const LibraryContext = React.createContext<
       type: 'loaded';
       library: Array<Book>;
       setLibrary: React.Dispatch<React.SetStateAction<Book[]>>;
+      libraryDir: string;
     }
   | undefined
 >(undefined);
