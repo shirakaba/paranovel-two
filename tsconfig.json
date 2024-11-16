@@ -1,17 +1,12 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    // Needed to resolve typings for @dr.pogodin/react-native-static-server
+    "moduleResolution": "bundler",
     "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-  ]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }

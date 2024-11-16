@@ -1,0 +1,12 @@
+diff --git a/node_modules/@dr.pogodin/react-native-static-server/package.json b/node_modules/@dr.pogodin/react-native-static-server/package.json
+index 6e86962..9c40cea 100644
+--- a/node_modules/@dr.pogodin/react-native-static-server/package.json
++++ b/node_modules/@dr.pogodin/react-native-static-server/package.json
+@@ -3,6 +3,7 @@
+   "version": "0.18.0",
+   "description": "Embedded HTTP server for React Native",
+   "source": "./src/index.tsx",
++  "react-native": "./src/index.tsx",
+   "main": "./lib/commonjs/index.js",
+   "module": "./lib/module/index.js",
+   "exports": {

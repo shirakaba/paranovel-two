@@ -1,0 +1,12 @@
+diff --git a/node_modules/@dr.pogodin/react-native-fs/package.json b/node_modules/@dr.pogodin/react-native-fs/package.json
+index da3b176..d330cf1 100644
+--- a/node_modules/@dr.pogodin/react-native-fs/package.json
++++ b/node_modules/@dr.pogodin/react-native-fs/package.json
+@@ -3,6 +3,7 @@
+   "version": "2.29.1",
+   "description": "Native filesystem access for React Native",
+   "source": "./src/index.ts",
++  "react-native": "./src/index.ts",
+   "main": "./lib/commonjs/index.js",
+   "module": "./lib/module/index.js",
+   "exports": {
