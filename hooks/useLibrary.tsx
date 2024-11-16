@@ -113,9 +113,10 @@ export function useServeLibrary(fileDir: string) {
     // http://127.0.0.1:3000/無職転生 ～異世界行ったら本気だす～ 17 (MFブックス)/content.opf
 
     return () => {
-      server.stop().catch(error => {
-        console.error('Failed to stop HTTP server', error);
-      });
+      // Does more harm than good - kills all our hot-reloads.
+      // server.stop().catch(error => {
+      //   console.error('Failed to stop HTTP server', error);
+      // });
     };
   }, [fileDir]);
 }
