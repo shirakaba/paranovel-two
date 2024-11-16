@@ -11,13 +11,13 @@ import {
 import Server, { ERROR_LOG_FILE } from '@dr.pogodin/react-native-static-server';
 
 export function LibraryProvider({ children }: React.PropsWithChildren) {
-  const { query, library, setLibrary } = useExistingLibrary();
+  const { query, library, setLibrary, libraryDir } = useExistingLibrary();
 
   return (
     <LibraryContext.Provider
       value={
         query.isFetched
-          ? { type: 'loaded', library, setLibrary }
+          ? { type: 'loaded', library, setLibrary, libraryDir }
           : { type: 'loading' }
       }>
       {children}
@@ -77,13 +77,15 @@ function useExistingLibrary() {
     },
   });
 
+  return { library, setLibrary, libraryDir, query };
+}
+
+export function useServeLibrary(fileDir: string) {
   React.useEffect(() => {
-    if (!libraryDir) {
+    if (!fileDir) {
       return;
     }
-    const fileDir = decodeURI(libraryDir.replace(/^file:\/\//, ''));
 
-    console.log('libraryDir', libraryDir);
     console.log('fileDir', fileDir);
     console.log('ERROR_LOG_FILE', ERROR_LOG_FILE);
 
@@ -115,9 +117,7 @@ function useExistingLibrary() {
         console.error('Failed to stop HTTP server', error);
       });
     };
-  }, [libraryDir]);
-
-  return { library, setLibrary, query };
+  }, [fileDir]);
 }
 
 export async function readLibrary(directoryPath: string) {
@@ -159,7 +159,8 @@ export async function readLibrary(directoryPath: string) {
       library.push({
         type: 'opf',
         title,
-        folderPath: handlePath,
+        folderUri: handlePath,
+        folderName: handle,
       });
     }
 
@@ -181,6 +182,7 @@ const LibraryContext = React.createContext<
       type: 'loaded';
       library: Array<Book>;
       setLibrary: React.Dispatch<React.SetStateAction<Book[]>>;
+      libraryDir: string;
     }
   | undefined
 >(undefined);

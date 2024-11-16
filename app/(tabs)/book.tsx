@@ -7,15 +7,15 @@ import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useLibrary } from '@/hooks/useLibrary';
 import type { Book } from '@/types/book.types';
 
 export default function BookScreen() {
   const params = useLocalSearchParams<Book>();
   console.log('[book] params', params);
 
-  const libraryStatus = useLibrary();
-  const library = libraryStatus.type === 'loading' ? [] : libraryStatus.library;
+  if (params.type !== 'opf' || !params.folderName) {
+    return null;
+  }
 
   return (
     <ParallaxScrollView
