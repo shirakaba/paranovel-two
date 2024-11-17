@@ -20,7 +20,7 @@ export default function BookScreen() {
         headerRight: () => {
           if (!opf) {
             return (
-              <Link disabled href={{ pathname: '/book/toc' }} asChild>
+              <Link disabled href="/toc" asChild>
                 <Button title="ToC" />
               </Link>
             );
@@ -48,7 +48,7 @@ export default function BookScreen() {
           return (
             <Link
               href={{
-                pathname: '/book/toc',
+                pathname: '/toc',
                 params: { ...params, hrefs, labels },
               }}
               asChild>

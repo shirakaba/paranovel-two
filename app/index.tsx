@@ -72,6 +72,7 @@ export default function LibraryScreen() {
                 pathname: '/book',
                 params: {
                   ...book,
+                  // FIXME: parse out the proper entrypoint page.
                   href: `${book.folderUri}/text/part0007.html`,
                 },
               }}

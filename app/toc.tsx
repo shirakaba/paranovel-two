@@ -42,6 +42,9 @@ export default function TableOfContents() {
               <Link
                 key={href}
                 href={{
+                  // FIXME: expected this to wind back to /book, but instead it
+                  // seems to push it, and if you try to revisit ToC, you'll
+                  // find it frozen.
                   pathname: '/book',
                   params: {
                     ...backParams,
