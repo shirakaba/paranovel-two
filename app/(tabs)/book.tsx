@@ -28,7 +28,7 @@ export default function BookScreen() {
         // I wanted to use `injectedJavaScriptBeforeContentLoaded`, but
         // `document.head` is `null` at that time, and listening for readystate
         // events somehow doesn't work either, as they don't fire.
-        injectedJavaScript={injectedJavaScript(params.folderUri)}
+        injectedJavaScript={injectedJavaScript}
         allowFileAccessFromFileURLs={true}
         allowingReadAccessToURL={params.folderUri}
         // Specifying 'file://*' in here is necessary to stop the WebView from
@@ -41,8 +41,7 @@ export default function BookScreen() {
   );
 }
 
-const injectedJavaScript = (folderUri: string) =>
-  `
+const injectedJavaScript = `
 // Insert a viewport meta tag
 {
   const meta = document.createElement("meta");
@@ -51,8 +50,8 @@ const injectedJavaScript = (folderUri: string) =>
   document.head.appendChild(meta);
 }
 
-async function parseOPF(){
-  const result = await fetch("${folderUri}/content.opf");
+async function parseOPF(href){
+  const result = await fetch(href);
   const text = await result.text();
   console.log(text);
   const doc = new DOMParser().parseFromString(text, "application/xml");
@@ -152,7 +151,7 @@ async function parseOPF(){
   window.ReactNativeWebView.postMessage(JSON.stringify({ type: "opf", message }));
 }
 
-parseOPF().catch(console.error);
+// parseOPF(\`\${folderUri}/content.opf\`).catch(console.error);
 `.trim();
 
 const style = StyleSheet.create({
