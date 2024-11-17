@@ -100,7 +100,6 @@ export async function readLibrary(directoryPath: string) {
       }
 
       const subhandles = await readDirectoryAsync(handlePath);
-      console.log('loading directory:', handlePath, subhandles);
       if (!subhandles.includes('content.opf')) {
         continue;
       }
@@ -108,20 +107,64 @@ export async function readLibrary(directoryPath: string) {
       const opf = await readAsStringAsync(`${handlePath}/content.opf`, {
         encoding: 'utf8',
       });
-      // console.log({ opf });
 
-      const matches = opf.match(/<dc:title>\s*([\s\S]*)\s*<\/dc:title>/);
-      if (!matches) {
+      // FIXME: replace all this stubborn RegEx parsing with a proper xmltojs
+      // implementation.
+      const titleMatches = opf.match(/<dc:title.*>\s*([\s\S]*)\s*<\/dc:title>/);
+      if (!titleMatches) {
         continue;
       }
-      // console.log({ matches });
-      const [_fullMatch, title] = matches;
+
+      const [, title] = titleMatches;
+
+      const spineMatches = opf.match(/<spine.*>\s*([\s\S]*)\s*<\/spine>/);
+      if (!spineMatches) {
+        continue;
+      }
+      const [, spine] = spineMatches;
+
+      const itemrefMatches = spine.match(/<itemref\s+([\s\S]*)\s*\/>/);
+      if (!itemrefMatches) {
+        continue;
+      }
+      const [, itemref] = itemrefMatches;
+      // Woe betide us if there's an escaped quote in the ID.
+      const idrefMatches = itemref.match(/idref="(.*?)"/);
+      if (!idrefMatches) {
+        continue;
+      }
+      const [, idref] = idrefMatches;
+
+      const manifestMatches = opf.match(
+        /<manifest.*>\s*([\s\S]*)\s*<\/manifest>/,
+      );
+      if (!manifestMatches) {
+        continue;
+      }
+      const [, manifest] = manifestMatches;
+
+      const startingItemMatches = manifest.match(
+        new RegExp(`<item.+id="${idref}".*/>`),
+      );
+      if (!startingItemMatches) {
+        continue;
+      }
+      const [startingItem] = startingItemMatches;
+
+      const startingHrefMatches = startingItem.match(/href="(.*?)"/);
+      if (!startingHrefMatches) {
+        continue;
+      }
+      const [, startingHref] = startingHrefMatches;
+
+      console.log('startingHref', startingHref);
 
       library.push({
         type: 'opf',
         title,
         folderUri: handlePath,
         folderName: handle,
+        startingHref,
       });
     }
 

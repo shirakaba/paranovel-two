@@ -94,9 +94,6 @@ export default function BookScreen() {
           injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded(
             params.folderUri,
           )}
-          // I wanted to use `injectedJavaScriptBeforeContentLoaded`, but
-          // `document.head` is `null` at that time, and listening for readystate
-          // events somehow doesn't work either, as they don't fire.
           injectedJavaScript={injectedJavaScript}
           allowFileAccessFromFileURLs={true}
           allowingReadAccessToURL={params.folderUri}

@@ -27,4 +27,14 @@ export type Book = {
    * @example "無職転生 ～異世界行ったら本気だす～ 17 (MFブックス)"
    */
   folderName: string;
+
+  /**
+   * The href the ebook should open at.
+   *
+   * Get the full filepath the starting page via `${folderUri}/${startingHref}`.
+   *
+   * @example "titlepage.xhtml"
+   * @example "xhtml/表紙.xhtml"
+   */
+  startingHref: string;
 };
