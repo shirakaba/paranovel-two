@@ -1,5 +1,5 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView, StyleSheet } from 'react-native';
+import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { Button, SafeAreaView, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import type { Book } from '@/types/book.types';
@@ -10,7 +10,17 @@ export default function BookScreen() {
   const library = useLibrary();
 
   const Screen = () => (
-    <Stack.Screen options={{ headerShown: true, headerTitle: params.title }} />
+    <Stack.Screen
+      options={{
+        headerShown: true,
+        headerTitle: params.title,
+        headerRight: () => (
+          <Link href="/book/toc" asChild>
+            <Button title="ToC" />
+          </Link>
+        ),
+      }}
+    />
   );
 
   if (library.type !== 'loaded') {
