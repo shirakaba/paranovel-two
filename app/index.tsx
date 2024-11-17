@@ -68,7 +68,7 @@ export default function LibraryScreen() {
           return (
             <File
               key={book.title}
-              href={{ pathname: '/(tabs)/book', params: book }}
+              href={{ pathname: '/book', params: book }}
               book={book}
             />
           );

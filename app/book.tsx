@@ -25,6 +25,9 @@ export default function BookScreen() {
         onMessage={({ nativeEvent: { data } }) => {
           console.log(data);
         }}
+        injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded(
+          params.folderUri,
+        )}
         // I wanted to use `injectedJavaScriptBeforeContentLoaded`, but
         // `document.head` is `null` at that time, and listening for readystate
         // events somehow doesn't work either, as they don't fire.
@@ -41,6 +44,11 @@ export default function BookScreen() {
   );
 }
 
+const injectedJavaScriptBeforeContentLoaded = (folderUri: string) =>
+  `
+const __folderUri = "${folderUri}";
+`.trim();
+
 const injectedJavaScript = `
 // Insert a viewport meta tag
 {
@@ -48,6 +56,45 @@ const injectedJavaScript = `
   meta.name = "viewport";
   meta.content = "width=device-width, initial-scale=1";
   document.head.appendChild(meta);
+}
+
+function buildHUD(){
+  const html = \`
+<div id="hud" style="position: fixed; display: flex; justify-content: center; width: 100%; top: 0; left: 0; right: 0; background-color: rgb(55,65,81); min-height: 40px; padding: 8px; writing-mode: horizontal-tb; color: white; font-family: sans-serif; font-size: 16px;">
+  <details style="width: 300px; max-height: 400px; overflow: auto; padding: 8px; border-radius: 8px; background-color: #a0a6b3;">
+    <summary>ToC</summary>
+
+    <!-- To be populated by the populateToC() function. -->
+    <ul id="toc"></ul>
+  </details>
+</div>
+  \`.trim();
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const dom = template.content.firstChild;
+  return dom;
+}
+
+function populateToC(opf, folderUri){
+  const { package: { manifest: { items }, spine: { itemrefs } } } = opf;
+  const toc = document.getElementById("toc");
+  toc.replaceChildren([]);
+
+  for(const [i, { idref }] of itemrefs.entries()){
+    const item = items.find(item => item.id === idref);
+    if(!item){
+      continue;
+    }
+    const template = document.createElement("template");
+    const html = \`
+<li>
+  <a href="\${folderUri}/\${item.href}">part \${i}</a>
+</li>
+    \`.trim();
+    template.innerHTML = html;
+    toc.append(template.content.firstChild);
+  }
 }
 
 async function parseOPF(href){
@@ -148,10 +195,18 @@ async function parseOPF(href){
     message.package.guide = { references };
   }
 
-  window.ReactNativeWebView.postMessage(JSON.stringify({ type: "opf", message }));
+  // window.ReactNativeWebView.postMessage(JSON.stringify({ type: "opf", message }));
+
+  return message;
 }
 
-// parseOPF(\`\${folderUri}/content.opf\`).catch(console.error);
+document.body.prepend(buildHUD());
+
+parseOPF(\`\${__folderUri}/content.opf\`)
+.then((opf) => {
+  populateToC(opf, __folderUri);
+})
+.catch(console.error);
 `.trim();
 
 const style = StyleSheet.create({
