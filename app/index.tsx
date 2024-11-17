@@ -68,7 +68,13 @@ export default function LibraryScreen() {
           return (
             <File
               key={book.title}
-              href={{ pathname: '/book', params: book }}
+              href={{
+                pathname: '/book',
+                params: {
+                  ...book,
+                  href: `${book.folderUri}/text/part0007.html`,
+                },
+              }}
               book={book}
             />
           );

@@ -1,24 +1,61 @@
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import { Button, SafeAreaView, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import type { Book } from '@/types/book.types';
 import { useLibrary } from '@/hooks/useLibrary';
+import type { OPF } from '@/types/opf.types';
 
 export default function BookScreen() {
-  const params = useLocalSearchParams<Book>();
+  const params = useLocalSearchParams<Book & { href: string }>();
   const library = useLibrary();
+  const [opf, setOPF] = useState<OPF>();
 
   const Screen = () => (
     <Stack.Screen
       options={{
         headerShown: true,
         headerTitle: params.title,
-        headerRight: () => (
-          <Link href="/book/toc" asChild>
-            <Button title="ToC" />
-          </Link>
-        ),
+        headerRight: () => {
+          if (!opf) {
+            return (
+              <Link disabled href={{ pathname: '/book/toc' }} asChild>
+                <Button title="ToC" />
+              </Link>
+            );
+          }
+
+          const {
+            package: {
+              manifest: { items },
+              spine: { itemrefs },
+            },
+          } = opf;
+
+          const hrefs = new Array<string>();
+          const labels = new Array<string>();
+          for (const [i, { idref }] of itemrefs.entries()) {
+            const item = items.find(item => item.id === idref);
+            if (!item) {
+              continue;
+            }
+            // To be expanded to: `${backParams.folderUri}/${href}`
+            hrefs.push(item.href);
+            labels.push(`part ${i}`);
+          }
+
+          return (
+            <Link
+              href={{
+                pathname: '/book/toc',
+                params: { ...params, hrefs, labels },
+              }}
+              asChild>
+              <Button title="ToC" />
+            </Link>
+          );
+        },
       }}
     />
   );
@@ -40,7 +77,19 @@ export default function BookScreen() {
           webviewDebuggingEnabled={true}
           javaScriptEnabled={true}
           onMessage={({ nativeEvent: { data } }) => {
-            console.log(data);
+            let parsedData: any;
+            try {
+              parsedData = JSON.parse(data);
+            } catch (error) {
+              return;
+            }
+
+            switch (parsedData.type) {
+              case 'opf': {
+                setOPF(parsedData.message);
+                return;
+              }
+            }
           }}
           injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded(
             params.folderUri,
@@ -55,7 +104,7 @@ export default function BookScreen() {
           // treating file URLs as being blocklisted. Blocklisted URLs get opened
           // via Linking (to be passed on to Safari) instead.
           originWhitelist={['file://*']}
-          source={{ uri: `${params.folderUri}/text/part0007.html` }}
+          source={{ uri: params.href }}
         />
       </SafeAreaView>
     </>
@@ -79,12 +128,6 @@ const injectedJavaScript = `
 function buildHUD(){
   const html = \`
 <div id="hud" style="position: fixed; display: flex; justify-content: center; width: 100%; top: 0; left: 0; right: 0; background-color: rgb(55,65,81); min-height: 40px; padding: 8px; writing-mode: horizontal-tb; color: white; font-family: sans-serif; font-size: 16px;">
-  <details style="width: 300px; max-height: 400px; overflow: auto; padding: 8px; border-radius: 8px; background-color: #a0a6b3;">
-    <summary>ToC</summary>
-
-    <!-- To be populated by the populateToC() function. -->
-    <ul id="toc"></ul>
-  </details>
 </div>
   \`.trim();
 
@@ -92,27 +135,6 @@ function buildHUD(){
   template.innerHTML = html;
   const dom = template.content.firstChild;
   return dom;
-}
-
-function populateToC(opf, folderUri){
-  const { package: { manifest: { items }, spine: { itemrefs } } } = opf;
-  const toc = document.getElementById("toc");
-  toc.replaceChildren([]);
-
-  for(const [i, { idref }] of itemrefs.entries()){
-    const item = items.find(item => item.id === idref);
-    if(!item){
-      continue;
-    }
-    const template = document.createElement("template");
-    const html = \`
-<li>
-  <a href="\${folderUri}/\${item.href}">part \${i}</a>
-</li>
-    \`.trim();
-    template.innerHTML = html;
-    toc.append(template.content.firstChild);
-  }
 }
 
 async function parseOPF(href){
@@ -213,17 +235,14 @@ async function parseOPF(href){
     message.package.guide = { references };
   }
 
-  // window.ReactNativeWebView.postMessage(JSON.stringify({ type: "opf", message }));
+  window.ReactNativeWebView.postMessage(JSON.stringify({ type: "opf", message }));
 
   return message;
 }
 
-document.body.prepend(buildHUD());
+// document.body.prepend(buildHUD());
 
 parseOPF(\`\${__folderUri}/content.opf\`)
-.then((opf) => {
-  populateToC(opf, __folderUri);
-})
 .catch(console.error);
 `.trim();
 
