@@ -1,46 +1,54 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { SafeAreaView, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import type { Book } from '@/types/book.types';
-import { SafeAreaView, StyleSheet } from 'react-native';
 import { useLibrary } from '@/hooks/useLibrary';
 
 export default function BookScreen() {
   const params = useLocalSearchParams<Book>();
   const library = useLibrary();
 
+  const Screen = () => (
+    <Stack.Screen options={{ headerShown: true, headerTitle: params.title }} />
+  );
+
   if (library.type !== 'loaded') {
-    return;
+    return <Screen />;
   }
 
   if (!params.folderUri) {
-    return;
+    return <Screen />;
   }
 
   return (
-    <SafeAreaView style={style.container}>
-      <WebView
-        webviewDebuggingEnabled={true}
-        javaScriptEnabled={true}
-        onMessage={({ nativeEvent: { data } }) => {
-          console.log(data);
-        }}
-        injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded(
-          params.folderUri,
-        )}
-        // I wanted to use `injectedJavaScriptBeforeContentLoaded`, but
-        // `document.head` is `null` at that time, and listening for readystate
-        // events somehow doesn't work either, as they don't fire.
-        injectedJavaScript={injectedJavaScript}
-        allowFileAccessFromFileURLs={true}
-        allowingReadAccessToURL={params.folderUri}
-        // Specifying 'file://*' in here is necessary to stop the WebView from
-        // treating file URLs as being blocklisted. Blocklisted URLs get opened
-        // via Linking (to be passed on to Safari) instead.
-        originWhitelist={['file://*']}
-        source={{ uri: `${params.folderUri}/text/part0007.html` }}
-      />
-    </SafeAreaView>
+    <>
+      {/* https://docs.expo.dev/router/advanced/stack/#header-buttons */}
+      <Screen />
+      <SafeAreaView style={style.container}>
+        <WebView
+          webviewDebuggingEnabled={true}
+          javaScriptEnabled={true}
+          onMessage={({ nativeEvent: { data } }) => {
+            console.log(data);
+          }}
+          injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded(
+            params.folderUri,
+          )}
+          // I wanted to use `injectedJavaScriptBeforeContentLoaded`, but
+          // `document.head` is `null` at that time, and listening for readystate
+          // events somehow doesn't work either, as they don't fire.
+          injectedJavaScript={injectedJavaScript}
+          allowFileAccessFromFileURLs={true}
+          allowingReadAccessToURL={params.folderUri}
+          // Specifying 'file://*' in here is necessary to stop the WebView from
+          // treating file URLs as being blocklisted. Blocklisted URLs get opened
+          // via Linking (to be passed on to Safari) instead.
+          originWhitelist={['file://*']}
+          source={{ uri: `${params.folderUri}/text/part0007.html` }}
+        />
+      </SafeAreaView>
+    </>
   );
 }
 
