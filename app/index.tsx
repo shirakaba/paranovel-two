@@ -29,8 +29,9 @@ export default function LibraryScreen() {
         return null;
       }
 
+      let createdBookmark: string | null = null;
       try {
-        const createdBookmark = makeBookmark(result.uri);
+        createdBookmark = makeBookmark(result.uri);
         if (createdBookmark) {
           await AsyncStorage.setItem('novel_root', createdBookmark);
         }
@@ -41,6 +42,9 @@ export default function LibraryScreen() {
       const library = await readLibrary(result.uri);
       if (library && libraryStatus.type === 'loaded') {
         libraryStatus.setLibrary(library);
+        if (createdBookmark) {
+          libraryStatus.setLibraryDir(createdBookmark);
+        }
       }
     } catch (error) {
       if ((error as any).code === 'DOCUMENT_PICKER_CANCELED') {

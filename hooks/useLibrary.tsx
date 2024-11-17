@@ -10,13 +10,14 @@ import {
 } from 'expo-file-system';
 
 export function LibraryProvider({ children }: React.PropsWithChildren) {
-  const { query, library, setLibrary, libraryDir } = useExistingLibrary();
+  const { query, library, setLibrary, libraryDir, setLibraryDir } =
+    useExistingLibrary();
 
   return (
     <LibraryContext.Provider
       value={
         query.isFetched
-          ? { type: 'loaded', library, setLibrary, libraryDir }
+          ? { type: 'loaded', library, setLibrary, libraryDir, setLibraryDir }
           : { type: 'loading' }
       }>
       {children}
@@ -76,7 +77,7 @@ function useExistingLibrary() {
     },
   });
 
-  return { library, setLibrary, libraryDir, query };
+  return { library, setLibrary, libraryDir, setLibraryDir, query };
 }
 
 export async function readLibrary(directoryPath: string) {
@@ -187,6 +188,7 @@ const LibraryContext = React.createContext<
       library: Array<Book>;
       setLibrary: React.Dispatch<React.SetStateAction<Book[]>>;
       libraryDir: string;
+      setLibraryDir: React.Dispatch<React.SetStateAction<string>>;
     }
   | undefined
 >(undefined);
