@@ -42,7 +42,10 @@ export default function RootLayout() {
           value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <LibraryProvider>
             <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="index"
+                options={{ headerShown: false, headerTitle: 'Library' }}
+              />
               <Stack.Screen name="+not-found" />
             </Stack>
           </LibraryProvider>
