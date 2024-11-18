@@ -1,5 +1,6 @@
+import { PopLink } from '@/components/PopLink';
 import { Book } from '@/types/book.types';
-import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
 
@@ -39,12 +40,10 @@ export default function TableOfContents() {
           {hrefsSplit.map((href, i) => {
             const label = labelsSplit[i];
             return (
-              <Link
+              <PopLink
                 key={href}
+                popTo
                 href={{
-                  // FIXME: expected this to wind back to /book, but instead it
-                  // seems to push it, and if you try to revisit ToC, you'll
-                  // find it frozen.
                   pathname: '/book',
                   params: {
                     ...backParams,
@@ -53,7 +52,7 @@ export default function TableOfContents() {
                 }}
                 asChild>
                 <Button title={label} />
-              </Link>
+              </PopLink>
             );
           })}
         </View>
