@@ -1,8 +1,10 @@
 import * as React from 'react';
-import { Book } from '@/types/book.types';
 import { readBookmark } from '@/modules/bookmarks';
+import type { Book } from '@/types/book.types';
+import type { OPF } from '@/types/opf.types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
+import { XMLParser } from 'fast-xml-parser';
 import {
   readDirectoryAsync,
   getInfoAsync,
@@ -95,78 +97,100 @@ export async function readLibrary(directoryPath: string) {
     for (const handle of handles) {
       const handlePath = `${directoryPath}/${encodeURIComponent(handle)}`;
 
-      const { isDirectory } = await getInfoAsync(handlePath);
-      if (!isDirectory) {
+      try {
+        const { isDirectory } = await getInfoAsync(handlePath);
+        if (!isDirectory) {
+          // We don't support .epub files directly; we need them to be unzipped
+          // first.
+          //
+          // TODO: In theory, we could detect .epub files and offer to unzip
+          //       them for the user, based on the following EPUB 2 spec:
+          // https://www.loc.gov/preservation/digital/formats/fdd/fdd000278.shtml
+          // > From OCF 2.01 specification:
+          // > - The bytes "PK" will be at the beginning of the file
+          // > - The bytes "mimetype" will be at position 30
+          // > - Actual MIME type (i.e., the ASCII string "application/epub+zip")
+          // >   will begin at position 38
+          continue;
+        }
+
+        // It seems that technically the .opf file may refer to other XML files,
+        // but the most common case is for it to be a single file, so we'll
+        // handle only that until we find any examples to the contrary.
+        // https://idpf.org/epub/20/spec/OPF_2.0.1_draft.htm#TOC1.2
+
+        const subhandles = await readDirectoryAsync(handlePath);
+
+        // 1) Check that the mimetype is 'application/epub+zip'.
+        if (!subhandles.includes('mimetype')) {
+          continue;
+        }
+        const mimetype = await readAsStringAsync(`${handlePath}/mimetype`);
+        if (mimetype !== 'application/epub+zip') {
+          continue;
+        }
+
+        // 2) Find where the OPF file is placed.
+        const container = await readAsStringAsync(
+          `${handlePath}/META-INF/container.xml`,
+        );
+        const doc = new XMLParser({ ignoreAttributes: false }).parse(container);
+        const {
+          container: {
+            rootfiles: {
+              rootfile: { ['@_full-path']: pathToOPF },
+            },
+          },
+        } = doc;
+
+        if (!(pathToOPF as string).endsWith('.opf')) {
+          continue;
+        }
+        // The path is relative to the root of the EPUB, not to container.xml.
+        const opfText = await readAsStringAsync(`${handlePath}/${pathToOPF}`);
+
+        const opf = await parseOPF(opfText);
+        if (!opf) {
+          continue;
+        }
+
+        const {
+          package: {
+            metadata: { titles },
+            manifest: { items },
+            spine: { itemrefs },
+          },
+        } = opf;
+
+        const title = titles[0]?.textContent;
+        if (!title) {
+          continue;
+        }
+
+        const idref = itemrefs[0]?.idref;
+        if (!idref) {
+          continue;
+        }
+
+        const item = items.find(({ id }) => id === idref);
+        if (!item) {
+          continue;
+        }
+
+        library.push({
+          type: 'opf',
+          title,
+          folderUri: handlePath,
+          folderName: handle,
+          startingHref: item.href,
+        });
+      } catch (error) {
+        console.log(
+          `Unable to parse epub at "${handlePath}". Skipping.`,
+          error,
+        );
         continue;
       }
-
-      const subhandles = await readDirectoryAsync(handlePath);
-      if (!subhandles.includes('content.opf')) {
-        continue;
-      }
-
-      const opf = await readAsStringAsync(`${handlePath}/content.opf`, {
-        encoding: 'utf8',
-      });
-
-      // FIXME: replace all this stubborn RegEx parsing with a proper xmltojs
-      // implementation.
-      const titleMatches = opf.match(/<dc:title.*>\s*([\s\S]*)\s*<\/dc:title>/);
-      if (!titleMatches) {
-        continue;
-      }
-
-      const [, title] = titleMatches;
-
-      const spineMatches = opf.match(/<spine.*>\s*([\s\S]*)\s*<\/spine>/);
-      if (!spineMatches) {
-        continue;
-      }
-      const [, spine] = spineMatches;
-
-      const itemrefMatches = spine.match(/<itemref\s+([\s\S]*)\s*\/>/);
-      if (!itemrefMatches) {
-        continue;
-      }
-      const [, itemref] = itemrefMatches;
-      // Woe betide us if there's an escaped quote in the ID.
-      const idrefMatches = itemref.match(/idref="(.*?)"/);
-      if (!idrefMatches) {
-        continue;
-      }
-      const [, idref] = idrefMatches;
-
-      const manifestMatches = opf.match(
-        /<manifest.*>\s*([\s\S]*)\s*<\/manifest>/,
-      );
-      if (!manifestMatches) {
-        continue;
-      }
-      const [, manifest] = manifestMatches;
-
-      const startingItemMatches = manifest.match(
-        new RegExp(`<item.+id="${idref}".*/>`),
-      );
-      if (!startingItemMatches) {
-        continue;
-      }
-      const [startingItem] = startingItemMatches;
-
-      const startingHrefMatches = startingItem.match(/href="(.*?)"/);
-      if (!startingHrefMatches) {
-        continue;
-      }
-      const [, startingHref] = startingHrefMatches;
-
-      console.log('startingHref', startingHref);
-
-      library.push({
-        type: 'opf',
-        title,
-        folderUri: handlePath,
-        folderName: handle,
-        startingHref,
-      });
     }
 
     return library;
@@ -179,6 +203,149 @@ export async function readLibrary(directoryPath: string) {
   }
 
   return null;
+}
+
+async function parseOPF(text: string) {
+  const doc = new XMLParser({
+    ignoreAttributes: false,
+    alwaysCreateTextNode: true,
+    textNodeName: 'textContent',
+    isArray: (tagName, _jPath, _isLeafNode, isAttribute) => {
+      if (isAttribute) {
+        return false;
+      }
+
+      if (
+        ['?xml', 'package', 'metadata', 'manifest', 'spine', 'guide'].includes(
+          tagName,
+        )
+      ) {
+        return false;
+      }
+
+      return true;
+    },
+  }).parse(text);
+
+  // Parse <package>
+  const {
+    package: {
+      '@_version': version,
+      '@_unique-identifier': uniqueIdentifier,
+      metadata,
+      manifest: { item: items },
+      spine: {
+        '@_page-progression-direction': pageProgressionDirection,
+        '@_toc': toc,
+        itemref: itemrefs,
+      },
+      guide,
+    },
+  } = doc;
+
+  /**
+   * A lookup of the alias they used for each XML namespace.
+   * @example
+   * {
+   *   "http://purl.org/dc/elements/1.1/": "dc",
+   *   "http://www.idpf.org/2007/opf": "opf",
+   * }
+   */
+  const namespaces: Record<string, string> = {};
+  for (const key in metadata) {
+    const [, alias] = key.split('@_xmlns:');
+    if (!alias) {
+      continue;
+    }
+
+    const uri = metadata[key];
+    namespaces[uri] = alias;
+  }
+
+  const dc = namespaces['http://purl.org/dc/elements/1.1/'];
+  const opf = namespaces['http://www.idpf.org/2007/opf'];
+
+  const {
+    [`${dc}:language`]: languages,
+    [`${dc}:title`]: titles,
+    [`${dc}:creator`]: creators,
+    [`${dc}:contributor`]: contributors,
+    [`${dc}:identifier`]: identifiers,
+    [`${dc}:date`]: dates,
+    [`${dc}:publisher`]: publishers,
+    meta: metas,
+  } = metadata;
+
+  const payload: OPF = {
+    package: {
+      version,
+      uniqueIdentifier,
+      metadata: {
+        languages: languages ?? [],
+        titles: titles ?? [],
+        creators:
+          (creators as Array<any>)?.map(
+            ({
+              [`${opf}:file-as`]: opfFileAs,
+              [`${opf}:role`]: opfRole,
+              textContent,
+            }) => ({
+              opfFileAs,
+              opfRole,
+              textContent,
+            }),
+          ) ?? [],
+        contributors: contributors ?? [],
+        publishers: publishers ?? [],
+        identifiers:
+          (identifiers as Array<any>)?.map(
+            ({ '@_id': id, [`${opf}:scheme`]: opfScheme, textContent }) => ({
+              id,
+              opfScheme,
+              textContent,
+            }),
+          ) ?? [],
+        dates: dates ?? [],
+        metas:
+          (metas as Array<any>)?.map(
+            ({ '@_name': name, '@_content': content }) => ({ name, content }),
+          ) ?? [],
+      },
+      manifest: {
+        items:
+          (items as Array<any>)?.map(
+            ({ '@_id': id, '@_href': href, '@_media-type': mediaType }) => ({
+              id,
+              href,
+              mediaType,
+            }),
+          ) ?? [],
+      },
+      spine: {
+        toc,
+        pageProgressionDirection,
+        itemrefs:
+          (itemrefs as Array<any>)?.map(({ '@_idref': idref }) => ({
+            idref,
+          })) ?? [],
+      },
+    },
+  };
+
+  // Parse optional <guide> section
+  if (guide) {
+    const references =
+      (guide.reference as Array<any>)?.map(
+        ({ '@_href': href, '@_title': title, '@_type': type }) => ({
+          href,
+          title,
+          type,
+        }),
+      ) ?? [];
+    payload.package.guide = { references };
+  }
+
+  return payload;
 }
 
 const LibraryContext = React.createContext<

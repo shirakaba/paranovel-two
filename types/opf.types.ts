@@ -4,7 +4,7 @@ export type OPF = {
     uniqueIdentifier: string;
     metadata: {
       languages: Array<{ textContent: string }>;
-      titles: Array<{ title: string }>;
+      titles: Array<{ textContent: string }>;
       creators: Array<{
         textContent: string;
         opfFileAs: string;
@@ -26,10 +26,12 @@ export type OPF = {
       pageProgressionDirection: 'ltr' | 'rtl';
       itemrefs: Array<{ idref: string }>;
     };
-    guide?: Array<{
-      type: 'text' | 'toc' | 'cover';
-      href: string;
-      title: string;
-    }>;
+    guide?: {
+      references: Array<{
+        type: 'text' | 'toc' | 'cover';
+        href: string;
+        title: string;
+      }>;
+    };
   };
 };
