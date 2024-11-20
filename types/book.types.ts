@@ -2,27 +2,39 @@ export type Book = {
   type: 'opf';
 
   /**
-   * The title extracted from the content.opf.
+   * The title extracted from the OPF file.
    *
    * Use this when displaying the library of books to the user.
    *
    * @example "無職転生 ～異世界行ったら本気だす～ 17 (MFブックス)"
    */
-  title: string;
+  title?: string;
 
   /**
-   * The full URI to the folder that makes up the OPF/EPUB.
+   * The full URI to the OPS folder (or root folder if not present) of the EPUB.
    *
-   * Use this to get a file-system handle to the folder for debugging.
+   * Use this to get a file-system handle to the folder for debugging, and as
+   * the root for requesting files from the static server by.
    *
    * @example "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/無職転生 ～異世界行ったら本気だす～ 17 (MFブックス)"
+   * @example "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing/OPS"
    */
-  folderUri: string;
+  opsUri: string;
 
   /**
-   * The name of the folder that makes up the OPF/EPUB.
+   * The relative path to the .opf file from the OPS root.
    *
-   * Use this as the base path to request files from the static server by.
+   * Get the full URI for it via `${opsUri}/${relativePathToOpfFromOps}`.
+   *
+   * @example "package.opf"
+   * @example "content.opf"
+   */
+  relativePathToOpfFromOps: string;
+
+  /**
+   * The name of the folder of the decompressed EPUB.
+   *
+   * Use this as a fallback when the OPF doesn't specify a title.
    *
    * @example "無職転生 ～異世界行ったら本気だす～ 17 (MFブックス)"
    */
@@ -31,7 +43,7 @@ export type Book = {
   /**
    * The href the ebook should open at.
    *
-   * Get the full filepath the starting page via `${folderUri}/${startingHref}`.
+   * Get the full URI for the starting page via `${opsUri}/${startingHref}`.
    *
    * @example "titlepage.xhtml"
    * @example "xhtml/表紙.xhtml"

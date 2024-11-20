@@ -47,7 +47,7 @@ export default function TableOfContents() {
                   pathname: '/book',
                   params: {
                     ...backParams,
-                    href: `${backParams.folderUri}/${href}`,
+                    href: `${backParams.opsUri}/${href}`,
                   },
                 }}
                 asChild>

@@ -85,20 +85,18 @@ function useExistingLibrary() {
 export async function readLibrary(directoryPath: string) {
   // The path will have come from the file picker, and so is percent-encoded.
   directoryPath = directoryPath.replace(/\/*$/, '');
-  console.log('DirectoryPath:', directoryPath);
 
   try {
     // readDirectoryAsync can take raw or percent-encoded paths as input, but
     // always outputs file/folder names as raw.
     const handles = await readDirectoryAsync(directoryPath);
-    console.log('handles:', handles);
 
     const library = new Array<Book>();
     for (const handle of handles) {
-      const handlePath = `${directoryPath}/${encodeURIComponent(handle)}`;
+      const handleUri = `${directoryPath}/${encodeURIComponent(handle)}`;
 
       try {
-        const { isDirectory } = await getInfoAsync(handlePath);
+        const { isDirectory } = await getInfoAsync(handleUri);
         if (!isDirectory) {
           // We don't support .epub files directly; we need them to be unzipped
           // first.
@@ -119,35 +117,53 @@ export async function readLibrary(directoryPath: string) {
         // handle only that until we find any examples to the contrary.
         // https://idpf.org/epub/20/spec/OPF_2.0.1_draft.htm#TOC1.2
 
-        const subhandles = await readDirectoryAsync(handlePath);
+        const subhandles = await readDirectoryAsync(handleUri);
 
         // 1) Check that the mimetype is 'application/epub+zip'.
         if (!subhandles.includes('mimetype')) {
           continue;
         }
-        const mimetype = await readAsStringAsync(`${handlePath}/mimetype`);
+        const mimetype = await readAsStringAsync(`${handleUri}/mimetype`);
         if (mimetype !== 'application/epub+zip') {
           continue;
         }
 
         // 2) Find where the OPF file is placed.
         const container = await readAsStringAsync(
-          `${handlePath}/META-INF/container.xml`,
+          `${handleUri}/META-INF/container.xml`,
         );
         const doc = new XMLParser({ ignoreAttributes: false }).parse(container);
         const {
           container: {
             rootfiles: {
-              rootfile: { ['@_full-path']: pathToOPF },
+              rootfile: { ['@_full-path']: pathToOpfFromRoot },
             },
           },
         } = doc;
 
-        if (!(pathToOPF as string).endsWith('.opf')) {
+        if (!(pathToOpfFromRoot as string).endsWith('.opf')) {
           continue;
         }
-        // The path is relative to the root of the EPUB, not to container.xml.
-        const opfText = await readAsStringAsync(`${handlePath}/${pathToOPF}`);
+
+        // pathToOpfFromRoot is relative to the root of the EPUB, not relative
+        // to container.xml nor the OPS directory.
+        const absoluteUriToOPF = `${handleUri}/${pathToOpfFromRoot}`;
+        const opfText = await readAsStringAsync(absoluteUriToOPF);
+
+        // My EPUB 3 samples place all the resources into a folder named "OPS",
+        // while my EPUB 2 samples place them at the root. The consistent thing
+        // is that all the resources are in whatever folder the OPF file was in.
+        const opsUri = absoluteUriToOPF.slice(
+          0,
+          // TODO: if this is Windows, work out whether expo-file-system should
+          // return POSIX paths or Windows paths, and work out the dirname
+          // accordingly.
+          absoluteUriToOPF.lastIndexOf('/'),
+        );
+
+        const relativePathToOpfFromOps = absoluteUriToOPF
+          .slice(opsUri.length)
+          .replace(/^\/*/, '');
 
         const opf = await parseOPF(opfText);
         if (!opf) {
@@ -162,10 +178,9 @@ export async function readLibrary(directoryPath: string) {
           },
         } = opf;
 
+        // It's okay for this to be optional, as consumers downstream can fall
+        // back to the folderName.
         const title = titles[0]?.textContent;
-        if (!title) {
-          continue;
-        }
 
         const idref = itemrefs[0]?.idref;
         if (!idref) {
@@ -180,15 +195,13 @@ export async function readLibrary(directoryPath: string) {
         library.push({
           type: 'opf',
           title,
-          folderUri: handlePath,
+          opsUri,
           folderName: handle,
           startingHref: item.href,
+          relativePathToOpfFromOps,
         });
       } catch (error) {
-        console.log(
-          `Unable to parse epub at "${handlePath}". Skipping.`,
-          error,
-        );
+        console.log(`Unable to parse epub at "${handleUri}". Skipping.`, error);
         continue;
       }
     }

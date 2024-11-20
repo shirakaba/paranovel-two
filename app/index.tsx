@@ -76,7 +76,7 @@ export default function LibraryScreen() {
                 pathname: '/book',
                 params: {
                   ...book,
-                  href: `${book.folderUri}/${book.startingHref}`,
+                  href: `${book.opsUri}/${book.startingHref}`,
                 },
               }}
               book={book}

@@ -64,7 +64,7 @@ export default function BookScreen() {
     return <Screen />;
   }
 
-  if (!params.folderUri) {
+  if (!params.opsUri) {
     return <Screen />;
   }
 
@@ -86,17 +86,21 @@ export default function BookScreen() {
 
             switch (parsedData.type) {
               case 'opf': {
+                console.log(`GOT MESSAGE`, parsedData.message);
                 setOPF(parsedData.message);
                 return;
               }
             }
           }}
           injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded(
-            params.folderUri,
+            {
+              opsUri: params.opsUri,
+              relativePathToOpfFromOps: params.relativePathToOpfFromOps,
+            },
           )}
           injectedJavaScript={injectedJavaScript}
           allowFileAccessFromFileURLs={true}
-          allowingReadAccessToURL={params.folderUri}
+          allowingReadAccessToURL={params.opsUri}
           // Specifying 'file://*' in here is necessary to stop the WebView from
           // treating file URLs as being blocklisted. Blocklisted URLs get opened
           // via Linking (to be passed on to Safari) instead.
@@ -108,9 +112,16 @@ export default function BookScreen() {
   );
 }
 
-const injectedJavaScriptBeforeContentLoaded = (folderUri: string) =>
+const injectedJavaScriptBeforeContentLoaded = ({
+  opsUri,
+  relativePathToOpfFromOps,
+}: {
+  opsUri: string;
+  relativePathToOpfFromOps: string;
+}) =>
   `
-const __folderUri = "${folderUri}";
+const __opsUri = "${opsUri}";
+const __relativePathToOpfFromOps = "${relativePathToOpfFromOps}";
 `.trim();
 
 const injectedJavaScript = `
@@ -239,7 +250,7 @@ async function parseOPF(href){
 
 // document.body.prepend(buildHUD());
 
-parseOPF(\`\${__folderUri}/content.opf\`)
+parseOPF(\`\${__opsUri}/\${__relativePathToOpfFromOps}\`)
 .catch(console.error);
 `.trim();
 
