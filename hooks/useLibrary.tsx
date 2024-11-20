@@ -172,7 +172,7 @@ export async function readLibrary(directoryPath: string) {
 
         const {
           package: {
-            metadata: { titles },
+            metadata: { titles, metas },
             manifest: { items },
             spine: { itemrefs },
           },
@@ -187,6 +187,20 @@ export async function readLibrary(directoryPath: string) {
           continue;
         }
 
+        let coverItem = items.find(
+          ({ properties, mediaType }) =>
+            properties === 'cover-image' && mediaType?.startsWith('image/'),
+        );
+        if (!coverItem) {
+          const name = metas.find(({ content }) => content === 'cover')?.name;
+          if (name) {
+            coverItem = items.find(({ id }) => id === name);
+          }
+        }
+        if (!coverItem) {
+          coverItem = items.find(({ id }) => id === 'cover');
+        }
+
         const item = items.find(({ id }) => id === idref);
         if (!item) {
           continue;
@@ -196,6 +210,7 @@ export async function readLibrary(directoryPath: string) {
           type: 'opf',
           title,
           opsUri,
+          coverImage: coverItem?.href,
           folderName: handle,
           startingHref: item.href,
           relativePathToOpfFromOps,
@@ -327,10 +342,18 @@ async function parseOPF(text: string) {
       manifest: {
         items:
           (items as Array<any>)?.map(
-            ({ '@_id': id, '@_href': href, '@_media-type': mediaType }) => ({
+            ({
+              '@_id': id,
+              '@_href': href,
+              '@_media-type': mediaType,
+              '@_media-overlay': mediaOverlay,
+              '@_properties': properties,
+            }) => ({
               id,
               href,
               mediaType,
+              mediaOverlay,
+              properties,
             }),
           ) ?? [],
       },
@@ -338,9 +361,12 @@ async function parseOPF(text: string) {
         toc,
         pageProgressionDirection,
         itemrefs:
-          (itemrefs as Array<any>)?.map(({ '@_idref': idref }) => ({
-            idref,
-          })) ?? [],
+          (itemrefs as Array<any>)?.map(
+            ({ '@_idref': idref, '@_linear': linear }) => ({
+              idref,
+              linear,
+            }),
+          ) ?? [],
       },
     },
   };

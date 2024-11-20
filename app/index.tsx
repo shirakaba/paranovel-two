@@ -5,6 +5,7 @@ import * as React from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   Button,
   useColorScheme,
@@ -17,8 +18,18 @@ import { makeBookmark } from '@/modules/bookmarks';
 import type { Book } from '@/types/book.types';
 
 export default function LibraryScreen() {
+  const scheme = useColorScheme();
   const libraryStatus = useLibrary();
-  const library = libraryStatus.type === 'loading' ? [] : libraryStatus.library;
+
+  const library = React.useMemo(
+    () =>
+      libraryStatus.type === 'loading'
+        ? []
+        : libraryStatus.library.sort((a, b) =>
+            (a.title ?? a.folderName).localeCompare(b.title ?? b.folderName),
+          ),
+    [libraryStatus],
+  );
 
   // Prompt the user to pick the directory where the novels are stored.
   const onPressPicker = React.useCallback(async () => {
@@ -56,7 +67,13 @@ export default function LibraryScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        scheme === 'dark'
+          ? { backgroundColor: '#1E1E1E' }
+          : { backgroundColor: 'white' },
+      ]}>
       <Button
         disabled={libraryStatus.type !== 'loaded'}
         title="Select folder"
@@ -88,21 +105,41 @@ export default function LibraryScreen() {
   );
 }
 
-function File({ href, book: { title } }: { href: Href; book: Book }) {
+function File({
+  href,
+  book: { title, opsUri, coverImage },
+}: {
+  href: Href;
+  book: Book;
+}) {
+  const [isCoverImageLoaded, setIsCoverImageLoaded] = React.useState(false);
   const scheme = useColorScheme();
+
+  const coverImageUri = coverImage ? `${opsUri}/${coverImage}` : '';
 
   return (
     <Link href={href}>
-      <View style={styles.file}>
-        <Ionicons
-          color={scheme === 'dark' ? 'white' : 'black'}
-          name={'book'}
-          size={64}
-        />
+      <View
+        style={[
+          styles.file,
+          scheme === 'dark'
+            ? { backgroundColor: '#3B3B3D' }
+            : { backgroundColor: '#E9E9EB' },
+        ]}>
+        {coverImageUri && (
+          <Image
+            style={[styles.coverImage, { opacity: isCoverImageLoaded ? 1 : 0 }]}
+            source={{ uri: coverImageUri }}
+            onLoad={() => {
+              setIsCoverImageLoaded(true);
+            }}
+          />
+        )}
         <Text
           style={[
             styles.fileTitle,
-            { color: scheme === 'dark' ? 'white' : 'black' },
+            scheme === 'dark' ? { color: '#E1E1E1' } : { color: '#242424' },
+            { display: coverImageUri && isCoverImageLoaded ? 'none' : 'flex' },
           ]}>
           {title}
         </Text>
@@ -114,12 +151,13 @@ function File({ href, book: { title } }: { href: Href; book: Book }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor: '#fff',
+    rowGap: 16,
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
   directory: {
     flex: 1,
+    gap: 8,
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
@@ -127,15 +165,17 @@ const styles = StyleSheet.create({
   },
   file: {
     flex: 0,
-    justifyContent: 'flex-start',
+    height: 194,
+    width: 137,
+    justifyContent: 'center',
     alignItems: 'center',
   },
+  coverImage: {
+    height: '100%',
+    width: '100%',
+  },
   fileTitle: {
-    // color: 'white',
-    // backgroundColor: 'rgba(0,0,0,0.4)',
-    // borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    overflow: 'hidden',
+    fontSize: 20,
+    textAlign: 'center',
   },
 });

@@ -86,7 +86,6 @@ export default function BookScreen() {
 
             switch (parsedData.type) {
               case 'opf': {
-                console.log(`GOT MESSAGE`, parsedData.message);
                 setOPF(parsedData.message);
                 return;
               }

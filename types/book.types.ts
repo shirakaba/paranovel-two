@@ -11,6 +11,14 @@ export type Book = {
   title?: string;
 
   /**
+   * The path to the cover image, relative to the OPS folder.
+   *
+   * @example "images/00014.jpeg"
+   * @example "cover.jpeg"
+   */
+  coverImage?: string;
+
+  /**
    * The full URI to the OPS folder (or root folder if not present) of the EPUB.
    *
    * Use this to get a file-system handle to the folder for debugging, and as

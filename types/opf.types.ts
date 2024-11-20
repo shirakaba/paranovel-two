@@ -20,11 +20,19 @@ export type OPF = {
       dates: Array<{ textContent: string }>;
       metas: Array<{ name: string; content: string }>;
     };
-    manifest: { items: Array<{ id: string; href: string; mediaType: string }> };
+    manifest: {
+      items: Array<{
+        id: string;
+        href: string;
+        mediaType?: string;
+        mediaOverlay?: string;
+        properties?: string;
+      }>;
+    };
     spine: {
       toc: string;
       pageProgressionDirection: 'ltr' | 'rtl';
-      itemrefs: Array<{ idref: string }>;
+      itemrefs: Array<{ idref: string; linear?: 'yes' | 'no' }>;
     };
     guide?: {
       references: Array<{
