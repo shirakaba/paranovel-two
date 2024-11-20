@@ -33,16 +33,22 @@ export default function BookScreen() {
             },
           } = opf;
 
+          // To be expanded to: `${backParams.opsUri}/${href}`
           const hrefs = new Array<string>();
           const labels = new Array<string>();
+
+          if (params.nav) {
+            hrefs.push(params.nav);
+            labels.push('Nav');
+          }
+
           for (const [i, { idref }] of itemrefs.entries()) {
             const item = items.find(item => item.id === idref);
             if (!item) {
               continue;
             }
-            // To be expanded to: `${backParams.folderUri}/${href}`
             hrefs.push(item.href);
-            labels.push(`part ${i}`);
+            labels.push(`Part ${i}`);
           }
 
           return (

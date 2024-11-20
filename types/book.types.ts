@@ -19,6 +19,14 @@ export type Book = {
   coverImage?: string;
 
   /**
+   * The navigation page (essentially a Table of Contents).
+   *
+   * @example "nav.xhtml"
+   * @example "xhtml/目次.xhtml"
+   */
+  nav?: string;
+
+  /**
    * The full URI to the OPS folder (or root folder if not present) of the EPUB.
    *
    * Use this to get a file-system handle to the folder for debugging, and as

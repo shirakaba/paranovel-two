@@ -189,9 +189,11 @@ export async function readLibrary(directoryPath: string) {
 
         let coverItem = items.find(
           ({ properties, mediaType }) =>
-            properties === 'cover-image' && mediaType?.startsWith('image/'),
+            properties?.split(/\s+/).includes('cover-image') &&
+            mediaType?.startsWith('image/'),
         );
         if (!coverItem) {
+          // Off-spec, but common.
           const name = metas.find(({ content }) => content === 'cover')?.name;
           if (name) {
             coverItem = items.find(({ id }) => id === name);
@@ -199,6 +201,23 @@ export async function readLibrary(directoryPath: string) {
         }
         if (!coverItem) {
           coverItem = items.find(({ id }) => id === 'cover');
+        }
+
+        let navItem = items.find(
+          ({ properties, mediaType }) =>
+            properties?.split(/\s+/).includes('nav') &&
+            mediaType === 'application/xhtml+xml',
+        );
+        if (!navItem) {
+          // Off-spec, and haven't seen any example of this yet, just mirrorring
+          // what we did with cover items.
+          const name = metas.find(({ content }) => content === 'nav')?.name;
+          if (name) {
+            navItem = items.find(({ id }) => id === name);
+          }
+        }
+        if (!navItem) {
+          navItem = items.find(({ id }) => id === 'nav');
         }
 
         const item = items.find(({ id }) => id === idref);
@@ -211,6 +230,7 @@ export async function readLibrary(directoryPath: string) {
           title,
           opsUri,
           coverImage: coverItem?.href,
+          nav: navItem?.href,
           folderName: handle,
           startingHref: item.href,
           relativePathToOpfFromOps,
