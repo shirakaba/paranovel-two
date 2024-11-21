@@ -48,6 +48,7 @@ export default function TableOfContents() {
                   params: {
                     ...backParams,
                     href: `${backParams.opsUri}/${href}`,
+                    navigationTimestamp: `${Date.now()}`,
                   },
                 }}
                 asChild>

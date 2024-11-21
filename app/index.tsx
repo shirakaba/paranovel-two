@@ -94,6 +94,7 @@ export default function LibraryScreen() {
                 params: {
                   ...book,
                   href: `${book.opsUri}/${book.startingHref}`,
+                  navigationTimestamp: `${Date.now()}`,
                 },
               }}
               book={book}

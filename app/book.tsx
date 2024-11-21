@@ -1,5 +1,5 @@
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, SafeAreaView, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -8,7 +8,27 @@ import { useLibrary } from '@/hooks/useLibrary';
 import type { OPF } from '@/types/opf.types';
 
 export default function BookScreen() {
-  const params = useLocalSearchParams<Book & { href: string }>();
+  const params = useLocalSearchParams<
+    Book & {
+      href: string;
+      /**
+       * Needed in case the user has navigated away from params.href and we
+       * need to force the WebView to re-render the same uri (due to the user
+       * having navigated away from that uri, desyncing the React state).
+       */
+      navigationTimestamp: string;
+    }
+  >();
+
+  const [webViewUri, setWebViewUri] = useState(params.href);
+
+  // This hook, and the navigationTimestamp, are a crude workaround for the
+  // webViewUri not updating when a sub-screen (e.g. ToC) unwinds back to this
+  // screen, passing the same params.href as it the screen began with.
+  useEffect(() => {
+    setWebViewUri(params.href);
+  }, [params.href, params.navigationTimestamp]);
+
   const library = useLibrary();
   const [opf, setOPF] = useState<OPF>();
 
@@ -110,7 +130,14 @@ export default function BookScreen() {
           // treating file URLs as being blocklisted. Blocklisted URLs get opened
           // via Linking (to be passed on to Safari) instead.
           originWhitelist={['file://*']}
-          source={{ uri: params.href }}
+          source={{ uri: webViewUri }}
+          onNavigationStateChange={({ url }) => {
+            // The first navigation upon load will be "about:blank".
+            if (!url.startsWith('file://')) {
+              return;
+            }
+            setWebViewUri(url);
+          }}
         />
       </SafeAreaView>
     </>
