@@ -188,6 +188,45 @@ img, svg {
   document.head.appendChild(style);
 }
 
+/**
+ * A best effort to make a scroll container snap every point at which it scrolls
+ * past a viewport.
+ */
+function enableScrollSnapping(scrollContainer){
+  const writingMode = scrollContainer.computedStyleMap().get("writing-mode").value;
+  // e.g. "vertical-rl", "horizontal-tb"
+  const [axis, direction] = writingMode.split("-");
+
+  scrollContainer.style.inlineSize = "100%";
+  // Redundant, but depends what other styles we're fighting against.
+  scrollContainer.style[axis === "vertical" ? "width" : "height"] = "100%";
+
+  scrollContainer.style[axis === "vertical" ? "overflowX" : "overflowY"] = "scroll";
+  scrollContainer.style.position = "relative";
+  scrollContainer.style.scrollSnapType = "block mandatory";
+
+  const viewportWidth = window.innerWidth;
+  const { scrollWidth } = scrollContainer;
+  const snapPoints = Math.ceil(scrollWidth / viewportWidth);
+  for(let i = 0; i < snapPoints; i++){
+    const snapPoint = document.createElement("div");
+    snapPoint.style.position = "absolute";
+    if(axis === "vertical"){
+      snapPoint.style.top = "0";
+      snapPoint.style[direction === "rl" ? "right" : "left"] = \`\${i * 100}vw\`;
+      snapPoint.style.scrollSnapAlign = "rl" ? "start": "end";
+    } else {
+      snapPoint.style.left = "0";
+      snapPoint.style.top = "100vw";
+      snapPoint.style.scrollSnapAlign = "start";
+    }
+    snapPoint.style.height = "1px";
+    snapPoint.style.width = "1px";
+    snapPoint.style.pointerEvents = "none";
+    scrollContainer.prepend(snapPoint);
+  }
+}
+
 function buildHUD(){
   const html = \`
 <div id="hud" style="position: fixed; display: flex; justify-content: center; width: 100%; top: 0; left: 0; right: 0; background-color: rgb(55,65,81); min-height: 40px; padding: 8px; writing-mode: horizontal-tb; color: white; font-family: sans-serif; font-size: 16px;">
@@ -304,6 +343,12 @@ async function parseOPF(href){
 }
 
 // document.body.prepend(buildHUD());
+
+// We wait for the text to lay out and for the writing direction to resolve.
+requestAnimationFrame(() => {
+  // FIXME: need a reliable heuristic for determining the main scroll container.
+  enableScrollSnapping(document.querySelector('.main1'));
+});
 
 parseOPF(\`\${__opsUri}/\${__relativePathToOpfFromOps}\`)
 .catch(console.error);
