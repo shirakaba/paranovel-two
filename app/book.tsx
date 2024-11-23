@@ -157,12 +157,33 @@ const __relativePathToOpfFromOps = "${relativePathToOpfFromOps}";
 `.trim();
 
 const injectedJavaScript = `
-// Insert a viewport meta tag
 {
+  // Insert a viewport meta tag
   const meta = document.createElement("meta");
   meta.name = "viewport";
   meta.content = "width=device-width, initial-scale=1";
   document.head.appendChild(meta);
+
+  // Insert our custom styles. This approach reliably presents the styles in the
+  // WebKit web inspector's styles menu, unlike the adoptedStyleSheets approach,
+  // where I've noticed that body styles simply don't show up even if they take
+  // effect.
+  const style = document.createElement('style');
+  style.textContent = \`
+body {
+  box-sizing: border-box !important;
+  padding: 24pt !important;
+  margin: 0 !important;
+  inline-size: 100% !important;
+  font-size: 20pt !important;
+}
+
+img, svg {
+  /* Prevent images from dictating the height of the whole page. */
+  max-inline-size: 100% !important;
+}
+  \`.trim();
+  document.head.appendChild(style);
 }
 
 function buildHUD(){
