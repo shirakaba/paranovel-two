@@ -5,7 +5,7 @@ import { WebView } from 'react-native-webview';
 
 import type { Book } from '@/types/book.types';
 import { useLibrary } from '@/hooks/useLibrary';
-import type { OPF } from '@/types/opf.types';
+import type { OPF } from '@/types/epub.types';
 
 export default function BookScreen() {
   const params = useLocalSearchParams<
@@ -40,9 +40,14 @@ export default function BookScreen() {
         headerRight: () => {
           if (!opf) {
             return (
-              <Link disabled href="/toc" asChild>
-                <Button title="ToC" />
-              </Link>
+              <>
+                <Link disabled href="/toc" asChild>
+                  <Button title="Spine" />
+                </Link>
+                <Link disabled href="/toc" asChild>
+                  <Button title="ToC" />
+                </Link>
+              </>
             );
           }
 
@@ -74,14 +79,19 @@ export default function BookScreen() {
           }
 
           return (
-            <Link
-              href={{
-                pathname: '/toc',
-                params: { ...params, hrefs, labels },
-              }}
-              asChild>
-              <Button title="ToC" />
-            </Link>
+            <>
+              <Link
+                href={{
+                  pathname: '/toc',
+                  params: { ...params, hrefs, labels },
+                }}
+                asChild>
+                <Button title="Spine" />
+              </Link>
+              <Link disabled href="/toc" asChild>
+                <Button title="ToC" />
+              </Link>
+            </>
           );
         },
       }}

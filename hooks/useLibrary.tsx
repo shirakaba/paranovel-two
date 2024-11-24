@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { readBookmark } from '@/modules/bookmarks';
 import type { Book } from '@/types/book.types';
-import type { OPF } from '@/types/opf.types';
+import type { NCX, OPF } from '@/types/epub.types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import { XMLParser } from 'fast-xml-parser';
@@ -165,7 +165,7 @@ export async function readLibrary(directoryPath: string) {
           .slice(opsUri.length)
           .replace(/^\/*/, '');
 
-        const opf = await parseOPF(opfText);
+        const opf = parseOPF(opfText);
         if (!opf) {
           continue;
         }
@@ -174,7 +174,7 @@ export async function readLibrary(directoryPath: string) {
           package: {
             metadata: { titles, metas },
             manifest: { items },
-            spine: { itemrefs },
+            spine: { itemrefs, toc },
           },
         } = opf;
 
@@ -220,6 +220,22 @@ export async function readLibrary(directoryPath: string) {
           navItem = items.find(({ id }) => id === 'nav');
         }
 
+        if (toc) {
+          const ncxFile = items.find(
+            ({ id, mediaType }) =>
+              id === toc && mediaType === 'application/x-dtbncx+xml',
+          );
+
+          if (ncxFile?.href) {
+            const absoluteUriToNCX = `${opsUri}/${ncxFile.href}`;
+            if (absoluteUriToNCX.includes('kusamakura')) {
+              const ncxText = await readAsStringAsync(absoluteUriToNCX);
+              parseNCX(ncxText);
+              // TODO: pass along NCX
+            }
+          }
+        }
+
         const item = items.find(({ id }) => id === idref);
         if (!item) {
           continue;
@@ -253,7 +269,152 @@ export async function readLibrary(directoryPath: string) {
   return null;
 }
 
-async function parseOPF(text: string) {
+function parseNCX(text: string) {
+  const doc = new XMLParser({
+    ignoreAttributes: false,
+    alwaysCreateTextNode: true,
+    textNodeName: 'textContent',
+    isArray: (tagName, _jPath, _isLeafNode, isAttribute) => {
+      if (isAttribute) {
+        return false;
+      }
+
+      // Sometimes these tags are namespaced, sometimes they're not.
+      const tagWithoutNamespace = tagName.split(':').slice(-1)[0];
+
+      if (
+        [
+          '?xml',
+          'ncx',
+          'head',
+          'docTitle',
+          'docAuthor',
+          'navMap',
+          'navLabel',
+          'text',
+        ].includes(tagWithoutNamespace)
+      ) {
+        return false;
+      }
+
+      return true;
+    },
+  }).parse(text);
+
+  const { ['?xml']: xml, ...rest } = doc;
+
+  const rootTag = Object.keys(rest ?? {}).find(tagName => {
+    const tagWithoutNamespace = tagName.split(':').slice(-1)[0];
+    return tagWithoutNamespace === 'ncx';
+  });
+
+  if (!rootTag) {
+    return null;
+  }
+
+  const root = rest[rootTag];
+
+  /**
+   * A lookup of the alias they used for each XML namespace.
+   * @example
+   * {
+   *   "http://www.daisy.org/z3986/2005/ncx/": "ncx",
+   * }
+   */
+  const namespaces: Record<string, string> = {};
+  for (const key in root) {
+    const [, alias] = key.split('@_xmlns:');
+    if (!alias) {
+      continue;
+    }
+
+    const uri = root[key];
+    namespaces[uri] = alias;
+  }
+
+  // The kusamakura-japanese-vertical-writing sample used this namespace with
+  // all elements in the NCX, while other published ebooks didn't at all.
+  const daisyNamespace = 'http://www.daisy.org/z3986/2005/ncx/';
+  let namespace = namespaces[daisyNamespace]
+    ? `${namespaces[daisyNamespace]}:`
+    : '';
+
+  const {
+    [`${namespace}head`]: head,
+    [`${namespace}docTitle`]: docTitle,
+    [`${namespace}docAuthor`]: docAuthor,
+    [`${namespace}navMap`]: navMap,
+  } = root;
+
+  const metas: Array<any> = head?.[`${namespace}meta`] ?? [];
+  const docTitleTextContent = docTitle?.[`${namespace}text`]?.textContent;
+  const docAuthorTextContent = docAuthor?.[`${namespace}text`]?.textContent;
+
+  const uid: string | undefined = metas.find(
+    ({ '@_name': name }) => name === 'dtb:uid' || name === 'uid',
+  )?.['@_content'];
+  const depth: string | undefined = metas.find(
+    ({ '@_name': name }) => name === 'dtb:depth' || name === 'depth',
+  )?.['@_content'];
+  const totalPageCount: string | undefined = metas.find(
+    ({ '@_name': name }) =>
+      name === 'dtb:totalPageCount' || name === 'totalPageCount',
+  )?.['@_content'];
+  const maxPageNumber: string | undefined = metas.find(
+    ({ '@_name': name }) =>
+      name === 'dtb:maxPageNumber' || name === 'maxPageNumber',
+  )?.['@_content'];
+
+  const navPoints: Array<any> = navMap?.[`${namespace}navPoint`] ?? [];
+
+  const navPointsParsed = new Array<
+    NCX['root']['navMap']['navPoints'][number]
+  >();
+  for (const {
+    '@_id': id,
+    '@_playOrder': playOrder,
+    [`${namespace}navLabel`]: navLabel,
+    [`${namespace}content`]: content,
+  } of navPoints) {
+    if (!id || !playOrder || !navLabel || !content) {
+      continue;
+    }
+
+    const navLabelTextContent = navLabel[`${namespace}text`]?.textContent;
+    const { ['@_src']: src } = content;
+
+    if (!src || !navLabelTextContent) {
+      continue;
+    }
+
+    navPointsParsed.push({
+      id,
+      playOrder: parseInt(playOrder),
+      navLabel,
+      src,
+    });
+  }
+
+  const payload: NCX = {
+    root: {
+      head: {
+        uid,
+        depth: depth ? parseInt(depth) : undefined,
+        totalPageCount: totalPageCount ? parseInt(totalPageCount) : undefined,
+        maxPageNumber: maxPageNumber ? parseInt(maxPageNumber) : undefined,
+      },
+      docTitle: docTitleTextContent,
+      docAuthor: docAuthorTextContent,
+      navMap: {
+        navPoints: navPointsParsed,
+      },
+    },
+  };
+
+  return payload;
+}
+
+function parseOPF(text: string) {
   const doc = new XMLParser({
     ignoreAttributes: false,
     alwaysCreateTextNode: true,

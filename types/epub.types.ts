@@ -30,7 +30,7 @@ export type OPF = {
       }>;
     };
     spine: {
-      toc: string;
+      toc?: string;
       pageProgressionDirection: 'ltr' | 'rtl';
       itemrefs: Array<{ idref: string; linear?: 'yes' | 'no' }>;
     };
@@ -39,6 +39,27 @@ export type OPF = {
         type: 'text' | 'toc' | 'cover';
         href: string;
         title: string;
+      }>;
+    };
+  };
+};
+
+export type NCX = {
+  root: {
+    head: {
+      uid?: string;
+      depth?: number;
+      totalPageCount?: number;
+      maxPageNumber?: number;
+    };
+    docTitle?: string;
+    docAuthor?: string;
+    navMap: {
+      navPoints: Array<{
+        id: string;
+        playOrder: number;
+        navLabel: string;
+        src: string;
       }>;
     };
   };
