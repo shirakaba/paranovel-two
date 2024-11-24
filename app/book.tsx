@@ -62,13 +62,15 @@ export default function BookScreen() {
             labels.push('Nav');
           }
 
-          for (const [i, { idref }] of itemrefs.entries()) {
+          let i = 0;
+          for (const { idref } of itemrefs) {
             const item = items.find(item => item.id === idref);
-            if (!item) {
+            if (!item || item.href === params.nav) {
               continue;
             }
             hrefs.push(item.href);
             labels.push(`Part ${i}`);
+            i++;
           }
 
           return (
