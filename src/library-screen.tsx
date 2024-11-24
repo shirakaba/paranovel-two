@@ -1,5 +1,3 @@
-import { type Href, Link } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Foundation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as React from 'react';
 import {
@@ -10,14 +8,19 @@ import {
   Button,
   useColorScheme,
   SafeAreaView,
+  Pressable,
 } from 'react-native';
 import { pickDirectory } from 'react-native-document-picker';
 
 import { readLibrary, useLibrary } from '@/hooks/useLibrary';
 import { makeBookmark } from '@/modules/bookmarks';
 import type { Book } from '@/types/book.types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from './navigation.types';
 
-export default function LibraryScreen() {
+export default function LibraryScreen({
+  navigation,
+}: NativeStackScreenProps<RootStackParamList, 'Library'>) {
   const scheme = useColorScheme();
   const libraryStatus = useLibrary();
 
@@ -89,13 +92,12 @@ export default function LibraryScreen() {
           return (
             <File
               key={book.title}
-              href={{
-                pathname: '/book',
-                params: {
+              onPress={() => {
+                navigation.push('Book', {
                   ...book,
                   href: `${book.opsUri}/${book.startingHref}`,
                   navigationTimestamp: `${Date.now()}`,
-                },
+                });
               }}
               book={book}
             />
@@ -107,10 +109,10 @@ export default function LibraryScreen() {
 }
 
 function File({
-  href,
   book: { title, opsUri, coverImage },
+  onPress,
 }: {
-  href: Href;
+  onPress?: () => void;
   book: Book;
 }) {
   const [isCoverImageLoaded, setIsCoverImageLoaded] = React.useState(false);
@@ -119,7 +121,7 @@ function File({
   const coverImageUri = coverImage ? `${opsUri}/${coverImage}` : '';
 
   return (
-    <Link href={href}>
+    <Pressable onPress={onPress}>
       <View
         style={[
           styles.file,
@@ -145,7 +147,7 @@ function File({
           {title}
         </Text>
       </View>
-    </Link>
+    </Pressable>
   );
 }
 

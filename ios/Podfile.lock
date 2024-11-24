@@ -3,31 +3,23 @@ PODS:
     - ExpoModulesCore
   - boost (1.84.0)
   - DoubleConversion (1.1.6)
-  - EXConstants (17.0.2):
+  - EXConstants (17.0.3):
     - ExpoModulesCore
-  - Expo (52.0.0-preview.18):
+  - Expo (52.0.11):
     - ExpoModulesCore
-  - ExpoAsset (11.0.0):
-    - ExpoModulesCore
-  - ExpoBlur (14.0.1):
+  - ExpoAsset (11.0.1):
     - ExpoModulesCore
   - ExpoFileSystem (17.0.1):
     - ExpoModulesCore
-  - ExpoFont (13.0.0):
-    - ExpoModulesCore
-  - ExpoHaptics (14.0.0):
-    - ExpoModulesCore
-  - ExpoHead (4.0.0-preview.11):
+  - ExpoFont (13.0.1):
     - ExpoModulesCore
   - ExpoKeepAwake (14.0.1):
-    - ExpoModulesCore
-  - ExpoLinking (7.0.2):
     - ExpoModulesCore
   - ExpoMecab (1.0.0):
     - ExpoModulesCore
     - mecab-ko
     - mecab-naist-jdic-utf-8
-  - ExpoModulesCore (2.0.0-preview.9):
+  - ExpoModulesCore (2.0.6):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -50,13 +42,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - ExpoSplashScreen (0.29.1):
-    - ExpoModulesCore
-  - ExpoSymbols (0.2.0):
-    - ExpoModulesCore
-  - ExpoSystemUI (4.0.2):
-    - ExpoModulesCore
-  - ExpoWebBrowser (14.0.0):
+  - ExpoSplashScreen (0.29.13):
     - ExpoModulesCore
   - FBLazyVector (0.76.1)
   - fmt (9.1.0)
@@ -1324,7 +1310,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-quick-sqlite (8.2.2):
+  - react-native-quick-sqlite (8.2.6):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1345,7 +1331,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-safe-area-context (4.12.0):
+  - react-native-safe-area-context (4.14.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1358,8 +1344,8 @@ PODS:
     - React-featureflags
     - React-graphics
     - React-ImageManager
-    - react-native-safe-area-context/common (= 4.12.0)
-    - react-native-safe-area-context/fabric (= 4.12.0)
+    - react-native-safe-area-context/common (= 4.14.0)
+    - react-native-safe-area-context/fabric (= 4.14.0)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-rendererdebug
@@ -1368,7 +1354,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-safe-area-context/common (4.12.0):
+  - react-native-safe-area-context/common (4.14.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1389,7 +1375,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-safe-area-context/fabric (4.12.0):
+  - react-native-safe-area-context/fabric (4.14.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1411,7 +1397,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-webview (13.12.3):
+  - react-native-webview (13.12.4):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1699,7 +1685,7 @@ PODS:
     - React-logger (= 0.76.1)
     - React-perflogger (= 0.76.1)
     - React-utils (= 0.76.1)
-  - RNCAsyncStorage (2.0.0):
+  - RNCAsyncStorage (2.1.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1720,115 +1706,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - RNGestureHandler (2.20.2):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.01.01.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
-  - RNReanimated (3.16.1):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.01.01.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - RNReanimated/reanimated (= 3.16.1)
-    - RNReanimated/worklets (= 3.16.1)
-    - Yoga
-  - RNReanimated/reanimated (3.16.1):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.01.01.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - RNReanimated/reanimated/apple (= 3.16.1)
-    - Yoga
-  - RNReanimated/reanimated/apple (3.16.1):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.01.01.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
-  - RNReanimated/worklets (3.16.1):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.01.01.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
-  - RNScreens (4.0.0-beta.16):
+  - RNScreens (4.3.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1849,9 +1727,9 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNScreens/common (= 4.0.0-beta.16)
+    - RNScreens/common (= 4.3.0)
     - Yoga
-  - RNScreens/common (4.0.0-beta.16):
+  - RNScreens/common (4.3.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1883,19 +1761,12 @@ DEPENDENCIES:
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - Expo (from `../node_modules/expo`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
-  - ExpoBlur (from `../node_modules/expo-blur/ios`)
   - ExpoFileSystem (from `../node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo-font/ios`)
-  - ExpoHaptics (from `../node_modules/expo-haptics/ios`)
-  - ExpoHead (from `../node_modules/expo-router/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
-  - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - ExpoMecab (from `../modules/mecab/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
-  - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
-  - ExpoSystemUI (from `../node_modules/expo-system-ui/ios`)
-  - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - fmt (from `../node_modules/react-native/third-party-podspecs/fmt.podspec`)
   - glog (from `../node_modules/react-native/third-party-podspecs/glog.podspec`)
@@ -1964,8 +1835,6 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
-  - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
-  - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
@@ -1988,32 +1857,18 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo"
   ExpoAsset:
     :path: "../node_modules/expo-asset/ios"
-  ExpoBlur:
-    :path: "../node_modules/expo-blur/ios"
   ExpoFileSystem:
     :path: "../node_modules/expo-file-system/ios"
   ExpoFont:
     :path: "../node_modules/expo-font/ios"
-  ExpoHaptics:
-    :path: "../node_modules/expo-haptics/ios"
-  ExpoHead:
-    :path: "../node_modules/expo-router/ios"
   ExpoKeepAwake:
     :path: "../node_modules/expo-keep-awake/ios"
-  ExpoLinking:
-    :path: "../node_modules/expo-linking/ios"
   ExpoMecab:
     :path: "../modules/mecab/ios"
   ExpoModulesCore:
     :path: "../node_modules/expo-modules-core"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
-  ExpoSymbols:
-    :path: "../node_modules/expo-symbols/ios"
-  ExpoSystemUI:
-    :path: "../node_modules/expo-system-ui/ios"
-  ExpoWebBrowser:
-    :path: "../node_modules/expo-web-browser/ios"
   FBLazyVector:
     :path: "../node_modules/react-native/Libraries/FBLazyVector"
   fmt:
@@ -2147,10 +2002,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   RNCAsyncStorage:
     :path: "../node_modules/@react-native-async-storage/async-storage"
-  RNGestureHandler:
-    :path: "../node_modules/react-native-gesture-handler"
-  RNReanimated:
-    :path: "../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   Yoga:
@@ -2160,22 +2011,15 @@ SPEC CHECKSUMS:
   Bookmarks: 5f9eb7fdd625e4a4ed2926e30343b3bc644e90bd
   boost: 1dca942403ed9342f98334bf4c3621f011aa7946
   DoubleConversion: f16ae600a246532c4020132d54af21d0ddb2a385
-  EXConstants: 33cb635065c7c1fe09a0fce5c8ddde8a0a2860c4
-  Expo: 2db249097c0ba2a0e111eb4c32da6ca61d6df6f5
-  ExpoAsset: 9de2f325e8c97a4c6c2bc85e507ae7f0809c91aa
-  ExpoBlur: 562b3da84d3cd79016c411671eaf71a404266415
+  EXConstants: dd2fe64c6cdb1383b694c309a63028a8e9f2be6d
+  Expo: 148aac4ce0da148c63447d09ae41ddb153f35506
+  ExpoAsset: 8138f2a9ec55ae1ad7c3871448379f7d97692d15
   ExpoFileSystem: 80bfe850b1f9922c16905822ecbf97acd711dc51
-  ExpoFont: 2fb6d98e0a5352bebcaa568d6bfbba0e0f2e0097
-  ExpoHaptics: e636188d1d5f7ccb79f3c1bfab47aaf5a1768c73
-  ExpoHead: 9feb52048be81e355852c24e26fc3980ab38cbb4
+  ExpoFont: 7522d869d84ee2ee8093ee997fef5b86f85d856b
   ExpoKeepAwake: 783e68647b969b210a786047c3daa7b753dcac1f
-  ExpoLinking: 05ab69d3b5b1b0600d6a1a043d8d1ea3bb61a71a
   ExpoMecab: 58b0ca1d148fdde1cf6ce1202fe18e763569515f
-  ExpoModulesCore: bd0747596285533477365a0232260750b81a2c1b
-  ExpoSplashScreen: c5386c0a932f5f2e95818006bb3104b3d80c80f1
-  ExpoSymbols: 81d7f433d7a7b20658029eae524a4fa93627159e
-  ExpoSystemUI: 7a9e9895c2621980ae57277c9d1903ad3fd41bb1
-  ExpoWebBrowser: ea83cc6f03bec1938c3b8fb4dcb9df71960fba36
+  ExpoModulesCore: bb3f481a7912159f2289a653e4195146170f0a00
+  ExpoSplashScreen: 43692d041bf848883410ed9d8836871ca5cf4d6a
   FBLazyVector: 7075bb12898bc3998fd60f4b7ca422496cc2cdf7
   fmt: 10c6e61f4be25dc963c36bd73fc7b1705fe975be
   glog: 08b301085f15bcbb6ff8632a8ebaf239aae04e6a
@@ -2213,9 +2057,9 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 3146a13424f9fec2ea1f1462d49d566e4d69b732
   React-microtasksnativemodule: 02d218c79c72d373a92a8552183f4ead0d1c6e05
   react-native-document-picker: e9d83c149bdd72dc01cf8dcb8df0389c6bd5fddb
-  react-native-quick-sqlite: 572ee481e60386f88a17180732806e0b8a8d5950
-  react-native-safe-area-context: 458f6b948437afcb59198016b26bbd02ff9c3b47
-  react-native-webview: 8039cbb0aa6ad2fd7918e23aebb5586f127d3e91
+  react-native-quick-sqlite: 0343c42aea5343b3bce9554daa5668d973e7cf47
+  react-native-safe-area-context: 2500e4fe998caad50ad3bc51ec23ef951308569e
+  react-native-webview: 0bd56be54d01756f20eb942dad37a2cd22a6def2
   React-nativeconfig: 93fe8c85a8c40820c57814e30f3e44b94c995a7b
   React-NativeModulesApple: b3e076fd0d7b73417fe1e8c8b26e3c57ae9b74aa
   React-perflogger: 1c55bcd3c392137cbaf0d21d8bb87ce9a0cebb15
@@ -2243,10 +2087,8 @@ SPEC CHECKSUMS:
   React-utils: 5362bd16a9563f9916e7a56c011ddc533507650f
   ReactCodegen: 865bafc5c17ec2181620ced1a32c39c38ab2951d
   ReactCommon: 422e364463f33e336fc4db196aeb50fd801d90d6
-  RNCAsyncStorage: 597673c6086d359029afefef8fd5859f1f35ab87
-  RNGestureHandler: fc5ce5bf284640d3af6431c3a5c3bc121e98d045
-  RNReanimated: 77242c6d67416988a2fd9f5cf574bb3e60016362
-  RNScreens: 0e3ce675b9de8a0722c502505e319c7615b8fe47
+  RNCAsyncStorage: fe98f1b459a87b80f12207da80c50b3a3abb6081
+  RNScreens: 44a3e358d5ccd7815c5ae9148988c562826992b2
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 157bed1c62656587df4639d4dc29714898f8fb10
 

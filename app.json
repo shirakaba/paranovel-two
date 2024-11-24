@@ -23,17 +23,6 @@
         "backgroundColor": "#ffffff"
       }
     },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
-    "plugins": [
-      "expo-router",
-      ["@bacons/link-assets", ["./assets/jmdict.sqlite3"]]
-    ],
-    "experiments": {
-      "typedRoutes": true
-    }
+    "plugins": [["@bacons/link-assets", ["./assets/jmdict.sqlite3"]]]
   }
 }

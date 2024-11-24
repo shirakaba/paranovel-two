@@ -1,24 +1,17 @@
-import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Button, SafeAreaView, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import type { Book } from '@/types/book.types';
 import { useLibrary } from '@/hooks/useLibrary';
 import type { OPF } from '@/types/epub.types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from './navigation.types';
 
-export default function BookScreen() {
-  const params = useLocalSearchParams<
-    Book & {
-      href: string;
-      /**
-       * Needed in case the user has navigated away from params.href and we
-       * need to force the WebView to re-render the same uri (due to the user
-       * having navigated away from that uri, desyncing the React state).
-       */
-      navigationTimestamp: string;
-    }
-  >();
+export default function BookScreen({
+  navigation,
+  route,
+}: NativeStackScreenProps<RootStackParamList, 'Book'>) {
+  const params = route.params;
 
   const [webViewUri, setWebViewUri] = useState(params.href);
 
@@ -32,127 +25,119 @@ export default function BookScreen() {
   const library = useLibrary();
   const [opf, setOPF] = useState<OPF>();
 
-  const Screen = () => (
-    <Stack.Screen
-      options={{
-        headerShown: true,
-        headerTitle: params.title,
-        headerRight: () => {
-          if (!opf) {
-            return (
-              <>
-                <Link disabled href="/toc" asChild>
-                  <Button title="Spine" />
-                </Link>
-                <Link disabled href="/toc" asChild>
-                  <Button title="ToC" />
-                </Link>
-              </>
-            );
-          }
-
-          const {
-            package: {
-              manifest: { items },
-              spine: { itemrefs },
-            },
-          } = opf;
-
-          // To be expanded to: `${backParams.opsUri}/${href}`
-          const hrefs = new Array<string>();
-          const labels = new Array<string>();
-
-          if (params.nav) {
-            hrefs.push(params.nav);
-            labels.push('Nav');
-          }
-
-          let i = 0;
-          for (const { idref } of itemrefs) {
-            const item = items.find(item => item.id === idref);
-            if (!item || item.href === params.nav) {
-              continue;
-            }
-            hrefs.push(item.href);
-            labels.push(`Part ${i}`);
-            i++;
-          }
-
+  useEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerTitle: params.title,
+      headerRight: () => {
+        if (!opf) {
           return (
             <>
-              <Link
-                href={{
-                  pathname: '/toc',
-                  params: { ...params, hrefs, labels },
-                }}
-                asChild>
-                <Button title="Spine" />
-              </Link>
-              <Link disabled href="/toc" asChild>
-                <Button title="ToC" />
-              </Link>
+              <Button title="Spine" disabled />
+              <Button title="ToC" disabled />
             </>
           );
-        },
-      }}
-    />
-  );
+        }
+
+        const {
+          package: {
+            manifest: { items },
+            spine: { itemrefs },
+          },
+        } = opf;
+
+        // To be expanded to: `${backParams.opsUri}/${href}`
+        const hrefs = new Array<string>();
+        const labels = new Array<string>();
+
+        if (params.nav) {
+          hrefs.push(params.nav);
+          labels.push('Nav');
+        }
+
+        let i = 0;
+        for (const { idref } of itemrefs) {
+          const item = items.find(item => item.id === idref);
+          if (!item || item.href === params.nav) {
+            continue;
+          }
+          hrefs.push(item.href);
+          labels.push(`Part ${i}`);
+          i++;
+        }
+
+        return (
+          <>
+            <Button
+              title="Spine"
+              onPress={() =>
+                navigation.navigate('ToC', {
+                  ...params,
+                  hrefs: hrefs.join(','),
+                  labels: labels.join(','),
+                })
+              }
+            />
+            <Button title="ToC" disabled />
+          </>
+        );
+      },
+    });
+  }, [navigation, params.nav, params.title]);
 
   if (library.type !== 'loaded') {
-    return <Screen />;
+    return null;
   }
 
   if (!params.opsUri) {
-    return <Screen />;
+    return null;
   }
 
-  return (
-    <>
-      {/* https://docs.expo.dev/router/advanced/stack/#header-buttons */}
-      <Screen />
-      <SafeAreaView style={style.container}>
-        <WebView
-          webviewDebuggingEnabled={true}
-          javaScriptEnabled={true}
-          onMessage={({ nativeEvent: { data } }) => {
-            let parsedData: any;
-            try {
-              parsedData = JSON.parse(data);
-            } catch (error) {
-              return;
-            }
+  console.log('HERE!', route.params.href);
 
-            switch (parsedData.type) {
-              case 'opf': {
-                setOPF(parsedData.message);
-                return;
-              }
-            }
-          }}
-          injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded(
-            {
-              opsUri: params.opsUri,
-              relativePathToOpfFromOps: params.relativePathToOpfFromOps,
-            },
-          )}
-          injectedJavaScript={injectedJavaScript}
-          allowFileAccessFromFileURLs={true}
-          allowingReadAccessToURL={params.opsUri}
-          // Specifying 'file://*' in here is necessary to stop the WebView from
-          // treating file URLs as being blocklisted. Blocklisted URLs get opened
-          // via Linking (to be passed on to Safari) instead.
-          originWhitelist={['file://*']}
-          source={{ uri: webViewUri }}
-          onNavigationStateChange={({ url }) => {
-            // The first navigation upon load will be "about:blank".
-            if (!url.startsWith('file://')) {
+  return (
+    <SafeAreaView style={style.container}>
+      <WebView
+        webviewDebuggingEnabled={true}
+        javaScriptEnabled={true}
+        onMessage={({ nativeEvent: { data } }) => {
+          let parsedData: any;
+          try {
+            parsedData = JSON.parse(data);
+          } catch (error) {
+            return;
+          }
+
+          switch (parsedData.type) {
+            case 'opf': {
+              setOPF(parsedData.message);
               return;
             }
-            setWebViewUri(url);
-          }}
-        />
-      </SafeAreaView>
-    </>
+          }
+        }}
+        injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded(
+          {
+            opsUri: params.opsUri,
+            relativePathToOpfFromOps: params.relativePathToOpfFromOps,
+          },
+        )}
+        injectedJavaScript={injectedJavaScript}
+        allowFileAccessFromFileURLs={true}
+        allowingReadAccessToURL={params.opsUri}
+        // Specifying 'file://*' in here is necessary to stop the WebView from
+        // treating file URLs as being blocklisted. Blocklisted URLs get opened
+        // via Linking (to be passed on to Safari) instead.
+        originWhitelist={['file://*']}
+        source={{ uri: webViewUri }}
+        onNavigationStateChange={({ url }) => {
+          // The first navigation upon load will be "about:blank".
+          if (!url.startsWith('file://')) {
+            return;
+          }
+          setWebViewUri(url);
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
