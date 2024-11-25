@@ -93,7 +93,66 @@ export default function BookScreen({
     return null;
   }
 
-  console.log('HERE!', route.params.href);
+  // # `main` gives:
+  // ## First render (before `onNavigationStateChange` updates `webViewUri`):
+  //  (NOBRIDGE) LOG  HERE!
+  // {
+  //   "href": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml",
+  //   "opsUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS",
+  //   "relativePathToOpfFromOps": "package.opf",
+  //   "webViewUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml"
+  // }
+  // ## Second render (after `onNavigationStateChange` updates `webViewUri`):
+  // (NOBRIDGE) LOG  HERE!
+  // {
+  //   "href": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml",
+  //   "opsUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS",
+  //   "relativePathToOpfFromOps": "package.opf",
+  //   "webViewUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/%E8%A1%A8%E7%B4%99.xhtml"
+  // }
+  //
+  // `without-router` gives:
+  //
+  // ## First render
+  // HERE!
+  // {
+  //   "href": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml",
+  //   "opsUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS",
+  //   "relativePathToOpfFromOps": "package.opf",
+  //   "webViewUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml"
+  // }
+  //
+  // ## Second render (we don't get as far as completing a navigation)
+  //
+  // So it seems the library-screen is passing us an `opsUri` and `href` that
+  // are both percent-encoded when neither should be.
+
+  console.log('HERE!', {
+    webViewUri,
+    opsUri: params.opsUri,
+    relativePathToOpfFromOps: params.relativePathToOpfFromOps,
+    href: route.params.href,
+  });
+
+  // # Branch `without-router` (failing):
+  // allowingReadAccessToURL	__NSCFString *	@"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS"
+  // ^ See how we're requesting "File%20Provider%20Storage"
+  // ->
+  // readAccessUrl	NSURL *	"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS"
+  // ^ The NSString remains unchanged once marshalled to NSURL.
+
+  // request.URL	NSURL *	"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%2520Provider%2520Storage/epubs/kusamakura-japanese-vertical-writing-1/0PS/xhtml/%E8%A1%A8%E7%B4%99.xhtml"
+  // ^ See how we're requesting "File%2520Provider%2520Storage"
+
+  // # Branch `main` (succeeding):
+  // allowingReadAccessToURL	__NSCFString *	@"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS"
+  // ^ See how we're requesting "File Provider Storage"
+  // ->
+  // readAccessUrl	NSURL *	"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS"
+  // ^ The NSString percent-encodes once marshalled to NSURL.
+
+  // request.URL	NSURL *	"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/%E8%A1%A8%E7%B4%99.xhtml"	0x0000600002617660
+  // ^ See how we're requesting "File%20Provider%20Storage"
 
   return (
     <SafeAreaView style={style.container}>
