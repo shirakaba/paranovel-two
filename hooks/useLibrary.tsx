@@ -87,13 +87,20 @@ export async function readLibrary(directoryPath: string) {
   directoryPath = directoryPath.replace(/\/*$/, '');
 
   try {
-    // readDirectoryAsync can take raw or percent-encoded paths as input, but
-    // always outputs file/folder names as raw.
+    // readDirectoryAsync can take unencoded or percent-encoded paths as input,
+    // but always outputs file/folder names as unencoded.
     const handles = await readDirectoryAsync(directoryPath);
 
     const library = new Array<Book>();
     for (const handle of handles) {
-      const handleUri = `${directoryPath}/${encodeURIComponent(handle)}`;
+      /**
+       * A decoded URI.
+       *
+       * As getInfoAsync() and readDirectoryAsync() are happy whether the URI is
+       * encoded or not, it's easiest to keep things unencoded until the final
+       * point of usage rather than risk multiple levels of encoding.
+       */
+      const handleUri = `${decodeURI(directoryPath)}/${handle}`;
 
       try {
         const { isDirectory } = await getInfoAsync(handleUri);
