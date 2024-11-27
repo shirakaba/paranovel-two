@@ -1,6 +1,6 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect } from 'react';
-import { View, Button, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Button, StyleSheet, ScrollView } from 'react-native';
 import { RootStackParamList } from './navigation.types';
 
 export default function TableOfContents({
@@ -19,7 +19,8 @@ export default function TableOfContents({
       <View style={style.list}>
         {items.map(({ href, label }) => {
           return (
-            <Pressable
+            <Button
+              title={label}
               key={href}
               onPress={() => {
                 navigation.popTo('Book', {
@@ -27,9 +28,8 @@ export default function TableOfContents({
                   href: `${backParams.opsUri}/${href}`,
                   navigationTimestamp: `${Date.now()}`,
                 });
-              }}>
-              <Button title={label} />
-            </Pressable>
+              }}
+            />
           );
         })}
       </View>
