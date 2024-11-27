@@ -63,14 +63,6 @@ export function getMainFeaturesFromOpf(
     );
 
     ncxFileHref = ncxFile?.href;
-    // if (ncxFile?.href) {
-    //   const absoluteUriToNCX = `${opsUri}/${ncxFile.href}`;
-    //   if (absoluteUriToNCX.includes('kusamakura')) {
-    //     const ncxText = await readAsStringAsync(absoluteUriToNCX);
-    //     parseNCX(ncxText);
-    //     // TODO: pass along NCX
-    //   }
-    // }
   }
 
   const item = items.find(({ id }) => id === idref);
@@ -96,12 +88,10 @@ export function getSpineFromOpf({ opf, nav }: { opf: OPF; nav?: string }) {
   } = opf;
 
   // To be expanded to: `${backParams.opsUri}/${href}`
-  const hrefs = new Array<string>();
-  const labels = new Array<string>();
+  const spineItems = new Array<{ href: string; label: string }>();
 
   if (nav) {
-    hrefs.push(nav);
-    labels.push('Nav');
+    spineItems.push({ href: nav, label: 'Nav' });
   }
 
   let i = 0;
@@ -110,12 +100,11 @@ export function getSpineFromOpf({ opf, nav }: { opf: OPF; nav?: string }) {
     if (!item || item.href === nav) {
       continue;
     }
-    hrefs.push(item.href);
-    labels.push(`Part ${i}`);
+    spineItems.push({ href: item.href, label: `Part ${i}` });
     i++;
   }
 
-  return { hrefs, labels };
+  return spineItems;
 }
 
 export function getTocFromNCX(ncx: NCX) {
@@ -126,17 +115,9 @@ export function getTocFromNCX(ncx: NCX) {
   } = ncx;
 
   // To be expanded to: `${backParams.opsUri}/${href}`
-  const hrefs = new Array<string>();
-  const labels = new Array<string>();
-
-  navPoints
+  return navPoints
     .sort((a, b) => a.playOrder - b.playOrder)
-    .forEach(({ navLabel, src }) => {
-      hrefs.push(src);
-      labels.push(navLabel);
-    });
-
-  return { hrefs, labels };
+    .map(({ navLabel, src }) => ({ href: src, label: navLabel }));
 }
 
 export function parseOPF(text: string) {

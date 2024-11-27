@@ -109,10 +109,9 @@ export default function BookScreen({
                 ? {
                     onPress: () =>
                       navigation.navigate('ToC', {
-                        ...params,
+                        backParams: params,
                         headerTitle: 'Spine',
-                        hrefs: spine.hrefs.join(','),
-                        labels: spine.labels.join(','),
+                        items: spine,
                       }),
                   }
                 : { disabled: true })}
@@ -123,10 +122,9 @@ export default function BookScreen({
                 ? {
                     onPress: () =>
                       navigation.navigate('ToC', {
-                        ...params,
+                        backParams: params,
                         headerTitle: 'Table of Contents',
-                        hrefs: toc.hrefs.join(','),
-                        labels: toc.labels.join(','),
+                        items: toc,
                       }),
                   }
                 : { disabled: true })}

@@ -1,7 +1,7 @@
-import { Book } from '@/types/book.types';
+import { BookScreenProps } from './book-screen.types';
 
-export type ToCScreenProps = Book & {
+export type ToCScreenProps = {
+  backParams: BookScreenProps;
   headerTitle: string;
-  hrefs: string;
-  labels: string;
+  items: Array<{ href: string; label: string }>;
 };
