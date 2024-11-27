@@ -3,11 +3,16 @@ import { Button, SafeAreaView, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { useLibrary } from '@/hooks/useLibrary';
-import type { OPF } from '@/types/epub.types';
+import type { OPF, NCX } from '@/types/epub.types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './navigation.types';
 import { readAsStringAsync } from 'expo-file-system';
-import { parseOPF } from '@/utils/epub-parsing';
+import {
+  getSpineFromOpf,
+  getTocFromNCX,
+  parseNCX,
+  parseOPF,
+} from '@/utils/epub-parsing';
 
 export default function BookScreen({
   navigation,
@@ -53,67 +58,82 @@ export default function BookScreen({
       });
   }, [absoluteUriToOpf]);
 
-  // TODO: read NCX as well.
+  const [ncx, setNCX] = useState<NCX>();
+  const absoluteUriToNcx = params.ncxFileHref
+    ? `${params.opsUri}/${params.ncxFileHref}`
+    : '';
+  const absoluteUriToNcxRef = useRef(absoluteUriToNcx);
+  useEffect(() => {
+    // Track whether the absoluteUri gets updated while we're mid-read so that
+    // we can avoid updating if so.
+    const initialAbsoluteUriToNcx = absoluteUriToNcx;
+    absoluteUriToNcxRef.current = absoluteUriToNcx;
+
+    // Stop rendering the NCX from a previous book.
+    setNCX(undefined);
+
+    if (!initialAbsoluteUriToNcx) {
+      return;
+    }
+
+    readAsStringAsync(initialAbsoluteUriToNcx)
+      .then(ncxText => {
+        const ncx = parseNCX(ncxText);
+        if (ncx && initialAbsoluteUriToNcx === absoluteUriToNcxRef.current) {
+          setNCX(ncx);
+        }
+      })
+      .catch(error => {
+        console.error(
+          `Failed to read NCX at ${initialAbsoluteUriToNcx}`,
+          error,
+        );
+      });
+  }, [absoluteUriToNcx]);
 
   useEffect(() => {
     navigation.setOptions({
       headerShown: true,
       headerTitle: params.title,
       headerRight: () => {
-        if (!opf) {
-          return (
-            <>
-              <Button title="Spine" disabled />
-              <Button title="ToC" disabled />
-            </>
-          );
-        }
-
-        const {
-          package: {
-            manifest: { items },
-            spine: { itemrefs },
-          },
-        } = opf;
-
-        // To be expanded to: `${backParams.opsUri}/${href}`
-        const hrefs = new Array<string>();
-        const labels = new Array<string>();
-
-        if (params.nav) {
-          hrefs.push(params.nav);
-          labels.push('Nav');
-        }
-
-        let i = 0;
-        for (const { idref } of itemrefs) {
-          const item = items.find(item => item.id === idref);
-          if (!item || item.href === params.nav) {
-            continue;
-          }
-          hrefs.push(item.href);
-          labels.push(`Part ${i}`);
-          i++;
-        }
+        const spine = opf
+          ? getSpineFromOpf({ opf, nav: params.nav })
+          : undefined;
+        const toc = ncx ? getTocFromNCX(ncx) : undefined;
 
         return (
           <>
             <Button
               title="Spine"
-              onPress={() =>
-                navigation.navigate('ToC', {
-                  ...params,
-                  hrefs: hrefs.join(','),
-                  labels: labels.join(','),
-                })
-              }
+              {...(spine
+                ? {
+                    onPress: () =>
+                      navigation.navigate('ToC', {
+                        ...params,
+                        hrefs: spine.hrefs.join(','),
+                        labels: spine.labels.join(','),
+                      }),
+                  }
+                : { disabled: true })}
             />
-            <Button title="ToC" disabled />
+            <Button
+              title="ToC"
+              {...(toc
+                ? {
+                    onPress: () =>
+                      navigation.navigate('ToC', {
+                        ...params,
+                        hrefs: toc.hrefs.join(','),
+                        labels: toc.labels.join(','),
+                      }),
+                  }
+                : { disabled: true })}
+            />
           </>
         );
       },
     });
-  }, [navigation, params.nav, params.title, opf]);
+  }, [navigation, params.nav, params.title, opf, ncx]);
 
   if (library.type !== 'loaded') {
     return null;

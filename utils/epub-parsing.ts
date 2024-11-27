@@ -87,6 +87,58 @@ export function getMainFeaturesFromOpf(
   };
 }
 
+export function getSpineFromOpf({ opf, nav }: { opf: OPF; nav?: string }) {
+  const {
+    package: {
+      manifest: { items },
+      spine: { itemrefs },
+    },
+  } = opf;
+
+  // To be expanded to: `${backParams.opsUri}/${href}`
+  const hrefs = new Array<string>();
+  const labels = new Array<string>();
+
+  if (nav) {
+    hrefs.push(nav);
+    labels.push('Nav');
+  }
+
+  let i = 0;
+  for (const { idref } of itemrefs) {
+    const item = items.find(item => item.id === idref);
+    if (!item || item.href === nav) {
+      continue;
+    }
+    hrefs.push(item.href);
+    labels.push(`Part ${i}`);
+    i++;
+  }
+
+  return { hrefs, labels };
+}
+
+export function getTocFromNCX(ncx: NCX) {
+  const {
+    root: {
+      navMap: { navPoints },
+    },
+  } = ncx;
+
+  // To be expanded to: `${backParams.opsUri}/${href}`
+  const hrefs = new Array<string>();
+  const labels = new Array<string>();
+
+  navPoints
+    .sort((a, b) => a.playOrder - b.playOrder)
+    .forEach(({ navLabel, src }) => {
+      hrefs.push(src);
+      labels.push(navLabel);
+    });
+
+  return { hrefs, labels };
+}
+
 export function parseOPF(text: string) {
   const doc = new XMLParser({
     ignoreAttributes: false,
@@ -264,6 +316,7 @@ export function parseNCX(text: string) {
           'navMap',
           'navLabel',
           'text',
+          'content',
         ].includes(tagWithoutNamespace)
       ) {
         return false;
@@ -362,7 +415,7 @@ export function parseNCX(text: string) {
     navPointsParsed.push({
       id,
       playOrder: parseInt(playOrder),
-      navLabel,
+      navLabel: navLabelTextContent,
       src,
     });
   }
