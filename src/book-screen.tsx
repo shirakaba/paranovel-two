@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, SafeAreaView, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -6,6 +6,8 @@ import { useLibrary } from '@/hooks/useLibrary';
 import type { OPF } from '@/types/epub.types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './navigation.types';
+import { readAsStringAsync } from 'expo-file-system';
+import { parseOPF } from '@/utils/epub-parsing';
 
 export default function BookScreen({
   navigation,
@@ -23,7 +25,35 @@ export default function BookScreen({
   }, [params.href, params.navigationTimestamp]);
 
   const library = useLibrary();
+
   const [opf, setOPF] = useState<OPF>();
+  const absoluteUriToOpf = `${params.opsUri}/${params.relativePathToOpfFromOps}`;
+  const absoluteUriToOpfRef = useRef(absoluteUriToOpf);
+  useEffect(() => {
+    // Track whether the absoluteUri gets updated while we're mid-read so that
+    // we can avoid updating if so.
+    const initialAbsoluteUriToOpf = absoluteUriToOpf;
+    absoluteUriToOpfRef.current = absoluteUriToOpf;
+
+    // Stop rendering the OPF from a previous book.
+    setOPF(undefined);
+
+    readAsStringAsync(initialAbsoluteUriToOpf)
+      .then(opfText => {
+        const opf = parseOPF(opfText);
+        if (opf && initialAbsoluteUriToOpf === absoluteUriToOpfRef.current) {
+          setOPF(opf);
+        }
+      })
+      .catch(error => {
+        console.error(
+          `Failed to read OPF at ${initialAbsoluteUriToOpf}`,
+          error,
+        );
+      });
+  }, [absoluteUriToOpf]);
+
+  // TODO: read NCX as well.
 
   useEffect(() => {
     navigation.setOptions({
@@ -83,7 +113,7 @@ export default function BookScreen({
         );
       },
     });
-  }, [navigation, params.nav, params.title]);
+  }, [navigation, params.nav, params.title, opf]);
 
   if (library.type !== 'loaded') {
     return null;
@@ -93,93 +123,19 @@ export default function BookScreen({
     return null;
   }
 
-  // # `main` gives:
-  // ## First render (before `onNavigationStateChange` updates `webViewUri`):
-  //  (NOBRIDGE) LOG  HERE!
-  // {
-  //   "href": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml",
-  //   "opsUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS",
-  //   "relativePathToOpfFromOps": "package.opf",
-  //   "webViewUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml"
-  // }
-  // ## Second render (after `onNavigationStateChange` updates `webViewUri`):
-  // (NOBRIDGE) LOG  HERE!
-  // {
-  //   "href": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml",
-  //   "opsUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS",
-  //   "relativePathToOpfFromOps": "package.opf",
-  //   "webViewUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/%E8%A1%A8%E7%B4%99.xhtml"
-  // }
-  //
-  // `without-router` gives:
-  //
-  // ## First render
-  // HERE!
-  // {
-  //   "href": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml",
-  //   "opsUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS",
-  //   "relativePathToOpfFromOps": "package.opf",
-  //   "webViewUri": "file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/表紙.xhtml"
-  // }
-  //
-  // ## Second render (we don't get as far as completing a navigation)
-  //
-  // So it seems the library-screen is passing us an `opsUri` and `href` that
-  // are both percent-encoded when neither should be.
-
-  console.log('HERE!', {
-    webViewUri,
-    opsUri: params.opsUri,
-    relativePathToOpfFromOps: params.relativePathToOpfFromOps,
-    href: route.params.href,
-  });
-
-  // # Branch `without-router` (failing):
-  // allowingReadAccessToURL	__NSCFString *	@"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS"
-  // ^ See how we're requesting "File%20Provider%20Storage"
-  // ->
-  // readAccessUrl	NSURL *	"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS"
-  // ^ The NSString remains unchanged once marshalled to NSURL.
-
-  // request.URL	NSURL *	"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%2520Provider%2520Storage/epubs/kusamakura-japanese-vertical-writing-1/0PS/xhtml/%E8%A1%A8%E7%B4%99.xhtml"
-  // ^ See how we're requesting "File%2520Provider%2520Storage"
-
-  // # Branch `main` (succeeding):
-  // allowingReadAccessToURL	__NSCFString *	@"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File Provider Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS"
-  // ^ See how we're requesting "File Provider Storage"
-  // ->
-  // readAccessUrl	NSURL *	"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS"
-  // ^ The NSString percent-encodes once marshalled to NSURL.
-
-  // request.URL	NSURL *	"file:///Users/jamie/Library/Developer/CoreSimulator/Devices/7987CBDB-2D07-4277-99BB-8651AE9E3F7A/data/Containers/Shared/AppGroup/C1CE866F-4177-43A6-B089-300C4A5D1819/File%20Provider%20Storage/epubs/kusamakura-japanese-vertical-writing-1/OPS/xhtml/%E8%A1%A8%E7%B4%99.xhtml"	0x0000600002617660
-  // ^ See how we're requesting "File%20Provider%20Storage"
-
   return (
     <SafeAreaView style={style.container}>
       <WebView
         webviewDebuggingEnabled={true}
         javaScriptEnabled={true}
-        onMessage={({ nativeEvent: { data } }) => {
-          let parsedData: any;
-          try {
-            parsedData = JSON.parse(data);
-          } catch (error) {
-            return;
-          }
-
-          switch (parsedData.type) {
-            case 'opf': {
-              setOPF(parsedData.message);
-              return;
-            }
-          }
+        // No-op onMessage() handler needed to enable injectedJavaScript.
+        onMessage={() => {}}
+        onLoadStart={({ nativeEvent: { url, loading, title } }) => {
+          console.log('onLoadStart', url, loading, title);
         }}
-        injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded(
-          {
-            opsUri: params.opsUri,
-            relativePathToOpfFromOps: params.relativePathToOpfFromOps,
-          },
-        )}
+        onLoadEnd={({ nativeEvent: { url, loading, title } }) => {
+          console.log('onLoadEnd', url, loading, title);
+        }}
         injectedJavaScript={injectedJavaScript}
         allowFileAccessFromFileURLs={true}
         allowingReadAccessToURL={params.opsUri}
@@ -199,18 +155,6 @@ export default function BookScreen({
     </SafeAreaView>
   );
 }
-
-const injectedJavaScriptBeforeContentLoaded = ({
-  opsUri,
-  relativePathToOpfFromOps,
-}: {
-  opsUri: string;
-  relativePathToOpfFromOps: string;
-}) =>
-  `
-const __opsUri = "${opsUri}";
-const __relativePathToOpfFromOps = "${relativePathToOpfFromOps}";
-`.trim();
 
 const injectedJavaScript = `
 {
@@ -254,113 +198,7 @@ function buildHUD(){
   return dom;
 }
 
-async function parseOPF(href){
-  const result = await fetch(href);
-  const text = await result.text();
-  console.log(text);
-  const doc = new DOMParser().parseFromString(text, "application/xml");
-
-  const metadata = doc.querySelector("metadata");
-  const manifest = doc.querySelector("manifest");
-  const spine = doc.querySelector("spine");
-  const guide = doc.querySelector("guide");
-  // Only guide is optional, to my understanding.
-  if(!metadata || !manifest || !spine){
-    return;
-  }
-  const dc = "http://purl.org/dc/elements/1.1/";
-  const opf = "http://www.idpf.org/2007/opf";
-
-  // Parse <package>
-  const uniqueIdentifier = doc.documentElement.getAttribute("unique-identifier");
-  const version = doc.documentElement.getAttribute("version");
-
-  // Parse <metadata> section
-  const languages = [...metadata.getElementsByTagNameNS(dc, "language")]
-    .map(element => ({ textContent: element.textContent }));
-  const titles = [...metadata.getElementsByTagNameNS(dc, "title")]
-    .map(element => ({ textContent: element.textContent }));
-  const creators = [...metadata.getElementsByTagNameNS(dc, "creator")]
-    .map(element => ({
-      textContent: element.textContent,
-      opfFileAs: element.getAttributeNS(opf, "file-as"),
-      opfRole: element.getAttributeNS(opf, "role"),
-    }));
-  const contributors = [...metadata.getElementsByTagNameNS(dc, "contributor")]
-    .map(element => ({ textContent: element.textContent }));
-  const publishers = [...metadata.getElementsByTagNameNS(dc, "publisher")]
-    .map(element => ({ textContent: element.textContent }));
-  const identifiers = [...metadata.getElementsByTagNameNS(dc, "identifier")]
-    .map(element => ({
-      id: element.id,
-      textContent: element.textContent,
-      opfScheme: element.getAttributeNS(opf, "scheme"),
-    }));
-  const dates = [...metadata.getElementsByTagNameNS(dc, "date")]
-    .map(element => ({ textContent: element.textContent }));
-  const metas = [...metadata.querySelectorAll("meta")]
-    .map(element => ({
-      name: element.getAttribute("name"),
-      content: element.getAttribute("content"),
-    }));
-
-  // Parse <manifest> section
-  const items = [...manifest.querySelectorAll("item")]
-    .map(element => ({
-      id: element.id,
-      href: element.getAttribute("href"),
-      mediaType: element.getAttribute("media-type"),
-    }));
-
-  // Parse <spine> section
-  const toc = spine.getAttribute("toc");
-  const pageProgressionDirection = spine.getAttribute("page-progression-direction");
-  const itemrefs = [...spine.querySelectorAll("itemref")]
-    .map(element => ({ idref: element.getAttribute("idref") }));
-
-  const message = {
-    package: {
-      version,
-      uniqueIdentifier,
-      metadata: {
-        languages,
-        titles,
-        creators,
-        contributors,
-        publishers,
-        identifiers,
-        dates,
-        metas,
-      },
-      manifest: { items },
-      spine: {
-        toc,
-        pageProgressionDirection,
-        itemrefs,
-      },
-    },
-  };
-
-  // Parse optional <guide> section
-  if(guide){
-    const references = [...guide.querySelectorAll("reference")]
-      .map(element => ({
-        type: element.getAttribute("type"),
-        href: element.getAttribute("href"),
-        title: element.getAttribute("title"),
-      }));
-    message.package.guide = { references };
-  }
-
-  window.ReactNativeWebView.postMessage(JSON.stringify({ type: "opf", message }));
-
-  return message;
-}
-
 // document.body.prepend(buildHUD());
-
-parseOPF(\`\${__opsUri}/\${__relativePathToOpfFromOps}\`)
-.catch(console.error);
 `.trim();
 
 const style = StyleSheet.create({

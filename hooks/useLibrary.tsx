@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { readBookmark } from '@/modules/bookmarks';
 import type { Book } from '@/types/book.types';
-import type { NCX, OPF } from '@/types/epub.types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import { XMLParser } from 'fast-xml-parser';
@@ -10,6 +9,11 @@ import {
   getInfoAsync,
   readAsStringAsync,
 } from 'expo-file-system';
+import {
+  getMainFeaturesFromOpf,
+  parseNCX,
+  parseOPF,
+} from '@/utils/epub-parsing';
 
 export function LibraryProvider({ children }: React.PropsWithChildren) {
   const { query, library, setLibrary, libraryDir, setLibraryDir } =
@@ -177,85 +181,16 @@ export async function readLibrary(directoryPath: string) {
           continue;
         }
 
-        const {
-          package: {
-            metadata: { titles, metas },
-            manifest: { items },
-            spine: { itemrefs, toc },
-          },
-        } = opf;
-
-        // It's okay for this to be optional, as consumers downstream can fall
-        // back to the folderName.
-        const title = titles[0]?.textContent;
-
-        const idref = itemrefs[0]?.idref;
-        if (!idref) {
-          continue;
-        }
-
-        let coverItem = items.find(
-          ({ properties, mediaType }) =>
-            properties?.split(/\s+/).includes('cover-image') &&
-            mediaType?.startsWith('image/'),
-        );
-        if (!coverItem) {
-          // Off-spec, but common.
-          const name = metas.find(({ content }) => content === 'cover')?.name;
-          if (name) {
-            coverItem = items.find(({ id }) => id === name);
-          }
-        }
-        if (!coverItem) {
-          coverItem = items.find(({ id }) => id === 'cover');
-        }
-
-        let navItem = items.find(
-          ({ properties, mediaType }) =>
-            properties?.split(/\s+/).includes('nav') &&
-            mediaType === 'application/xhtml+xml',
-        );
-        if (!navItem) {
-          // Off-spec, and haven't seen any example of this yet, just mirrorring
-          // what we did with cover items.
-          const name = metas.find(({ content }) => content === 'nav')?.name;
-          if (name) {
-            navItem = items.find(({ id }) => id === name);
-          }
-        }
-        if (!navItem) {
-          navItem = items.find(({ id }) => id === 'nav');
-        }
-
-        if (toc) {
-          const ncxFile = items.find(
-            ({ id, mediaType }) =>
-              id === toc && mediaType === 'application/x-dtbncx+xml',
-          );
-
-          if (ncxFile?.href) {
-            const absoluteUriToNCX = `${opsUri}/${ncxFile.href}`;
-            if (absoluteUriToNCX.includes('kusamakura')) {
-              const ncxText = await readAsStringAsync(absoluteUriToNCX);
-              parseNCX(ncxText);
-              // TODO: pass along NCX
-            }
-          }
-        }
-
-        const item = items.find(({ id }) => id === idref);
-        if (!item) {
+        const mainFeaturesFromOpf = getMainFeaturesFromOpf(opf);
+        if (!mainFeaturesFromOpf) {
           continue;
         }
 
         library.push({
           type: 'opf',
-          title,
+          ...mainFeaturesFromOpf,
           opsUri,
-          coverImage: coverItem?.href,
-          nav: navItem?.href,
           folderName: handle,
-          startingHref: item.href,
           relativePathToOpfFromOps,
         });
       } catch (error) {
@@ -274,305 +209,6 @@ export async function readLibrary(directoryPath: string) {
   }
 
   return null;
-}
-
-function parseNCX(text: string) {
-  const doc = new XMLParser({
-    ignoreAttributes: false,
-    alwaysCreateTextNode: true,
-    textNodeName: 'textContent',
-    isArray: (tagName, _jPath, _isLeafNode, isAttribute) => {
-      if (isAttribute) {
-        return false;
-      }
-
-      // Sometimes these tags are namespaced, sometimes they're not.
-      const tagWithoutNamespace = tagName.split(':').slice(-1)[0];
-
-      if (
-        [
-          '?xml',
-          'ncx',
-          'head',
-          'docTitle',
-          'docAuthor',
-          'navMap',
-          'navLabel',
-          'text',
-        ].includes(tagWithoutNamespace)
-      ) {
-        return false;
-      }
-
-      return true;
-    },
-  }).parse(text);
-
-  const { ['?xml']: xml, ...rest } = doc;
-
-  const rootTag = Object.keys(rest ?? {}).find(tagName => {
-    const tagWithoutNamespace = tagName.split(':').slice(-1)[0];
-    return tagWithoutNamespace === 'ncx';
-  });
-
-  if (!rootTag) {
-    return null;
-  }
-
-  const root = rest[rootTag];
-
-  /**
-   * A lookup of the alias they used for each XML namespace.
-   * @example
-   * {
-   *   "http://www.daisy.org/z3986/2005/ncx/": "ncx",
-   * }
-   */
-  const namespaces: Record<string, string> = {};
-  for (const key in root) {
-    const [, alias] = key.split('@_xmlns:');
-    if (!alias) {
-      continue;
-    }
-
-    const uri = root[key];
-    namespaces[uri] = alias;
-  }
-
-  // The kusamakura-japanese-vertical-writing sample used this namespace with
-  // all elements in the NCX, while other published ebooks didn't at all.
-  const daisyNamespace = 'http://www.daisy.org/z3986/2005/ncx/';
-  let namespace = namespaces[daisyNamespace]
-    ? `${namespaces[daisyNamespace]}:`
-    : '';
-
-  const {
-    [`${namespace}head`]: head,
-    [`${namespace}docTitle`]: docTitle,
-    [`${namespace}docAuthor`]: docAuthor,
-    [`${namespace}navMap`]: navMap,
-  } = root;
-
-  const metas: Array<any> = head?.[`${namespace}meta`] ?? [];
-  const docTitleTextContent = docTitle?.[`${namespace}text`]?.textContent;
-  const docAuthorTextContent = docAuthor?.[`${namespace}text`]?.textContent;
-
-  const uid: string | undefined = metas.find(
-    ({ '@_name': name }) => name === 'dtb:uid' || name === 'uid',
-  )?.['@_content'];
-  const depth: string | undefined = metas.find(
-    ({ '@_name': name }) => name === 'dtb:depth' || name === 'depth',
-  )?.['@_content'];
-  const totalPageCount: string | undefined = metas.find(
-    ({ '@_name': name }) =>
-      name === 'dtb:totalPageCount' || name === 'totalPageCount',
-  )?.['@_content'];
-  const maxPageNumber: string | undefined = metas.find(
-    ({ '@_name': name }) =>
-      name === 'dtb:maxPageNumber' || name === 'maxPageNumber',
-  )?.['@_content'];
-
-  const navPoints: Array<any> = navMap?.[`${namespace}navPoint`] ?? [];
-
-  const navPointsParsed = new Array<
-    NCX['root']['navMap']['navPoints'][number]
-  >();
-  for (const {
-    '@_id': id,
-    '@_playOrder': playOrder,
-    [`${namespace}navLabel`]: navLabel,
-    [`${namespace}content`]: content,
-  } of navPoints) {
-    if (!id || !playOrder || !navLabel || !content) {
-      continue;
-    }
-
-    const navLabelTextContent = navLabel[`${namespace}text`]?.textContent;
-    const { ['@_src']: src } = content;
-
-    if (!src || !navLabelTextContent) {
-      continue;
-    }
-
-    navPointsParsed.push({
-      id,
-      playOrder: parseInt(playOrder),
-      navLabel,
-      src,
-    });
-  }
-
-  const payload: NCX = {
-    root: {
-      head: {
-        uid,
-        depth: depth ? parseInt(depth) : undefined,
-        totalPageCount: totalPageCount ? parseInt(totalPageCount) : undefined,
-        maxPageNumber: maxPageNumber ? parseInt(maxPageNumber) : undefined,
-      },
-      docTitle: docTitleTextContent,
-      docAuthor: docAuthorTextContent,
-      navMap: {
-        navPoints: navPointsParsed,
-      },
-    },
-  };
-
-  return payload;
-}
-
-function parseOPF(text: string) {
-  const doc = new XMLParser({
-    ignoreAttributes: false,
-    alwaysCreateTextNode: true,
-    textNodeName: 'textContent',
-    isArray: (tagName, _jPath, _isLeafNode, isAttribute) => {
-      if (isAttribute) {
-        return false;
-      }
-
-      if (
-        ['?xml', 'package', 'metadata', 'manifest', 'spine', 'guide'].includes(
-          tagName,
-        )
-      ) {
-        return false;
-      }
-
-      return true;
-    },
-  }).parse(text);
-
-  // Parse <package>
-  const {
-    package: {
-      '@_version': version,
-      '@_unique-identifier': uniqueIdentifier,
-      metadata,
-      manifest: { item: items },
-      spine: {
-        '@_page-progression-direction': pageProgressionDirection,
-        '@_toc': toc,
-        itemref: itemrefs,
-      },
-      guide,
-    },
-  } = doc;
-
-  /**
-   * A lookup of the alias they used for each XML namespace.
-   * @example
-   * {
-   *   "http://purl.org/dc/elements/1.1/": "dc",
-   *   "http://www.idpf.org/2007/opf": "opf",
-   * }
-   */
-  const namespaces: Record<string, string> = {};
-  for (const key in metadata) {
-    const [, alias] = key.split('@_xmlns:');
-    if (!alias) {
-      continue;
-    }
-
-    const uri = metadata[key];
-    namespaces[uri] = alias;
-  }
-
-  const dc = namespaces['http://purl.org/dc/elements/1.1/'];
-  const opf = namespaces['http://www.idpf.org/2007/opf'];
-
-  const {
-    [`${dc}:language`]: languages,
-    [`${dc}:title`]: titles,
-    [`${dc}:creator`]: creators,
-    [`${dc}:contributor`]: contributors,
-    [`${dc}:identifier`]: identifiers,
-    [`${dc}:date`]: dates,
-    [`${dc}:publisher`]: publishers,
-    meta: metas,
-  } = metadata;
-
-  const payload: OPF = {
-    package: {
-      version,
-      uniqueIdentifier,
-      metadata: {
-        languages: languages ?? [],
-        titles: titles ?? [],
-        creators:
-          (creators as Array<any>)?.map(
-            ({
-              [`${opf}:file-as`]: opfFileAs,
-              [`${opf}:role`]: opfRole,
-              textContent,
-            }) => ({
-              opfFileAs,
-              opfRole,
-              textContent,
-            }),
-          ) ?? [],
-        contributors: contributors ?? [],
-        publishers: publishers ?? [],
-        identifiers:
-          (identifiers as Array<any>)?.map(
-            ({ '@_id': id, [`${opf}:scheme`]: opfScheme, textContent }) => ({
-              id,
-              opfScheme,
-              textContent,
-            }),
-          ) ?? [],
-        dates: dates ?? [],
-        metas:
-          (metas as Array<any>)?.map(
-            ({ '@_name': name, '@_content': content }) => ({ name, content }),
-          ) ?? [],
-      },
-      manifest: {
-        items:
-          (items as Array<any>)?.map(
-            ({
-              '@_id': id,
-              '@_href': href,
-              '@_media-type': mediaType,
-              '@_media-overlay': mediaOverlay,
-              '@_properties': properties,
-            }) => ({
-              id,
-              href,
-              mediaType,
-              mediaOverlay,
-              properties,
-            }),
-          ) ?? [],
-      },
-      spine: {
-        toc,
-        pageProgressionDirection,
-        itemrefs:
-          (itemrefs as Array<any>)?.map(
-            ({ '@_idref': idref, '@_linear': linear }) => ({
-              idref,
-              linear,
-            }),
-          ) ?? [],
-      },
-    },
-  };
-
-  // Parse optional <guide> section
-  if (guide) {
-    const references =
-      (guide.reference as Array<any>)?.map(
-        ({ '@_href': href, '@_title': title, '@_type': type }) => ({
-          href,
-          title,
-          type,
-        }),
-      ) ?? [];
-    payload.package.guide = { references };
-  }
-
-  return payload;
 }
 
 const LibraryContext = React.createContext<

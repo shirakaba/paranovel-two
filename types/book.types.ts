@@ -1,6 +1,4 @@
-export type Book = {
-  type: 'opf';
-
+export type MainFeaturesFromOPF = {
   /**
    * The title extracted from the OPF file.
    *
@@ -25,6 +23,25 @@ export type Book = {
    * @example "xhtml/目次.xhtml"
    */
   nav?: string;
+
+  /**
+   * The href the ebook should open at.
+   *
+   * Get the full URI for the starting page via `${opsUri}/${startingHref}`.
+   *
+   * @example "titlepage.xhtml"
+   * @example "xhtml/表紙.xhtml"
+   */
+  startingHref: string;
+
+  /**
+   * The "href" to the NCX-formatted Table of Contents file, if specified.
+   */
+  ncxFileHref?: string;
+};
+
+export type Book = MainFeaturesFromOPF & {
+  type: 'opf';
 
   /**
    * The full URI to the OPS folder (or root folder if not present) of the EPUB.
@@ -55,14 +72,4 @@ export type Book = {
    * @example "無職転生 ～異世界行ったら本気だす～ 17 (MFブックス)"
    */
   folderName: string;
-
-  /**
-   * The href the ebook should open at.
-   *
-   * Get the full URI for the starting page via `${opsUri}/${startingHref}`.
-   *
-   * @example "titlepage.xhtml"
-   * @example "xhtml/表紙.xhtml"
-   */
-  startingHref: string;
 };
