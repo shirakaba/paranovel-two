@@ -16,9 +16,8 @@ export default function TableOfContents({
 }: NativeStackScreenProps<RootStackParamList, 'ToC'>) {
   const params = route.params;
 
-  navigation.setOptions({
-    headerTitle: 'Table of Contents',
-  });
+  // TODO: check whether navigation.setOptions should be set in render or effect
+  navigation.setOptions({ headerTitle: params.headerTitle });
 
   const { hrefs, labels, ...backParams } = params;
 

@@ -91,6 +91,7 @@ export default function BookScreen({
       });
   }, [absoluteUriToNcx]);
 
+  // TODO: check whether navigation.setOptions should be set in render or effect
   useEffect(() => {
     navigation.setOptions({
       headerShown: true,
@@ -110,6 +111,7 @@ export default function BookScreen({
                     onPress: () =>
                       navigation.navigate('ToC', {
                         ...params,
+                        headerTitle: 'Spine',
                         hrefs: spine.hrefs.join(','),
                         labels: spine.labels.join(','),
                       }),
@@ -123,6 +125,7 @@ export default function BookScreen({
                     onPress: () =>
                       navigation.navigate('ToC', {
                         ...params,
+                        headerTitle: 'Table of Contents',
                         hrefs: toc.hrefs.join(','),
                         labels: toc.labels.join(','),
                       }),
