@@ -91,7 +91,6 @@ export default function BookScreen({
       });
   }, [absoluteUriToNcx]);
 
-  // TODO: check whether navigation.setOptions should be set in render or effect
   useEffect(() => {
     navigation.setOptions({
       headerShown: true,

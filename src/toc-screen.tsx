@@ -1,5 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,22 +15,14 @@ export default function TableOfContents({
   route,
 }: NativeStackScreenProps<RootStackParamList, 'ToC'>) {
   const params = route.params;
-
-  // TODO: check whether navigation.setOptions should be set in render or effect
-  navigation.setOptions({ headerTitle: params.headerTitle });
-
   const { hrefs, labels, ...backParams } = params;
-
-  if (!hrefs || !labels) {
-    return (
-      <View>
-        <Text>Missing 'href' and/or 'label' params.</Text>
-      </View>
-    );
-  }
 
   const hrefsSplit = useMemo(() => hrefs.split(','), [hrefs]);
   const labelsSplit = useMemo(() => labels.split(','), [labels]);
+
+  useEffect(() => {
+    navigation.setOptions({ headerTitle: params.headerTitle });
+  }, [params.headerTitle]);
 
   return (
     <ScrollView>
