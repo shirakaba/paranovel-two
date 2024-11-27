@@ -2,6 +2,10 @@ import { XMLParser } from 'fast-xml-parser';
 import type { OPF, NCX } from '@/types/epub.types';
 import { MainFeaturesFromOPF } from '@/types/book.types';
 
+// TODO: Read the Kindle guide to self-publishing to see recommendations for
+// structure and contents of the epub:
+// https://kdp.amazon.com/en_US/help/topic/GY3AD8C6C6GAG42N
+
 export function getMainFeaturesFromOpf(
   opf: OPF,
 ): MainFeaturesFromOPF | undefined {
@@ -107,17 +111,34 @@ export function getSpineFromOpf({ opf, nav }: { opf: OPF; nav?: string }) {
   return spineItems;
 }
 
-export function getTocFromNCX(ncx: NCX) {
+export function getTocFromNCX({
+  ncx,
+  ncxFileHref,
+}: {
+  ncx: NCX;
+  ncxFileHref: string;
+}) {
   const {
     root: {
       navMap: { navPoints },
     },
   } = ncx;
 
+  // The values for src in the toc.ncx file seem to be relative to the toc.ncx
+  // file itself. So here we work out the dirname to prepend it before the href.
+  const ncxDir = ncxFileHref.slice(
+    0,
+    // TODO: work out how to normalise paths for Windows
+    ncxFileHref.lastIndexOf('/'),
+  );
+
   // To be expanded to: `${backParams.opsUri}/${href}`
   return navPoints
     .sort((a, b) => a.playOrder - b.playOrder)
-    .map(({ navLabel, src }) => ({ href: src, label: navLabel }));
+    .map(({ navLabel, src }) => ({
+      href: `${ncxDir}/${src}`,
+      label: navLabel,
+    }));
 }
 
 export function parseOPF(text: string) {

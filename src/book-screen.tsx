@@ -99,7 +99,10 @@ export default function BookScreen({
         const spine = opf
           ? getSpineFromOpf({ opf, nav: params.nav })
           : undefined;
-        const toc = ncx ? getTocFromNCX(ncx) : undefined;
+        const toc =
+          params.ncxFileHref && ncx
+            ? getTocFromNCX({ ncx, ncxFileHref: params.ncxFileHref })
+            : undefined;
 
         return (
           <>
