@@ -199,12 +199,28 @@ history.scrollRestoration = "manual";
   // effect.
   const style = document.createElement('style');
   style.textContent = \`
+:root {
+  /*
+   * - In vertical-rl text: 'block' = 'horizontal' and 'inline' = 'vertical'.
+   * - In horizontal-lr text: 'block' = 'vertical' and 'inline' = 'horizontal'.
+   */
+  --paranovel-block-padding: 24px;
+  --paranovel-inline-padding: 24px;
+  --paranovel-font-size: 24px;
+}
+
+html {
+  margin: 0 !important;
+  max-inline-size: none !important;
+}
+
 body {
   box-sizing: border-box !important;
-  padding: 24pt !important;
+  padding-block: var(--paranovel-block-padding) !important;
+  padding-inline: var(--paranovel-inline-padding) !important;
   margin: 0 !important;
   inline-size: 100% !important;
-  font-size: 20pt !important;
+  font-size: var(--paranovel-font-size) !important;
 }
 
 img, svg {
