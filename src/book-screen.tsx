@@ -215,6 +215,7 @@ html {
 }
 
 body {
+  position: relative !important;
   box-sizing: border-box !important;
   padding-block: var(--paranovel-block-padding) !important;
   padding-inline: var(--paranovel-inline-padding) !important;
@@ -231,19 +232,35 @@ img, svg {
   document.head.appendChild(style);
 }
 
-function buildHUD(){
-  const html = \`
-<div id="hud" style="position: fixed; display: flex; justify-content: center; width: 100%; top: 0; left: 0; right: 0; background-color: rgb(55,65,81); min-height: 40px; padding: 8px; writing-mode: horizontal-tb; color: white; font-family: sans-serif; font-size: 16px;">
+/**
+ * Prepend 'previous' and 'next' buttons into the <body>.
+ *
+ * They are placed in the padding box.
+ */
+function insertNavigationButtons(body){
+  const absoluteEdgeStyles = "position: absolute; display: flex; justify-content: center; inset-inline-start: 0; inline-size: 100%;";
+
+  const prev = \`
+<div id="prev" style="\${absoluteEdgeStyles} inset-block-start: 0;">
+  <button type="button" style="writing-mode: horizontal-tb;">Previous</button>
 </div>
   \`.trim();
 
-  const template = document.createElement("template");
-  template.innerHTML = html;
-  const dom = template.content.firstChild;
-  return dom;
+  const next = \`
+<div id="next" style="\${absoluteEdgeStyles} inset-block-end: 0;">
+  <button type="button" style="writing-mode: horizontal-tb;">Next</button>
+</div>
+  \`.trim();
+
+  for(const html of [next, prev]){
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const dom = template.content.firstChild;
+    body.prepend(dom);
+  }
 }
 
-// document.body.prepend(buildHUD());
+insertNavigationButtons(document.body);
 `.trim();
 
 const style = StyleSheet.create({
