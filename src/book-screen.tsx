@@ -190,7 +190,7 @@ history.scrollRestoration = "manual";
   // Insert a viewport meta tag
   const meta = document.createElement("meta");
   meta.name = "viewport";
-  meta.content = "width=device-width, initial-scale=1";
+  meta.content = "width=device-width, initial-scale=1, user-scalable=no";
   document.head.appendChild(meta);
 
   // Insert our custom styles. This approach reliably presents the styles in the
