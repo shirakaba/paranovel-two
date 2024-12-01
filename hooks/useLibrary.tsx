@@ -9,11 +9,7 @@ import {
   getInfoAsync,
   readAsStringAsync,
 } from 'expo-file-system';
-import {
-  getMainFeaturesFromOpf,
-  parseNCX,
-  parseOPF,
-} from '@/utils/epub-parsing';
+import { getMainFeaturesFromOpf, parseOPF } from '@/utils/epub-parsing';
 
 export function LibraryProvider({ children }: React.PropsWithChildren) {
   const { query, library, setLibrary, libraryDir, setLibraryDir } =

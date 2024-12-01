@@ -67,7 +67,7 @@ export default function LibraryScreen({
 
       console.error('Error reading library', error);
     }
-  }, []);
+  }, [libraryStatus]);
 
   return (
     <SafeAreaView
