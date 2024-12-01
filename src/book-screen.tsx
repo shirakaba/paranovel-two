@@ -233,30 +233,38 @@ img, svg {
 }
 
 /**
- * Prepend 'previous' and 'next' buttons into the <body>.
- *
- * They are placed in the padding box.
+ * Prepend a prelude and append a postlude into the <body>.
  */
 function insertNavigationButtons(body){
-  const absoluteEdgeStyles = "position: absolute; display: flex; justify-content: center; inset-inline-start: 0; inline-size: 100%;";
+  const commonStyles = "display: flex; justify-content: center; align-items: center;";
 
-  const prev = \`
-<div id="prev" style="\${absoluteEdgeStyles} inset-block-start: 0;">
+  const prelude = \`
+<div id="paranovel-prev" style="\${commonStyles} padding-block-end: 16px;">
   <button type="button" style="writing-mode: horizontal-tb;">Previous</button>
 </div>
   \`.trim();
 
-  const next = \`
-<div id="next" style="\${absoluteEdgeStyles} inset-block-end: 0;">
+  const postlude = \`
+<div id="paranovel-postlude" style="\${commonStyles} padding-block-start: 16px;">
   <button type="button" style="writing-mode: horizontal-tb;">Next</button>
 </div>
   \`.trim();
 
-  for(const html of [next, prev]){
+  for(const html of [postlude, prelude]){
     const template = document.createElement("template");
     template.innerHTML = html;
     const dom = template.content.firstChild;
-    body.prepend(dom);
+
+    switch(dom.id){
+      case "paranovel-prelude": {
+        body.prepend(dom);
+        break;
+      }
+      case "paranovel-postlude": {
+        body.append(dom);
+        break;
+      }
+    }
   }
 }
 
