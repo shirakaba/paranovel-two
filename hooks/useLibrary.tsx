@@ -160,13 +160,17 @@ export async function readLibrary(directoryPath: string) {
         // My EPUB 3 samples place all the resources into a folder named "OPS",
         // while my EPUB 2 samples place them at the root. The consistent thing
         // is that all the resources are in whatever folder the OPF file was in.
-        const opsUri = absoluteUriToOPF.slice(
-          0,
-          // TODO: if this is Windows, work out whether expo-file-system should
-          // return POSIX paths or Windows paths, and work out the dirname
-          // accordingly.
-          absoluteUriToOPF.lastIndexOf('/'),
-        );
+        const opsDirnameStartIndex = absoluteUriToOPF.lastIndexOf('/');
+        const opsUri =
+          opsDirnameStartIndex === -1
+            ? absoluteUriToOPF
+            : absoluteUriToOPF.slice(
+                0,
+                // TODO: if this is Windows, work out whether expo-file-system should
+                // return POSIX paths or Windows paths, and work out the dirname
+                // accordingly.
+                opsDirnameStartIndex,
+              );
 
         const relativePathToOpfFromOps = absoluteUriToOPF
           .slice(opsUri.length)

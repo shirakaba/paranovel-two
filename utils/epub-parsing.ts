@@ -126,11 +126,10 @@ export function getTocFromNCX({
 
   // The values for src in the toc.ncx file seem to be relative to the toc.ncx
   // file itself. So here we work out the dirname to prepend it before the href.
-  const ncxDir = ncxFileHref.slice(
-    0,
-    // TODO: work out how to normalise paths for Windows
-    ncxFileHref.lastIndexOf('/'),
-  );
+  // TODO: work out how to normalise paths for Windows
+  const dirnameStartIndex = ncxFileHref.lastIndexOf('/');
+  const ncxDir =
+    dirnameStartIndex === -1 ? '' : ncxFileHref.slice(0, dirnameStartIndex);
 
   // To be expanded to: `${backParams.opsUri}/${href}`
   return navPoints
