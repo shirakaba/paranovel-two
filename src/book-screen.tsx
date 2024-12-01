@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, SafeAreaView, StyleSheet } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { useLibrary } from '@/hooks/useLibrary';
 import type { OPF, NCX } from '@/types/epub.types';
@@ -91,19 +91,24 @@ export default function BookScreen({
       });
   }, [absoluteUriToNcx]);
 
+  const spine = useMemo(
+    () => (opf ? getSpineFromOpf({ opf, nav: params.nav }) : undefined),
+    [opf, params.nav],
+  );
+
+  const toc = useMemo(
+    () =>
+      params.ncxFileHref && ncx
+        ? getTocFromNCX({ ncx, ncxFileHref: params.ncxFileHref })
+        : undefined,
+    [ncx, params.ncxFileHref],
+  );
+
   useEffect(() => {
     navigation.setOptions({
       headerShown: true,
       headerTitle: params.title,
       headerRight: () => {
-        const spine = opf
-          ? getSpineFromOpf({ opf, nav: params.nav })
-          : undefined;
-        const toc =
-          params.ncxFileHref && ncx
-            ? getTocFromNCX({ ncx, ncxFileHref: params.ncxFileHref })
-            : undefined;
-
         return (
           <>
             <Button
@@ -136,7 +141,50 @@ export default function BookScreen({
         );
       },
     });
-  }, [navigation, params.nav, params.title, opf, ncx]);
+  }, [navigation, params, spine, toc]);
+
+  const onMessage = useCallback(
+    ({ nativeEvent: { data } }: WebViewMessageEvent) => {
+      let parsed: any;
+      try {
+        parsed = JSON.parse(data);
+      } catch (error) {
+        return;
+      }
+      // TODO: validate
+
+      switch (parsed.type) {
+        case 'navigation-request': {
+          if (!spine) {
+            return;
+          }
+
+          const { value, currentHref } = parsed;
+
+          // Strip off any URL params and URI fragments by converting to path.
+          const currentPathname = new URL(currentHref).pathname;
+          const currentItemIndex = spine.findIndex(({ href }) =>
+            currentPathname.endsWith(href),
+          );
+
+          if (currentItemIndex === -1) {
+            return;
+          }
+          const newIndex = currentItemIndex + (value === 'next' ? 1 : -1);
+          const newPage = spine[newIndex];
+          if (!newPage) {
+            return;
+          }
+
+          const newUri = `${params.opsUri}/${newPage.href}`;
+          console.log(`[onMessage] Setting URI to "${newUri}"`);
+          setWebViewUri(`${newUri}`);
+          break;
+        }
+      }
+    },
+    [spine, params.opsUri],
+  );
 
   if (library.type !== 'loaded') {
     return null;
@@ -151,8 +199,7 @@ export default function BookScreen({
       <WebView
         webviewDebuggingEnabled={true}
         javaScriptEnabled={true}
-        // No-op onMessage() handler needed to enable injectedJavaScript.
-        onMessage={() => {}}
+        onMessage={onMessage}
         onLoadStart={({ nativeEvent: { url, loading, title } }) => {
           console.log('onLoadStart', url, loading, title);
         }}
@@ -239,7 +286,7 @@ function insertNavigationButtons(body){
   const commonStyles = "display: flex; justify-content: center; align-items: center;";
 
   const prelude = \`
-<div id="paranovel-prev" style="\${commonStyles} padding-block-end: 16px;">
+<div id="paranovel-prelude" style="\${commonStyles} padding-block-end: 16px;">
   <button type="button" style="writing-mode: horizontal-tb;">Previous</button>
 </div>
   \`.trim();
@@ -257,10 +304,28 @@ function insertNavigationButtons(body){
 
     switch(dom.id){
       case "paranovel-prelude": {
+        const prev = dom.querySelector('button');
+        prev.onclick = (event) => {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: "navigation-request",
+            value: "prev",
+            currentHref: location.href,
+          }));
+        };
+
         body.prepend(dom);
         break;
       }
       case "paranovel-postlude": {
+        const next = dom.querySelector('button');
+        next.onclick = (event) => {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: "navigation-request",
+            value: "next",
+            currentHref: location.href,
+          }));
+        };
+
         body.append(dom);
         break;
       }
