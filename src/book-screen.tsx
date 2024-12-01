@@ -179,7 +179,13 @@ export default function BookScreen({
   );
 }
 
+// Many of these things (like scroll restoration) would belong better in
+// injectedJavaScriptBeforeContentLoaded, but I'm finding it to be an incredibly
+// unreliable prop
 const injectedJavaScript = `
+// Prevent restoring the last-scrolled position from a previous session.
+history.scrollRestoration = "manual";
+
 {
   // Insert a viewport meta tag
   const meta = document.createElement("meta");
