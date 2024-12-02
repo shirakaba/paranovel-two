@@ -297,7 +297,14 @@ body {
   font-size: var(--paranovel-font-size) !important;
 }
 
+div:has(img) {
+  height: auto !important;
+}
+
 img, svg {
+  /* Stop images sizing to their container  */
+  block-size: auto !important;
+
   /* Prevent images from dictating the height of the whole page. */
   max-inline-size: 100% !important;
 }
