@@ -316,17 +316,20 @@ img, svg {
  * Prepend a prelude and append a postlude into the <body>.
  */
 function insertNavigationButtons(body){
-  const commonStyles = "display: flex; justify-content: center; align-items: center;";
+  // TODO: style Previous & Next as primary, and the Jump buttons as secondary.
+  const commonStyles = "display: flex; justify-content: center; align-items: center; column-gap: 8px;";
 
   const prelude = \`
 <div id="paranovel-prelude" style="\${commonStyles} padding-block-end: 16px;">
-  <button type="button" style="writing-mode: horizontal-tb;">Previous</button>
+  <button id="paranovel-previous" type="button" style="writing-mode: horizontal-tb;">Previous</button>
+  <button id="paranovel-end" type="button" style="writing-mode: horizontal-tb;">Jump to end</button>
 </div>
   \`.trim();
 
   const postlude = \`
 <div id="paranovel-postlude" style="\${commonStyles} padding-block-start: 16px;">
-  <button type="button" style="writing-mode: horizontal-tb;">Next</button>
+  <button id="paranovel-start" type="button" style="writing-mode: horizontal-tb;">Return to start</button>
+  <button id="paranovel-next" type="button" style="writing-mode: horizontal-tb;">Next</button>
 </div>
   \`.trim();
 
@@ -337,7 +340,7 @@ function insertNavigationButtons(body){
 
     switch(dom.id){
       case "paranovel-prelude": {
-        const prev = dom.querySelector('button');
+        const prev = dom.querySelector("#paranovel-previous");
         prev.onclick = (event) => {
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: "navigation-request",
@@ -346,17 +349,27 @@ function insertNavigationButtons(body){
           }));
         };
 
+        const end = dom.querySelector("#paranovel-end");
+        end.onclick = (event) => {
+          document.body.scrollIntoView({ block: "end", inline: "end", behavior: "instant" });
+        };
+
         body.prepend(dom);
         break;
       }
       case "paranovel-postlude": {
-        const next = dom.querySelector('button');
+        const next = dom.querySelector("#paranovel-next");
         next.onclick = (event) => {
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: "navigation-request",
             value: "next",
             currentHref: location.href,
           }));
+        };
+
+        const start = dom.querySelector("#paranovel-start");
+        start.onclick = (event) => {
+          document.body.scrollIntoView({ block: "start", inline: "start", behavior: "instant" });
         };
 
         body.append(dom);
