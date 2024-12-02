@@ -1,18 +1,24 @@
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { readAsStringAsync } from 'expo-file-system';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, SafeAreaView, StyleSheet } from 'react-native';
+import {
+  Button,
+  SafeAreaView,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
+import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useLibrary } from '@/hooks/useLibrary';
 import type { OPF, NCX } from '@/types/epub.types';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from './navigation.types';
-import { readAsStringAsync } from 'expo-file-system';
 import {
   getSpineFromOpf,
   getTocFromNCX,
   parseNCX,
   parseOPF,
 } from '@/utils/epub-parsing';
+import type { RootStackParamList } from './navigation.types';
 
 export default function BookScreen({
   navigation,
@@ -21,6 +27,7 @@ export default function BookScreen({
   const params = route.params;
 
   const [webViewUri, setWebViewUri] = useState(params.href);
+  const webViewRef = useRef<WebView>(null);
 
   // This hook, and the navigationTimestamp, are a crude workaround for the
   // webViewUri not updating when a sub-screen (e.g. ToC) unwinds back to this
@@ -111,6 +118,24 @@ export default function BookScreen({
       headerRight: () => {
         return (
           <>
+            {/*
+              Hot updates (e.g. of the `injectedJavaScript` prop) don't refresh
+              the WebView, so it's handy during development to just be able to
+              force a refresh on demand.
+            */}
+            {__DEV__ && (
+              <TouchableOpacity
+                onPress={() => {
+                  webViewRef.current?.reload();
+                }}>
+                <IconSymbol
+                  name="arrow.clockwise"
+                  size={22}
+                  weight="medium"
+                  color={'#3677F9'}
+                />
+              </TouchableOpacity>
+            )}
             <Button
               title="Spine"
               {...(spine
@@ -197,6 +222,7 @@ export default function BookScreen({
   return (
     <SafeAreaView style={style.container}>
       <WebView
+        ref={webViewRef}
         webviewDebuggingEnabled={true}
         javaScriptEnabled={true}
         onMessage={onMessage}
