@@ -187,12 +187,15 @@ export default function BookScreen({
           const { value, currentHref } = parsed;
 
           // Strip off any URL params and URI fragments by converting to path.
-          const currentPathname = new URL(currentHref).pathname;
+          const currentPathname = decodeURI(new URL(currentHref).pathname);
           const currentItemIndex = spine.findIndex(({ href }) =>
             currentPathname.endsWith(href),
           );
 
           if (currentItemIndex === -1) {
+            // This can happen when the browser transforms the URL so as to make
+            // it different from the href written into the spine.
+            console.log('Unable to find current page in spine');
             return;
           }
           const newIndex = currentItemIndex + (value === 'next' ? 1 : -1);
