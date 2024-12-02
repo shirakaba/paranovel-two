@@ -282,6 +282,15 @@ history.scrollRestoration = "manual";
   --paranovel-font-size: 24px;
 }
 
+* {
+  /*
+    Prevent double-tap from zooming and centring on the element (e.g. <button>
+    elements). The zoom cancellation is redundant with the "user-scalable=no"
+    option specified in our <meta> tag, but the centring cancellation isn't.
+  */
+  touch-action: pan-x pan-y;
+}
+
 html {
   margin: 0 !important;
   max-inline-size: none !important;
