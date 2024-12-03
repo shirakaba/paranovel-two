@@ -11,6 +11,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useLibrary } from '@/hooks/useLibrary';
+import { tokenize } from '@/modules/mecab';
 import type { OPF, NCX } from '@/types/epub.types';
 import {
   getSpineFromOpf,
@@ -170,20 +171,51 @@ export default function BookScreen({
 
   const onMessage = useCallback(
     ({ nativeEvent: { data } }: WebViewMessageEvent) => {
-      let parsed: any;
+      interface LogPayload {
+        type: 'log';
+        message: string;
+      }
+      interface LookUpPayload {
+        type: 'lookUpTerm';
+        message: string;
+      }
+      interface TokenizePayload {
+        type: 'tokenize';
+        id: number;
+        blockText: string;
+        offset: number;
+      }
+      interface NavigationRequestPayload {
+        type: 'navigation-request';
+        value: string;
+        currentHref: string;
+      }
+      type Payload =
+        | LogPayload
+        | LookUpPayload
+        | TokenizePayload
+        | NavigationRequestPayload;
+
+      let parsed: Payload;
       try {
         parsed = JSON.parse(data);
       } catch (error) {
+        console.error('[WebView] error parsing message', error);
         return;
       }
+
       // TODO: validate
 
       switch (parsed.type) {
+        case 'log': {
+          const { message } = parsed;
+          console.log(`[WebView] log: ${message}`);
+          break;
+        }
         case 'navigation-request': {
           if (!spine) {
             return;
           }
-
           const { value, currentHref } = parsed;
 
           // Strip off any URL params and URI fragments by converting to path.
@@ -208,6 +240,76 @@ export default function BookScreen({
           console.log(`[onMessage] Setting URI to "${newUri}"`);
           setWebViewUri(`${newUri}`);
           break;
+        }
+        case 'tokenize': {
+          const webView = webViewRef.current;
+          if (!webView) {
+            return;
+          }
+
+          // Gross, but just working with what react-native-webview gives me.
+          const settle = (
+            type: 'resolve' | 'reject',
+            value: string,
+            id?: number,
+          ) =>
+            webView.injectJavaScript(
+              typeof id === 'string'
+                ? `__paranovelState.tokenizationPromiseHandlers[${id}].${type}(${value});`
+                : `Object.keys(__paranovelState.tokenizationPromiseHandlers).forEach(id => __paranovelState.tokenizationPromiseHandlers[id].${type}(${value}));`,
+            );
+          const resolve = (value: string, id?: number) =>
+            settle('resolve', value, id);
+          const reject = (value: string, id?: number) =>
+            settle('reject', value, id);
+
+          if (typeof parsed !== 'object') {
+            return reject('"Expected message to be object"');
+          }
+
+          const { id, blockText, offset: targetOffset } = parsed;
+          if (typeof id !== 'number') {
+            return reject('"Expected body to have id"');
+          }
+          if (typeof blockText !== 'string') {
+            return reject('"Expected body to contain blockText"', id);
+          }
+          if (typeof targetOffset !== 'number') {
+            return reject('"Expected body to contain targetOffset"', id);
+          }
+
+          const tokens = tokenize(blockText);
+          if (!tokens.length) {
+            return reject('"Expected to produce more than 0 tokens."', id);
+          }
+
+          // MeCab always trims leading whitespace.
+          const leadingWhiteSpace = /^\\s+/.exec(blockText)?.[0] ?? '';
+          let offset = leadingWhiteSpace.length;
+
+          for (const token of tokens) {
+            const length =
+              token.surface.length + (token.trailingWhitespace?.length ?? 0);
+
+            if (offset + length > targetOffset) {
+              // Although 'フェルディナンド' does give a non-null lemma, it's '*'.
+              const dictionaryForm =
+                token.lemma && token.lemma !== '*'
+                  ? token.lemma
+                  : token.surface;
+              return resolve(
+                `{ "offset": ${offset}, "length": ${length}, "dictionaryForm": "${dictionaryForm.replace(
+                  '"',
+                  '\\"',
+                )}" }`,
+                id,
+              );
+            }
+
+            offset += length;
+          }
+
+          return reject('"Didn\'t find token"', id);
         }
       }
     },
@@ -283,6 +385,11 @@ history.scrollRestoration = "manual";
   --paranovel-block-padding: 24px;
   --paranovel-inline-padding: 24px;
   --paranovel-font-size: 24px;
+}
+
+::highlight(word) {
+  color: black;
+  background-color: yellow;
 }
 
 * {
@@ -391,7 +498,181 @@ function insertNavigationButtons(body){
   }
 }
 
+function log(message){
+  window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'log', message }));
+};
+
+async function onClickDocument(event){
+  const { x, y } = event;
+
+  const caretRange = document.caretRangeFromPoint(x, y);
+  if(!caretRange){
+    log('❌ no caret range');
+    return;
+  }
+
+  const surroundingText = getSurroundingText(caretRange);
+  console.log(surroundingText);
+  if(!surroundingText){
+    log('❌ no surrounding text');
+    return;
+  }
+
+  __paranovelState.wordHighlight.clear();
+
+  const { blockText, offset, target } = surroundingText;
+
+  const id = __paranovelState.tokenizationPromiseCount++;
+
+  let response;
+  try {
+    response = await new Promise((resolve, reject) => {
+      __paranovelState.tokenizationPromiseHandlers[id] = { resolve, reject };
+
+      // Promise is settled by onNovelViewMessage calling resolve/reject
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'tokenize',
+        id,
+        blockText,
+        offset,
+      }));
+    });
+  } catch (error) {
+    console.error("Tokenize Promise rejected with error", error);
+    log(\`❌ Tokenize Promise rejected"\${error instanceof Error ? \` with error: \${error.message}\` : '.'}"\`);
+  } finally {
+    delete __paranovelState.tokenizationPromiseHandlers[id];
+  }
+
+  lookUpTerm(response.dictionaryForm);
+
+  // TODO: adjust the target if it's a <ruby>, and handle selecting across
+  // formatted text spans like <em>.
+  const selectionRange = new Range();
+  selectionRange.setStart(target, response.offset);
+  selectionRange.setEnd(target, response.offset);
+
+  const selection = document.getSelection();
+  if(!selection){
+    log('❌ no selection');
+    return;
+  }
+  selection.removeAllRanges();
+  selection.addRange(selectionRange);
+  for(let i = 0; i < response.length; i++){
+    document.getSelection().modify('extend', 'right', 'character');
+  }
+
+  const resultingRange = document.getSelection().getRangeAt(0);
+  if(resultingRange){
+    __paranovelState.wordHighlight.add(resultingRange);
+  }
+
+  // Seems redundant (I think .surroundContents() clears it), but might as well.
+  document.getSelection().removeAllRanges();
+}
+
+function lookUpTerm(dictionaryForm){
+  window.ReactNativeWebView.postMessage(JSON.stringify({
+    type: 'lookUpTerm',
+    message: dictionaryForm,
+  }));
+};
+
+function getSurroundingText(range){
+  const { startContainer: target, startOffset: targetOffset } = range;
+  if(!(target instanceof Text)){
+    return;
+  }
+
+  const element = target.parentElement;
+  if(!element){
+    return;
+  }
+
+  const closestRuby = element.closest("ruby");
+  const pivot = closestRuby ?? target;
+  const blockElementsSelector = 'address,article,aside,blockquote,canvas,dd,div,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,noscript,ol,p,pre,section,table,tfoot,ul,video';
+  const closestBlock = element.closest(blockElementsSelector);
+  const blocklist = (element) => element?.classList.contains("timestamp");
+
+  const leadingText = getFollowingText(pivot, 'previous', closestBlock, blocklist);
+  const targetText = getBaseTextContent(pivot);
+  const trailingText = getFollowingText(pivot, 'next', closestBlock, blocklist);
+
+  const offset = leadingText.length + (closestRuby ? 0 : targetOffset);
+  const blockText = leadingText + targetText + trailingText;
+
+  return {
+    leadingText,
+    target,
+    targetText,
+    targetTextSliced: targetText.slice(offset),
+    trailingText,
+    blockText,
+    offset,
+  };
+}
+
+function getFollowingText(node, direction, untilAncestor, blocklist){
+  let followingText = '';
+
+  let parent = node.parentElement;
+  let sibling = direction === 'next' ? node.nextSibling : node.previousSibling;
+  while(true){
+    // If we've reached the end of the run, climb up to the parent and continue.
+    while(!sibling){
+      if(!parent || parent === untilAncestor){
+        return followingText;
+      }
+
+      sibling = direction === 'next' ?
+        parent.nextSibling :
+        parent.previousSibling;
+
+      // If we've walked into an ineligible (end-of-line) sibling, climb up
+      // further. This is purely a lazy anti-pattern to support timestamp.
+      if(blocklist(sibling)){
+        sibling = null;
+      }
+
+      parent = parent.parentElement;
+    }
+
+    const textContent = getBaseTextContent(sibling);
+    followingText = direction === 'next' ?
+      followingText + textContent :
+      textContent + followingText;
+
+    sibling = direction === 'next' ?
+      sibling.nextSibling :
+      sibling.previousSibling;
+  }
+
+  return followingText;
+}
+
+// Warning: does not return empty strings if called directly on/inside <rt>/<rp>
+function getBaseTextContent(node){
+  return node.nodeName === "RUBY" ?
+    [...node.childNodes].filter(
+      node => node.nodeName === "#text" || node.nodeName === "RB"
+    ).map(node => node.textContent).join("") :
+      node instanceof Text ?
+        node.textContent :
+        [...node.childNodes].map(node => getBaseTextContent(node)).join('');
+}
+
+const __paranovelState = {
+  wordHighlight: new Highlight(),
+  tokenizationPromiseCount: 0,
+  tokenizationPromiseHandlers: {},
+};
+
+CSS.highlights.set("word", __paranovelState.wordHighlight);
+
 insertNavigationButtons(document.body);
+document.addEventListener('click', onClickDocument);
 `.trim();
 
 const style = StyleSheet.create({
