@@ -515,15 +515,18 @@ async function onClickDocument(event){
   }
 
   const surroundingText = getSurroundingText(caretRange);
-  console.log(surroundingText);
   if(!surroundingText){
     log('❌ no surrounding text');
     return;
   }
+  console.log(surroundingText);
+  const {
+    blockText,
+    offsetOfTargetBaseTextIntoBlockBaseText,
+    targetNode,
+  } = surroundingText;
 
   __paranovelState.wordHighlight.clear();
-
-  const { blockText, offset, target } = surroundingText;
 
   const id = __paranovelState.tokenizationPromiseCount++;
 
@@ -537,7 +540,7 @@ async function onClickDocument(event){
         type: 'tokenize',
         id,
         blockText,
-        offset,
+        offset: offsetOfTargetBaseTextIntoBlockBaseText,
       }));
     });
   } catch (error) {
@@ -553,8 +556,8 @@ async function onClickDocument(event){
   // TODO: adjust the target if it's a <ruby>, and handle selecting across
   // formatted text spans like <em>.
   const selectionRange = new Range();
-  selectionRange.setStart(target, targetTokenOffset);
-  selectionRange.setEnd(target, targetTokenOffset);
+  selectionRange.setStart(targetNode, targetTokenOffset);
+  selectionRange.setEnd(targetNode, targetTokenOffset);
 
   const selection = document.getSelection();
   if(!selection){
@@ -584,37 +587,37 @@ function lookUpTerm(dictionaryForm){
 };
 
 function getSurroundingText(range){
-  const { startContainer: target, startOffset: targetOffset } = range;
-  if(!(target instanceof Text)){
+  const { startContainer: targetNode, startOffset: targetOffset } = range;
+  if(!(targetNode instanceof Text)){
     return;
   }
 
-  const element = target.parentElement;
+  const element = targetNode.parentElement;
   if(!element){
     return;
   }
 
   const closestRuby = element.closest("ruby");
-  const pivot = closestRuby ?? target;
+  const pivot = closestRuby ?? targetNode;
   const blockElementsSelector = 'address,article,aside,blockquote,canvas,dd,div,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,noscript,ol,p,pre,section,table,tfoot,ul,video';
   const closestBlock = element.closest(blockElementsSelector);
   const blocklist = (element) => element?.classList.contains("timestamp");
 
-  const leadingText = getFollowingText(pivot, 'previous', closestBlock, blocklist);
-  const targetText = getBaseTextContent(pivot);
-  const trailingText = getFollowingText(pivot, 'next', closestBlock, blocklist);
+  const leadingBaseText = getFollowingText(pivot, 'previous', closestBlock, blocklist);
+  const targetBaseText = getBaseTextContent(pivot);
+  const trailingBaseText = getFollowingText(pivot, 'next', closestBlock, blocklist);
 
-  const offset = leadingText.length + (closestRuby ? 0 : targetOffset);
-  const blockText = leadingText + targetText + trailingText;
+  const offsetOfTargetBaseTextIntoBlockBaseText = leadingBaseText.length + (closestRuby ? 0 : targetOffset);
+  const blockText = leadingBaseText + targetBaseText + trailingBaseText;
 
   return {
-    leadingText,
-    target,
-    targetText,
-    targetTextSliced: targetText.slice(offset),
-    trailingText,
+    leadingBaseText,
+    targetNode,
+    targetBaseText,
+    targetBaseTextSliced: targetBaseText.slice(offsetOfTargetBaseTextIntoBlockBaseText),
+    trailingBaseText,
     blockText,
-    offset,
+    offsetOfTargetBaseTextIntoBlockBaseText,
   };
 }
 
