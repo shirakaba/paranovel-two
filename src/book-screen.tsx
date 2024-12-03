@@ -285,20 +285,23 @@ export default function BookScreen({
 
           // MeCab always trims leading whitespace.
           const leadingWhiteSpace = /^\\s+/.exec(blockText)?.[0] ?? '';
-          let offset = leadingWhiteSpace.length;
+          // The user may have clicked into the middle of a token, so we want to
+          // return the start offset of the token containing the clicked
+          // character.
+          let targetTokenOffset = leadingWhiteSpace.length;
 
           for (const token of tokens) {
             const length =
               token.surface.length + (token.trailingWhitespace?.length ?? 0);
 
-            if (offset + length > targetOffset) {
+            if (targetTokenOffset + length > targetOffset) {
               // Although 'フェルディナンド' does give a non-null lemma, it's '*'.
               const dictionaryForm =
                 token.lemma && token.lemma !== '*'
                   ? token.lemma
                   : token.surface;
               return resolve(
-                `{ "offset": ${offset}, "length": ${length}, "dictionaryForm": "${dictionaryForm.replace(
+                `{ "targetTokenOffset": ${targetTokenOffset}, "tokenLength": ${length}, "dictionaryForm": "${dictionaryForm.replace(
                   '"',
                   '\\"',
                 )}" }`,
@@ -306,7 +309,7 @@ export default function BookScreen({
               );
             }
 
-            offset += length;
+            targetTokenOffset += length;
           }
 
           return reject('"Didn\'t find token"', id);
@@ -544,13 +547,14 @@ async function onClickDocument(event){
     delete __paranovelState.tokenizationPromiseHandlers[id];
   }
 
-  lookUpTerm(response.dictionaryForm);
+  const { dictionaryForm, tokenLength, targetTokenOffset } = response;
+  lookUpTerm(dictionaryForm);
 
   // TODO: adjust the target if it's a <ruby>, and handle selecting across
   // formatted text spans like <em>.
   const selectionRange = new Range();
-  selectionRange.setStart(target, response.offset);
-  selectionRange.setEnd(target, response.offset);
+  selectionRange.setStart(target, targetTokenOffset);
+  selectionRange.setEnd(target, targetTokenOffset);
 
   const selection = document.getSelection();
   if(!selection){
@@ -559,7 +563,7 @@ async function onClickDocument(event){
   }
   selection.removeAllRanges();
   selection.addRange(selectionRange);
-  for(let i = 0; i < response.length; i++){
+  for(let i = 0; i < tokenLength; i++){
     document.getSelection().modify('extend', 'right', 'character');
   }
 
