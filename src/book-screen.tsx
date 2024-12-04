@@ -398,6 +398,14 @@ history.scrollRestoration = "manual";
   background-color: yellow;
 }
 
+rb {
+  /*
+    Workaround for a horrible Safari bug whereby it draws a tall opaque
+    highlight that completely obscures the <rt>.
+  */
+ mix-blend-mode: multiply;
+}
+
 * {
   /*
     Prevent double-tap from zooming and centring on the element (e.g. <button>
