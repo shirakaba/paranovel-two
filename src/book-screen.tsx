@@ -261,7 +261,7 @@ export default function BookScreen({
           const resolve = (value: string, id?: number) =>
             settle('resolve', value, id);
           const reject = (value: string, id?: number) =>
-            settle('reject', value, id);
+            settle('reject', `new Error(${value})`, id);
 
           if (typeof parsed !== 'object') {
             return reject('"Expected message to be object"');
@@ -549,7 +549,7 @@ async function onClickDocument(event){
     });
   } catch (error) {
     console.error("Tokenize Promise rejected with error", error);
-    log(\`❌ Tokenize Promise rejected"\${error instanceof Error ? \` with error: \${error.message}\` : '.'}"\`);
+    log(\`❌ Tokenize Promise rejected\${error instanceof Error ? \` with error: "\${error.message}"\` : '.'}\`);
   } finally {
     delete __paranovelState.tokenizationPromiseHandlers[id];
   }
