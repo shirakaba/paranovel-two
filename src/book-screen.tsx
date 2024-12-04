@@ -522,6 +522,7 @@ async function onClickDocument(event){
   console.log(surroundingText);
   const {
     blockBaseText,
+    closestBlock,
     offsetOfTargetBaseTextIntoBlockBaseText,
     targetNode,
   } = surroundingText;
@@ -555,35 +556,19 @@ async function onClickDocument(event){
     tokenLength,
     offsetOfTargetTokenIntoBlockBaseText,
   } = response;
-  // FIXME: we now know the offset of our target token into the blockBaseText.
-  // We need to traverse the block again to figure out what node offset that
-  // corresponds to.
   lookUpTerm(dictionaryForm);
 
-  // TODO: adjust the target if it's a <ruby>, and handle selecting across
-  // formatted text spans like <em>.
-  const selectionRange = new Range();
-  selectionRange.setStart(targetNode, offsetOfTargetTokenIntoBlockBaseText);
-  selectionRange.setEnd(targetNode, offsetOfTargetTokenIntoBlockBaseText);
+  const tokenRange = getRangeFromOffsetIntoBlockBaseText({
+    blockElement: closestBlock,
+    blockBaseText,
+    startOffset: offsetOfTargetBaseTextIntoBlockBaseText,
+    endOffset: offsetOfTargetBaseTextIntoBlockBaseText + tokenLength,
+  });
 
-  const selection = document.getSelection();
-  if(!selection){
-    log('❌ no selection');
-    return;
+  if(tokenRange){
+    // document.getSelection()?.removeAllRanges();
+    __paranovelState.wordHighlight.add(tokenRange);
   }
-  selection.removeAllRanges();
-  selection.addRange(selectionRange);
-  for(let i = 0; i < tokenLength; i++){
-    document.getSelection().modify('extend', 'right', 'character');
-  }
-
-  const resultingRange = document.getSelection().getRangeAt(0);
-  if(resultingRange){
-    __paranovelState.wordHighlight.add(resultingRange);
-  }
-
-  // Seems redundant (I think .surroundContents() clears it), but might as well.
-  document.getSelection().removeAllRanges();
 }
 
 function lookUpTerm(dictionaryForm){
@@ -592,6 +577,72 @@ function lookUpTerm(dictionaryForm){
     message: dictionaryForm,
   }));
 };
+
+function getRangeFromOffsetIntoBlockBaseText({
+  blockElement,
+  blockBaseText,
+  startOffset,
+  endOffset,
+}){
+  if(!(blockElement instanceof HTMLElement)){
+    throw new TypeError("Expected blockElement to be an HTML Element.");
+  }
+
+  if(startOffset < 0 || startOffset > blockBaseText.length){
+    throw new DOMException("The index is not in the allowed range.", "IndexSizeError");
+  }
+
+  const rangeLength = endOffset - startOffset;
+
+  let offset = 0;
+  const range = document.createRange();
+  let foundStartOffset = false;
+  let prevNode = null;
+  for(const node of traverseBaseText(blockElement)){
+    const actual = node.textContent;
+    const expected = blockBaseText.slice(offset, offset + actual.length);
+    if(actual !== expected){
+      throw new Error("Expected to be able to reproduce the originally extracted base text when retraversing the same block.");
+    }
+
+    // If the startOffset lies within this node, set the start of the range.
+    if(!foundStartOffset && offset + actual.length > startOffset){
+      const offsetWithinNode = startOffset - offset;
+      range.setStart(node, offsetWithinNode);
+      foundStartOffset = true;
+    }
+
+    if(foundStartOffset && offset + actual.length > endOffset){
+      const offsetWithinNode = endOffset - offset;
+      range.setEnd(node, offsetWithinNode);
+      return range;
+    }
+
+    offset += actual.length;
+    prevNode = node;
+  }
+
+  // If the target offset laid on the end of the final node in the block, we'll
+  // have missed it during the loop as we only check for the cumulative offset
+  // having exceeded the target offset, and not having equalled it.
+  //
+  // This is by design, as you'll usually want the start of the following node
+  // rather than the end of the preceding node. So we just need to attend to
+  // this one edge case.
+  if(!foundStartOffset && prevNode && offset === startOffset){
+    const offsetWithinNode = startOffset - offset - prevNode.textContent;
+    range.setStart(node, offsetWithinNode);
+    foundStartOffset = true;
+  }
+
+  if(foundStartOffset && prevNode && offset === endOffset){
+    const offsetWithinNode = endOffset - offset - prevNode.textContent;
+    range.setEnd(node, offsetWithinNode);
+    return range;
+  }
+
+  return null;
+}
 
 function getSurroundingText(range){
   const { startContainer: targetNode, startOffset: targetOffset } = range;
@@ -638,6 +689,7 @@ function getSurroundingText(range){
     targetBaseText,
     targetBaseTextSliced: targetBaseText.slice(offsetOfTargetBaseTextIntoBlockBaseText),
     trailingBaseText,
+    closestBlock,
     blockBaseText,
     offsetOfTargetBaseTextIntoBlockBaseText,
   };
