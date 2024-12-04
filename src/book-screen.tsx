@@ -288,20 +288,20 @@ export default function BookScreen({
           // The user may have clicked into the middle of a token, so we want to
           // return the start offset of the token containing the clicked
           // character.
-          let targetTokenOffset = leadingWhiteSpace.length;
+          let offsetOfTargetTokenIntoBlockBaseText = leadingWhiteSpace.length;
 
           for (const token of tokens) {
             const length =
               token.surface.length + (token.trailingWhitespace?.length ?? 0);
 
-            if (targetTokenOffset + length > targetOffset) {
+            if (offsetOfTargetTokenIntoBlockBaseText + length > targetOffset) {
               // Although 'フェルディナンド' does give a non-null lemma, it's '*'.
               const dictionaryForm =
                 token.lemma && token.lemma !== '*'
                   ? token.lemma
                   : token.surface;
               return resolve(
-                `{ "targetTokenOffset": ${targetTokenOffset}, "tokenLength": ${length}, "dictionaryForm": "${dictionaryForm.replace(
+                `{ "offsetOfTargetTokenIntoBlockBaseText": ${offsetOfTargetTokenIntoBlockBaseText}, "tokenLength": ${length}, "dictionaryForm": "${dictionaryForm.replace(
                   '"',
                   '\\"',
                 )}" }`,
@@ -309,7 +309,7 @@ export default function BookScreen({
               );
             }
 
-            targetTokenOffset += length;
+            offsetOfTargetTokenIntoBlockBaseText += length;
           }
 
           return reject('"Didn\'t find token"', id);
@@ -550,14 +550,21 @@ async function onClickDocument(event){
     delete __paranovelState.tokenizationPromiseHandlers[id];
   }
 
-  const { dictionaryForm, tokenLength, targetTokenOffset } = response;
+  const {
+    dictionaryForm,
+    tokenLength,
+    offsetOfTargetTokenIntoBlockBaseText,
+  } = response;
+  // FIXME: we now know the offset of our target token into the blockBaseText.
+  // We need to traverse the block again to figure out what node offset that
+  // corresponds to.
   lookUpTerm(dictionaryForm);
 
   // TODO: adjust the target if it's a <ruby>, and handle selecting across
   // formatted text spans like <em>.
   const selectionRange = new Range();
-  selectionRange.setStart(targetNode, targetTokenOffset);
-  selectionRange.setEnd(targetNode, targetTokenOffset);
+  selectionRange.setStart(targetNode, offsetOfTargetTokenIntoBlockBaseText);
+  selectionRange.setEnd(targetNode, offsetOfTargetTokenIntoBlockBaseText);
 
   const selection = document.getSelection();
   if(!selection){
