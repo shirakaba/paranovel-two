@@ -681,25 +681,6 @@ function getRangeFromOffsetIntoBlockBaseText({
     prevNode = node;
   }
 
-  // If the target offset laid on the end of the final node in the block, we'll
-  // have missed it during the loop as we only check for the cumulative offset
-  // having exceeded the target offset, and not having equalled it.
-  //
-  // This is by design, as you'll usually want the start of the following node
-  // rather than the end of the preceding node. So we just need to attend to
-  // this one edge case.
-  if(!foundStartOffset && prevNode && offset === startOffset){
-    const offsetWithinNode = startOffset - offset - prevNode.textContent;
-    range.setStart(node, offsetWithinNode);
-    foundStartOffset = true;
-  }
-
-  if(foundStartOffset && prevNode && offset === endOffset){
-    const offsetWithinNode = endOffset - offset - prevNode.textContent;
-    range.setEnd(node, offsetWithinNode);
-    return range;
-  }
-
   return null;
 }
 
