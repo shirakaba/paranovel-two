@@ -737,15 +737,42 @@ function* traverseFollowingText(
   }
 }
 
+function* traverseBaseText(node){
+  const treeWalker = document.createTreeWalker(
+    node,
+    // We need SHOW_ELEMENT to filter out all <rt> subtrees, while the payload
+    // we're actually interested in is SHOW_TEXT.
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    (node) => {
+      switch(node.nodeName){
+        case "RT":
+          return NodeFilter.FILTER_REJECT;
+        case "#text":
+          return NodeFilter.FILTER_ACCEPT;
+        default:
+          return NodeFilter.FILTER_SKIP;
+      }
+    }
+  );
+
+  // Make the traversal inclusive of the target node.
+  if(node.nodeName === "#text"){
+    yield node;
+  }
+
+  let nextNode;
+  while(nextNode = treeWalker.nextNode()){
+    yield nextNode;
+  }
+}
+
 // Warning: does not return empty strings if called directly on/inside <rt>/<rp>
 function getBaseTextContent(node){
-  return node.nodeName === "RUBY" ?
-    [...node.childNodes].filter(
-      node => node.nodeName === "#text" || node.nodeName === "RB"
-    ).map(node => node.textContent).join("") :
-      node instanceof Text ?
-        node.textContent :
-        [...node.childNodes].map(node => getBaseTextContent(node)).join('');
+  let baseTextContent = '';
+  for(const textNode of traverseBaseText(node)){
+    baseTextContent = \`\${baseTextContent}\${node.textContent}\`;
+  }
+  return baseTextContent;
 }
 
 const __paranovelState = {
