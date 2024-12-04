@@ -579,7 +579,6 @@ async function onClickDocument(event){
   });
 
   if(tokenRange){
-    // document.getSelection()?.removeAllRanges();
     __paranovelState.wordHighlight.add(tokenRange);
   }
 }
