@@ -636,12 +636,12 @@ function getFollowingText(
   let followingText = '';
 
   if(direction === "next"){
-    for(const text of traverseFollowingText(node, direction, untilAncestor, blocklist)){
-      followingText = \`\${followingText}\${text}\`;
+    for(const { baseTextContent } of traverseFollowingText(node, direction, untilAncestor, blocklist)){
+      followingText = \`\${followingText}\${baseTextContent}\`;
     }
   } else {
-    for(const text of traverseFollowingText(node, direction, untilAncestor, blocklist)){
-      followingText = \`\${text}\${followingText}\`;
+    for(const { baseTextContent } of traverseFollowingText(node, direction, untilAncestor, blocklist)){
+      followingText = \`\${baseTextContent}\${followingText}\`;
     }
   }
 
@@ -676,7 +676,8 @@ function* traverseFollowingText(
       parent = parent.parentElement;
     }
 
-    yield getBaseTextContent(sibling);
+    const baseTextContent = getBaseTextContent(sibling);
+    yield { node: sibling, baseTextContent };
 
     sibling = direction === 'next' ?
       sibling.nextSibling :
