@@ -770,7 +770,7 @@ function* traverseBaseText(node){
 function getBaseTextContent(node){
   let baseTextContent = '';
   for(const textNode of traverseBaseText(node)){
-    baseTextContent = \`\${baseTextContent}\${node.textContent}\`;
+    baseTextContent = \`\${baseTextContent}\${textNode.textContent}\`;
   }
   return baseTextContent;
 }
