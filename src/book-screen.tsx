@@ -300,11 +300,14 @@ export default function BookScreen({
                 token.lemma && token.lemma !== '*'
                   ? token.lemma
                   : token.surface;
+
               return resolve(
-                `{ "offsetOfTargetTokenIntoBlockBaseText": ${offsetOfTargetTokenIntoBlockBaseText}, "tokenLength": ${length}, "dictionaryForm": "${dictionaryForm.replace(
-                  '"',
-                  '\\"',
-                )}" }`,
+                JSON.stringify({
+                  offsetOfTargetTokenIntoBlockBaseText,
+                  offsetOfTargetCharacterIntoBlockBaseText: targetOffset,
+                  tokenLength: length,
+                  dictionaryForm,
+                }),
                 id,
               );
             }
@@ -555,14 +558,16 @@ async function onClickDocument(event){
     dictionaryForm,
     tokenLength,
     offsetOfTargetTokenIntoBlockBaseText,
+    offsetOfTargetCharacterIntoBlockBaseText,
   } = response;
   lookUpTerm(dictionaryForm);
+  log(\`📖 dictionaryForm: "\${dictionaryForm}"; tokenOffset: \${offsetOfTargetTokenIntoBlockBaseText}, characterOffset: \${offsetOfTargetCharacterIntoBlockBaseText}; length: \${tokenLength}\`)
 
   const tokenRange = getRangeFromOffsetIntoBlockBaseText({
     blockElement: closestBlock,
     blockBaseText,
-    startOffset: offsetOfTargetBaseTextIntoBlockBaseText,
-    endOffset: offsetOfTargetBaseTextIntoBlockBaseText + tokenLength,
+    startOffset: offsetOfTargetTokenIntoBlockBaseText,
+    endOffset: offsetOfTargetTokenIntoBlockBaseText + tokenLength,
   });
 
   if(tokenRange){
