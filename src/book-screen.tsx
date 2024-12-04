@@ -610,14 +610,23 @@ function getRangeFromOffsetIntoBlockBaseText({
       throw new Error("Expected to be able to reproduce the originally extracted base text when retraversing the same block.");
     }
 
-    // If the startOffset lies within this node, set the start of the range.
+    // If the offsets lie within this node, set the range accordingly.
+    //
+    // When there are multiple possible solutions due to the range being on a
+    // boundary between two nodes, prefer to keep the range as small as
+    // possible.
+    //
+    // Note that we blindly assume a forward range (startOffset < endOffset).
+
+    // For startOffset, prefer the following node (thus >)
     if(!foundStartOffset && offset + actual.length > startOffset){
       const offsetWithinNode = startOffset - offset;
       range.setStart(node, offsetWithinNode);
       foundStartOffset = true;
     }
 
-    if(foundStartOffset && offset + actual.length > endOffset){
+    // For endOffset, prefer the current node (thus >=)
+    if(foundStartOffset && offset + actual.length >= endOffset){
       const offsetWithinNode = endOffset - offset;
       range.setEnd(node, offsetWithinNode);
       return range;
