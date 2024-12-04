@@ -182,7 +182,7 @@ export default function BookScreen({
       interface TokenizePayload {
         type: 'tokenize';
         id: number;
-        blockText: string;
+        blockBaseText: string;
         offset: number;
       }
       interface NavigationRequestPayload {
@@ -267,24 +267,24 @@ export default function BookScreen({
             return reject('"Expected message to be object"');
           }
 
-          const { id, blockText, offset: targetOffset } = parsed;
+          const { id, blockBaseText, offset: targetOffset } = parsed;
           if (typeof id !== 'number') {
             return reject('"Expected body to have id"');
           }
-          if (typeof blockText !== 'string') {
-            return reject('"Expected body to contain blockText"', id);
+          if (typeof blockBaseText !== 'string') {
+            return reject('"Expected body to contain blockBaseText"', id);
           }
           if (typeof targetOffset !== 'number') {
             return reject('"Expected body to contain targetOffset"', id);
           }
 
-          const tokens = tokenize(blockText);
+          const tokens = tokenize(blockBaseText);
           if (!tokens.length) {
             return reject('"Expected to produce more than 0 tokens."', id);
           }
 
           // MeCab always trims leading whitespace.
-          const leadingWhiteSpace = /^\\s+/.exec(blockText)?.[0] ?? '';
+          const leadingWhiteSpace = /^\\s+/.exec(blockBaseText)?.[0] ?? '';
           // The user may have clicked into the middle of a token, so we want to
           // return the start offset of the token containing the clicked
           // character.
@@ -521,7 +521,7 @@ async function onClickDocument(event){
   }
   console.log(surroundingText);
   const {
-    blockText,
+    blockBaseText,
     offsetOfTargetBaseTextIntoBlockBaseText,
     targetNode,
   } = surroundingText;
@@ -539,7 +539,7 @@ async function onClickDocument(event){
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'tokenize',
         id,
-        blockText,
+        blockBaseText,
         offset: offsetOfTargetBaseTextIntoBlockBaseText,
       }));
     });
@@ -615,7 +615,7 @@ function getSurroundingText(range){
   const trailingBaseText = getFollowingText(pivot, 'next', closestBlock, blocklist);
 
   const offsetOfTargetBaseTextIntoBlockBaseText = leadingBaseText.length + (closestRuby ? 0 : targetOffset);
-  const blockText = leadingBaseText + targetBaseText + trailingBaseText;
+  const blockBaseText = leadingBaseText + targetBaseText + trailingBaseText;
 
   return {
     leadingBaseText,
@@ -623,7 +623,7 @@ function getSurroundingText(range){
     targetBaseText,
     targetBaseTextSliced: targetBaseText.slice(offsetOfTargetBaseTextIntoBlockBaseText),
     trailingBaseText,
-    blockText,
+    blockBaseText,
     offsetOfTargetBaseTextIntoBlockBaseText,
   };
 }
