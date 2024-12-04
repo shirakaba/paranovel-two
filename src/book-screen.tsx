@@ -628,8 +628,19 @@ function getRangeFromOffsetIntoBlockBaseText({
 
     // For startOffset, prefer the following node (thus >)
     if(!foundStartOffset && offset + actual.length > startOffset){
+      const adjacentRuby = node.parentElement?.nodeName.toUpperCase() === "RUBY" &&
+        node.parentElement.firstChild === node ?
+          node.parentElement :
+          undefined;
+
       const offsetWithinNode = startOffset - offset;
-      range.setStart(node, offsetWithinNode);
+
+      if(offsetWithinNode === 0 && adjacentRuby){
+        range.setStart(adjacentRuby, 0);
+      } else {
+        range.setStart(node, offsetWithinNode);
+      }
+
       foundStartOffset = true;
     }
 
@@ -649,7 +660,16 @@ function getRangeFromOffsetIntoBlockBaseText({
           undefined;
 
       if(offsetWithinNode === node.length && adjacentRt){
-        range.setEnd(adjacentRt, 1);
+        // Round the selection up to the <ruby> if this <rt> is the final child.
+        const adjacentRuby = adjacentRt.nextSibling === null &&
+          adjacentRt.parentElement?.nodeName.toUpperCase() === "RUBY" ?
+            adjacentRt.parentElement :
+            undefined;
+        if(adjacentRuby){
+          range.setEnd(adjacentRuby, adjacentRuby.childNodes.length);
+        } else {
+          range.setEnd(adjacentRt, adjacentRt.childNodes.length);
+        }
       } else {
         range.setEnd(node, offsetWithinNode);
       }
