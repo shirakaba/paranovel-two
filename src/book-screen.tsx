@@ -661,14 +661,13 @@ function getSurroundingText(range){
   }
 
   const closestRuby = element.closest("ruby");
-  const pivot = closestRuby ?? targetNode;
   const blockElementsSelector = 'address,article,aside,blockquote,canvas,dd,div,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,noscript,ol,p,pre,section,table,tfoot,ul,video';
   const closestBlock = element.closest(blockElementsSelector);
 
   let leadingBaseText = '';
   let targetBaseText = '';
   let trailingBaseText = '';
-  for(const { baseTextContent, stage } of traverseBlock(pivot)){
+  for(const { baseTextContent, stage } of traverseBlock(targetNode)){
     switch(stage){
       case BlockTraversalStage.leading: {
         leadingBaseText = \`\${baseTextContent}\${leadingBaseText}\`;
