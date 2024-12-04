@@ -608,11 +608,10 @@ function getSurroundingText(range){
   const pivot = closestRuby ?? targetNode;
   const blockElementsSelector = 'address,article,aside,blockquote,canvas,dd,div,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,noscript,ol,p,pre,section,table,tfoot,ul,video';
   const closestBlock = element.closest(blockElementsSelector);
-  const blocklist = (element) => element?.classList.contains("timestamp");
 
-  const leadingBaseText = getFollowingText(pivot, 'previous', closestBlock, blocklist);
+  const leadingBaseText = getFollowingText(pivot, 'previous', closestBlock);
   const targetBaseText = getBaseTextContent(pivot);
-  const trailingBaseText = getFollowingText(pivot, 'next', closestBlock, blocklist);
+  const trailingBaseText = getFollowingText(pivot, 'next', closestBlock);
 
   const offsetOfTargetBaseTextIntoBlockBaseText = leadingBaseText.length + (closestRuby ? 0 : targetOffset);
   const blockBaseText = leadingBaseText + targetBaseText + trailingBaseText;
@@ -628,7 +627,12 @@ function getSurroundingText(range){
   };
 }
 
-function getFollowingText(node, direction, untilAncestor, blocklist){
+function getFollowingText(
+  node,
+  direction,
+  untilAncestor,
+  blocklist = (element) => false,
+){
   let followingText = '';
 
   if(direction === "next"){
@@ -644,9 +648,12 @@ function getFollowingText(node, direction, untilAncestor, blocklist){
   return followingText;
 }
 
-function* traverseFollowingText(node, direction, untilAncestor, blocklist){
-  let followingText = '';
-
+function* traverseFollowingText(
+  node,
+  direction,
+  untilAncestor,
+  blocklist = (element) => false,
+){
   let parent = node.parentElement;
   let sibling = direction === 'next' ? node.nextSibling : node.previousSibling;
   while(true){
@@ -660,8 +667,8 @@ function* traverseFollowingText(node, direction, untilAncestor, blocklist){
         parent.nextSibling :
         parent.previousSibling;
 
-      // If we've walked into an ineligible (end-of-line) sibling, climb up
-      // further. This is purely a lazy anti-pattern to support timestamp.
+      // If we've walked into a blocklisted sibling, consider it the end of the
+      // line and climb up further.
       if(blocklist(sibling)){
         sibling = null;
       }
