@@ -609,9 +609,25 @@ function getSurroundingText(range){
   const blockElementsSelector = 'address,article,aside,blockquote,canvas,dd,div,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,noscript,ol,p,pre,section,table,tfoot,ul,video';
   const closestBlock = element.closest(blockElementsSelector);
 
-  const leadingBaseText = getFollowingText(pivot, 'previous', closestBlock);
-  const targetBaseText = getBaseTextContent(pivot);
-  const trailingBaseText = getFollowingText(pivot, 'next', closestBlock);
+  let leadingBaseText = '';
+  let targetBaseText = '';
+  let trailingBaseText = '';
+  for(const { baseTextContent, stage } of traverseBlock(pivot)){
+    switch(stage){
+      case BlockTraversalStage.leading: {
+        leadingBaseText = \`\${baseTextContent}\${leadingBaseText}\`;
+        break;
+      }
+      case BlockTraversalStage.target: {
+        targetBaseText = baseTextContent;
+        break;
+      }
+      case BlockTraversalStage.trailing: {
+        trailingBaseText = \`\${trailingBaseText}\${baseTextContent}\`;
+        break;
+      }
+    }
+  }
 
   const offsetOfTargetBaseTextIntoBlockBaseText = leadingBaseText.length + (closestRuby ? 0 : targetOffset);
   const blockBaseText = leadingBaseText + targetBaseText + trailingBaseText;
@@ -626,6 +642,41 @@ function getSurroundingText(range){
     offsetOfTargetBaseTextIntoBlockBaseText,
   };
 }
+
+function* traverseBlock(textNode){
+  if(!(textNode instanceof Text)){
+    return;
+  }
+
+  const element = textNode.parentElement;
+  if(!element){
+    return;
+  }
+
+  const closestRuby = element.closest("ruby");
+  const pivot = closestRuby ?? textNode;
+  const blockElementsSelector = 'address,article,aside,blockquote,canvas,dd,div,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,noscript,ol,p,pre,section,table,tfoot,ul,video';
+  const closestBlock = element.closest(blockElementsSelector);
+
+  for(const node of traverseFollowingText(pivot, 'previous', closestBlock)){
+    const baseTextContent = getBaseTextContent(node);
+    yield { baseTextContent, stage: BlockTraversalStage.leading };
+  }
+
+  const targetBaseText = getBaseTextContent(pivot);
+  yield { baseTextContent: targetBaseText, stage: BlockTraversalStage.target };
+
+  for(const node of traverseFollowingText(pivot, 'next', closestBlock)){
+    const baseTextContent = getBaseTextContent(node);
+    yield { baseTextContent, stage: BlockTraversalStage.trailing };
+  }
+}
+
+const BlockTraversalStage = {
+  leading: 0,
+  target: 1,
+  trailing: 2,
+};
 
 function getFollowingText(
   node,
