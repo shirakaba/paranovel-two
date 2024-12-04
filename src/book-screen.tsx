@@ -631,13 +631,29 @@ function getSurroundingText(range){
 function getFollowingText(node, direction, untilAncestor, blocklist){
   let followingText = '';
 
+  if(direction === "next"){
+    for(const text of traverseFollowingText(node, direction, untilAncestor, blocklist)){
+      followingText = \`\${followingText}\${text}\`;
+    }
+  } else {
+    for(const text of traverseFollowingText(node, direction, untilAncestor, blocklist)){
+      followingText = \`\${text}\${followingText}\`;
+    }
+  }
+
+  return followingText;
+}
+
+function* traverseFollowingText(node, direction, untilAncestor, blocklist){
+  let followingText = '';
+
   let parent = node.parentElement;
   let sibling = direction === 'next' ? node.nextSibling : node.previousSibling;
   while(true){
     // If we've reached the end of the run, climb up to the parent and continue.
     while(!sibling){
       if(!parent || parent === untilAncestor){
-        return followingText;
+        return;
       }
 
       sibling = direction === 'next' ?
@@ -653,17 +669,12 @@ function getFollowingText(node, direction, untilAncestor, blocklist){
       parent = parent.parentElement;
     }
 
-    const textContent = getBaseTextContent(sibling);
-    followingText = direction === 'next' ?
-      followingText + textContent :
-      textContent + followingText;
+    yield getBaseTextContent(sibling);
 
     sibling = direction === 'next' ?
       sibling.nextSibling :
       sibling.previousSibling;
   }
-
-  return followingText;
 }
 
 // Warning: does not return empty strings if called directly on/inside <rt>/<rp>
