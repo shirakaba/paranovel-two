@@ -577,10 +577,37 @@ async function onClickDocument(event){
     startOffset: offsetOfTargetTokenIntoBlockBaseText,
     endOffset: offsetOfTargetTokenIntoBlockBaseText + tokenLength,
   });
-
-  if(tokenRange){
-    __paranovelState.wordHighlight.add(tokenRange);
+  if(!tokenRange){
+    return;
   }
+
+  // If we're inside a base text of a <ruby> (whether a text node or an <rb>),
+  // and the selection range terminates at the end of that base text, then
+  // search for the matching <rt> and extend the highlight to include that.
+  const { endContainer, endOffset } = tokenRange;
+  if(
+    (endContainer instanceof CharacterData && endOffset === endContainer.data.length) ||
+    endOffset === endContainer.childNodes.length
+  ){
+    const endContainerElement = endContainer instanceof Element ?
+      endContainer :
+      endContainer.parentElement;
+    const endContainerRuby = endContainerElement?.closest("ruby");
+    if(endContainerRuby){
+      let correspondingRt;
+      for(const node of traverseFollowingText(endContainerElement, "next", endContainerRuby)){
+        if(node.nodeName === "RT"){
+          correspondingRt = node;
+          break;
+        }
+      }
+      if(correspondingRt){
+        tokenRange.setEnd(correspondingRt, correspondingRt.childNodes.length);
+      }
+    }
+  }
+
+  __paranovelState.wordHighlight.add(tokenRange);
 }
 
 function lookUpTerm(dictionaryForm){
