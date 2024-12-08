@@ -24,6 +24,11 @@
         ><ruby><rb>京</rb><rt>きょう</rt></ruby
         >です。</p
       >
+      <p id="test-b" style="writing-mode: vertical-rl"
+        >ここは<ruby><rb>東</rb><rt>とう</rt></ruby
+        ><ruby><rb>京</rb><rt>きょう</rt></ruby
+        >です。</p
+      >
       <table>
         <thead>
           <tr style="text-align: center">
@@ -37,21 +42,37 @@
             <th>Adjust</th>
             <td>
               <button
-                onclick="adjustHighlight({ range: testARange, bound: 'start', direction: 'prev', root: document.querySelector('#test-a') }); updateLog()">
+                onclick="
+adjustHighlight({ range: testARange, bound: 'start', direction: 'prev', root: document.querySelector('#test-a') });
+adjustHighlight({ range: testBRange, bound: 'start', direction: 'prev', root: document.querySelector('#test-b') });
+updateLog();
+                ">
                 ◀️
               </button>
               <button
-                onclick="adjustHighlight({ range: testARange, bound: 'start', direction: 'next', root: document.querySelector('#test-a') }); updateLog()">
+                onclick="
+adjustHighlight({ range: testARange, bound: 'start', direction: 'next', root: document.querySelector('#test-a') });
+adjustHighlight({ range: testBRange, bound: 'start', direction: 'next', root: document.querySelector('#test-b') });
+updateLog();
+                ">
                 ▶️
               </button>
             </td>
             <td>
               <button
-                onclick="adjustHighlight({ range: testARange, bound: 'end', direction: 'prev', root: document.querySelector('#test-a') }); updateLog()">
+                onclick="
+adjustHighlight({ range: testARange, bound: 'end', direction: 'prev', root: document.querySelector('#test-a') });
+adjustHighlight({ range: testBRange, bound: 'end', direction: 'prev', root: document.querySelector('#test-b') });
+updateLog();
+                ">
                 ◀️
               </button>
               <button
-                onclick="adjustHighlight({ range: testARange, bound: 'end', direction: 'next', root: document.querySelector('#test-a') }); updateLog()">
+                onclick="
+adjustHighlight({ range: testARange, bound: 'end', direction: 'next', root: document.querySelector('#test-a') });
+adjustHighlight({ range: testBRange, bound: 'end', direction: 'next', root: document.querySelector('#test-b') });
+updateLog();
+                ">
                 ▶️
               </button>
             </td>
@@ -71,11 +92,19 @@
 
       <script>
         const rubyHighlight = new Highlight();
+
         const testARange = new Range();
         const testAruby1 = document.querySelector('#test-a ruby');
         testARange.setStart(testAruby1, 0);
         testARange.setEnd(testAruby1, testAruby1.childNodes.length);
         rubyHighlight.add(testARange);
+
+        const testBRange = new Range();
+        const testBruby1 = document.querySelector('#test-b ruby');
+        testBRange.setStart(testBruby1, 0);
+        testBRange.setEnd(testBruby1, testBruby1.childNodes.length);
+        rubyHighlight.add(testBRange);
+
         CSS.highlights.set('ruby-highlight', rubyHighlight);
         updateLog();
 
