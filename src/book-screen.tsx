@@ -635,24 +635,7 @@ function getRangeFromOffsetIntoBlockBaseText({
     // For endOffset, prefer the current node (thus >=)
     if(foundStartOffset && offset + actual.length >= endOffset){
       const offsetWithinNode = endOffset - offset;
-
-      // If our text node is at the end of an <rb> and there's an <rt> alongside
-      // it, select to the end of it so that we highlight that, too.
-
-      // We shouldn't have to do toUpperCase() at all, but I found the
-      // kusamakura ebook managed to make nodeName lowercase. Unbelievable.
-      const adjacentRt = node.nextElementSibling?.nodeName.toUpperCase() === "RT" ?
-        node.nextElementSibling :
-        node.parentElement?.nextElementSibling?.nodeName.toUpperCase() === "RT" ?
-          node.parentElement?.nextElementSibling :
-          undefined;
-
-      if(offsetWithinNode === node.length && adjacentRt){
-        range.setEnd(adjacentRt, 1);
-      } else {
-        range.setEnd(node, offsetWithinNode);
-      }
-
+      range.setEnd(node, offsetWithinNode);
       return range;
     }
 
