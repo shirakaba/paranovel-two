@@ -126,24 +126,28 @@
             return stepSelectionCharacterData({ node, offset, direction });
           }
 
-          if (node instanceof Element) {
-            return stepSelectionElement({ element: node, offset, direction });
-          }
+          return stepSelectionOtherNode({ node, offset, direction });
 
           return null;
         }
 
         /**
          * @param obj {object}
-         * @param obj.element {Element | null}
+         * @param obj.node {Node | null}
          * @param obj.offset {number}
          * @param obj.direction {"prev" | "next"}
          */
-        function stepSelectionElement({ element, offset, direction }) {
+        function stepSelectionOtherNode({ node, offset, direction }) {
+          if (node instanceof CharacterData) {
+            throw new TypeError(
+              'Expected Node of type other than CharacterData.',
+            );
+          }
+
           switch (direction) {
             case 'prev': {
-              if (offset === element.childNodes.length) {
-                const lastChild = element.lastChild;
+              if (offset === node.childNodes.length) {
+                const lastChild = node.lastChild;
                 return lastChild
                   ? {
                       node: lastChild,
@@ -152,26 +156,26 @@
                           ? lastChild.data.length
                           : lastChild.childNodes.length,
                     }
-                  : stepOntoPreviousSibling(element);
+                  : stepOntoPreviousSibling(node);
               }
 
-              return stepOntoPreviousSibling(element);
+              return stepOntoPreviousSibling(node);
             }
             case 'next': {
               if (offset === 0) {
-                const firstChild = element.firstChild;
+                const firstChild = node.firstChild;
                 return firstChild
                   ? { node: firstChild, offset: 0 }
-                  : stepOntoNextSibling(element);
+                  : stepOntoNextSibling(node);
               }
 
-              if (offset === element.childNodes.length) {
-                return stepOntoNextSibling(element);
+              if (offset === node.childNodes.length) {
+                return stepOntoNextSibling(node);
               }
 
               // Warning: haven't thought too much about offsets in the middle
-              // of an element.
-              return { node: element, offset: offset + 1 };
+              // of a node.
+              return { node, offset: offset + 1 };
             }
           }
 
@@ -215,10 +219,9 @@
          * @param node {Node}
          */
         function stepOntoPreviousSibling(node) {
+          // If there's a previous sibling, transfer to the end offset of it.
           const previousSibling = node.previousSibling;
           if (previousSibling) {
-            // In the unlikely event that there's a CharacterData beside this
-            // CharacterData, transfer to the end of it.
             if (previousSibling instanceof CharacterData) {
               return {
                 node: previousSibling,
@@ -226,16 +229,10 @@
               };
             }
 
-            // If there's a sibling Element, transfer to the end of it.
-            if (previousSibling instanceof Element) {
-              return {
-                node: previousSibling,
-                offset: previousSibling.childNodes.length,
-              };
-            }
-
-            // Unexpected case.
-            return null;
+            return {
+              node: previousSibling,
+              offset: previousSibling.childNodes.length,
+            };
           }
 
           // This must be the first child in the container. Try transferring
@@ -253,24 +250,14 @@
          * @param node {Node}
          */
         function stepOntoNextSibling(node) {
+          // If there's a next sibling, transfer to the start offset of it.
           const nextSibling = node.nextSibling;
           if (nextSibling) {
-            // In the unlikely event that there's a CharacterData beside this
-            // CharacterData, transfer to the start of it.
             if (nextSibling instanceof CharacterData) {
               return { node: nextSibling, offset: 0 };
             }
 
-            // If there's a sibling Element, transfer to the start of it.
-            if (nextSibling instanceof Element) {
-              return {
-                node: nextSibling,
-                offset: 0,
-              };
-            }
-
-            // Unexpected case.
-            return null;
+            return { node: nextSibling, offset: 0 };
           }
 
           // This must be the final child in the container. Try transferring
@@ -310,12 +297,12 @@
           testANodeEnd.textContent = stringifyNode(endContainer);
 
           function stringifyNode(node) {
-            if (node instanceof Element) {
-              return `<${node.tagName.toLowerCase()}>`;
+            if (node instanceof CharacterData) {
+              return `${node.nodeName}:${node.textContent ?? ''}`;
             }
 
-            if (node instanceof Text) {
-              return `#text:${node.textContent ?? ''}`;
+            if (node instanceof Element) {
+              return `<${node.tagName.toLowerCase()}>`;
             }
 
             return node?.toString() ?? 'null';
