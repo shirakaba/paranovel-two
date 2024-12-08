@@ -122,57 +122,37 @@
          * @param obj.direction {"prev" | "next"}
          */
         function stepSelection({ node, offset, direction }) {
-          if (node instanceof CharacterData) {
-            switch (direction) {
-              case 'prev': {
-                // If offset is non-zero, we can safely decrement.
-                if (offset) {
-                  return { node, offset: offset - 1 };
-                }
-
-                // Otherwise, we'll have to try the previous sibling.
-
-                return stepOntoPreviousSibling(node);
-              }
-              case 'next': {
-                // If offset is within the text's length, we can safely increment.
-                if (offset < node.data.length) {
-                  return { node, offset: offset + 1 };
-                }
-
-                // Otherwise, we'll have to try the next sibling.
-
-                return stepOntoNextSibling(node);
-              }
-              default: {
-                throw new Error(`Unexpected case "${direction}".`);
-              }
-            }
-          }
-
           switch (direction) {
             case 'prev': {
-              if (offset === node.childNodes.length) {
-                const lastChild = node.lastChild;
-                return lastChild
-                  ? {
-                      node: lastChild,
-                      offset:
-                        lastChild instanceof CharacterData
-                          ? lastChild.data.length
-                          : lastChild.childNodes.length,
-                    }
+              if (node instanceof CharacterData) {
+                return offset
+                  ? { node, offset: offset - 1 }
                   : stepOntoPreviousSibling(node);
+              }
+
+              const lastChild = node.lastChild;
+              if (offset === node.childNodes.length && lastChild) {
+                return {
+                  node: lastChild,
+                  offset:
+                    lastChild instanceof CharacterData
+                      ? lastChild.data.length
+                      : lastChild.childNodes.length,
+                };
               }
 
               return stepOntoPreviousSibling(node);
             }
             case 'next': {
-              if (offset === 0) {
-                const firstChild = node.firstChild;
-                return firstChild
-                  ? { node: firstChild, offset: 0 }
+              if (node instanceof CharacterData) {
+                return offset < node.data.length
+                  ? { node, offset: offset + 1 }
                   : stepOntoNextSibling(node);
+              }
+
+              const firstChild = node.firstChild;
+              if (!offset && firstChild) {
+                return { node: firstChild, offset: 0 };
               }
 
               if (offset === node.childNodes.length) {
@@ -227,10 +207,6 @@
           // If there's a next sibling, transfer to the start offset of it.
           const nextSibling = node.nextSibling;
           if (nextSibling) {
-            if (nextSibling instanceof CharacterData) {
-              return { node: nextSibling, offset: 0 };
-            }
-
             return { node: nextSibling, offset: 0 };
           }
 
