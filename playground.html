@@ -29,6 +29,19 @@
         ><ruby><rb>京</rb><rt>きょう</rt></ruby
         >です。</p
       >
+
+      <h2>Without &lt;rb&gt;</h2>
+      <p id="test-c"
+        >ここは<ruby>東<rt>とう</rt></ruby
+        ><ruby>京<rt>きょう</rt></ruby
+        >です。</p
+      >
+      <p id="test-d" style="writing-mode: vertical-rl"
+        >ここは<ruby>東<rt>とう</rt></ruby
+        ><ruby>京<rt>きょう</rt></ruby
+        >です。</p
+      >
+
       <table>
         <thead>
           <tr style="text-align: center">
@@ -45,6 +58,8 @@
                 onclick="
 adjustHighlight({ range: testARange, bound: 'start', direction: 'prev', root: document.querySelector('#test-a') });
 adjustHighlight({ range: testBRange, bound: 'start', direction: 'prev', root: document.querySelector('#test-b') });
+adjustHighlight({ range: testCRange, bound: 'start', direction: 'prev', root: document.querySelector('#test-c') });
+adjustHighlight({ range: testDRange, bound: 'start', direction: 'prev', root: document.querySelector('#test-d') });
 updateLog();
                 ">
                 ◀️
@@ -53,6 +68,8 @@ updateLog();
                 onclick="
 adjustHighlight({ range: testARange, bound: 'start', direction: 'next', root: document.querySelector('#test-a') });
 adjustHighlight({ range: testBRange, bound: 'start', direction: 'next', root: document.querySelector('#test-b') });
+adjustHighlight({ range: testCRange, bound: 'start', direction: 'next', root: document.querySelector('#test-c') });
+adjustHighlight({ range: testDRange, bound: 'start', direction: 'next', root: document.querySelector('#test-d') });
 updateLog();
                 ">
                 ▶️
@@ -63,6 +80,8 @@ updateLog();
                 onclick="
 adjustHighlight({ range: testARange, bound: 'end', direction: 'prev', root: document.querySelector('#test-a') });
 adjustHighlight({ range: testBRange, bound: 'end', direction: 'prev', root: document.querySelector('#test-b') });
+adjustHighlight({ range: testCRange, bound: 'end', direction: 'prev', root: document.querySelector('#test-c') });
+adjustHighlight({ range: testDRange, bound: 'end', direction: 'prev', root: document.querySelector('#test-d') });
 updateLog();
                 ">
                 ◀️
@@ -71,6 +90,8 @@ updateLog();
                 onclick="
 adjustHighlight({ range: testARange, bound: 'end', direction: 'next', root: document.querySelector('#test-a') });
 adjustHighlight({ range: testBRange, bound: 'end', direction: 'next', root: document.querySelector('#test-b') });
+adjustHighlight({ range: testCRange, bound: 'end', direction: 'next', root: document.querySelector('#test-c') });
+adjustHighlight({ range: testDRange, bound: 'end', direction: 'next', root: document.querySelector('#test-d') });
 updateLog();
                 ">
                 ▶️
@@ -89,216 +110,216 @@ updateLog();
           </tr>
         </tbody>
       </table>
+    </section>
 
-      <script>
-        const rubyHighlight = new Highlight();
+    <script>
+      const rubyHighlight = new Highlight();
 
-        const testARange = new Range();
-        const testAruby1 = document.querySelector('#test-a ruby');
-        testARange.setStart(testAruby1, 0);
-        testARange.setEnd(testAruby1, testAruby1.childNodes.length);
-        rubyHighlight.add(testARange);
+      const testARange = new Range();
+      const testAruby1 = document.querySelector('#test-a ruby');
+      testARange.setStart(testAruby1, 0);
+      testARange.setEnd(testAruby1, testAruby1.childNodes.length);
+      rubyHighlight.add(testARange);
 
-        const testBRange = new Range();
-        const testBruby1 = document.querySelector('#test-b ruby');
-        testBRange.setStart(testBruby1, 0);
-        testBRange.setEnd(testBruby1, testBruby1.childNodes.length);
-        rubyHighlight.add(testBRange);
+      const testBRange = new Range();
+      const testBruby1 = document.querySelector('#test-b ruby');
+      testBRange.setStart(testBruby1, 0);
+      testBRange.setEnd(testBruby1, testBruby1.childNodes.length);
+      rubyHighlight.add(testBRange);
 
-        CSS.highlights.set('ruby-highlight', rubyHighlight);
-        updateLog();
+      const testCRange = new Range();
+      const testCruby1 = document.querySelector('#test-c ruby');
+      testCRange.setStart(testCruby1, 0);
+      testCRange.setEnd(testCruby1, testCruby1.childNodes.length);
+      rubyHighlight.add(testCRange);
 
-        /**
-         * @param obj {object}
-         * @param obj.range {Range}
-         * @param obj.bound {"start" | "end"}
-         * @param obj.direction {"prev" | "next"}
-         * @param [obj.root] {Node} An optional root to prevent extending the
-         *        range to.
-         */
-        function adjustHighlight({ range, bound, direction, root }) {
-          console.log({ range, bound, direction });
+      const testDRange = new Range();
+      const testDruby1 = document.querySelector('#test-d ruby');
+      testDRange.setStart(testDruby1, 0);
+      testDRange.setEnd(testDruby1, testDruby1.childNodes.length);
+      rubyHighlight.add(testDRange);
 
-          const node =
-            bound === 'start' ? range.startContainer : range.endContainer;
-          const offset =
-            bound === 'start' ? range.startOffset : range.endOffset;
+      CSS.highlights.set('ruby-highlight', rubyHighlight);
+      updateLog();
 
-          const newRange = stepSelection({ node, offset, direction });
-          if (!newRange || (root && newRange.node === root)) {
+      /**
+       * @param obj {object}
+       * @param obj.range {Range}
+       * @param obj.bound {"start" | "end"}
+       * @param obj.direction {"prev" | "next"}
+       * @param [obj.root] {Node} An optional root to prevent extending the
+       *        range to.
+       */
+      function adjustHighlight({ range, bound, direction, root }) {
+        const node =
+          bound === 'start' ? range.startContainer : range.endContainer;
+        const offset = bound === 'start' ? range.startOffset : range.endOffset;
+
+        const newRange = stepSelection({ node, offset, direction });
+        if (!newRange || (root && newRange.node === root)) {
+          return;
+        }
+
+        switch (bound) {
+          case 'start': {
+            range.setStart(newRange.node, newRange.offset);
             return;
           }
-
-          switch (bound) {
-            case 'start': {
-              range.setStart(newRange.node, newRange.offset);
-              return;
-            }
-            case 'end': {
-              range.setEnd(newRange.node, newRange.offset);
-              return;
-            }
-            default: {
-              return;
-            }
+          case 'end': {
+            range.setEnd(newRange.node, newRange.offset);
+            return;
+          }
+          default: {
+            return;
           }
         }
+      }
 
-        /**
-         * @param obj {object}
-         * @param obj.node {Node | null}
-         * @param obj.offset {number}
-         * @param obj.direction {"prev" | "next"}
-         */
-        function stepSelection({ node, offset, direction }) {
-          switch (direction) {
-            case 'prev': {
-              if (node instanceof CharacterData) {
-                // Move along the CharacterData, or onto the previous sibling.
-                return offset
-                  ? { node, offset: offset - 1 }
-                  : stepOntoPreviousSibling(node);
-              }
-
-              // If we're at the end of a node with children, dig into it.
-              const lastChild = node.lastChild;
-              if (offset === node.childNodes.length && lastChild) {
-                return {
-                  node: lastChild,
-                  offset:
-                    lastChild instanceof CharacterData
-                      ? lastChild.data.length
-                      : lastChild.childNodes.length,
-                };
-              }
-
-              // Prefer to step onto the previous sibling rather than using
-              // non-terminal offsets into a container node.
-              return stepOntoPreviousSibling(node);
+      /**
+       * @param obj {object}
+       * @param obj.node {Node | null}
+       * @param obj.offset {number}
+       * @param obj.direction {"prev" | "next"}
+       */
+      function stepSelection({ node, offset, direction }) {
+        switch (direction) {
+          case 'prev': {
+            if (node instanceof CharacterData) {
+              // Move along the CharacterData, or onto the previous sibling.
+              return offset
+                ? { node, offset: offset - 1 }
+                : stepOntoPreviousSibling(node);
             }
-            case 'next': {
-              if (node instanceof CharacterData) {
-                // Move along the CharacterData, or onto the next sibling.
-                return offset < node.data.length
-                  ? { node, offset: offset + 1 }
-                  : stepOntoNextSibling(node);
-              }
 
-              // If we're at the start of a node with children, dig into it.
-              const firstChild = node.firstChild;
-              if (!offset && firstChild) {
-                return { node: firstChild, offset: 0 };
-              }
-
-              // Prefer to step onto the next sibling rather than using
-              // non-terminal offsets into a container node.
-              return stepOntoNextSibling(node);
-            }
-            default: {
-              throw new Error(`Unexpected case "${direction}".`);
-            }
-          }
-        }
-
-        /**
-         * @param node {Node}
-         */
-        function stepOntoPreviousSibling(node) {
-          // If there's a previous sibling, transfer to the end offset of it.
-          const previousSibling = node.previousSibling;
-          if (previousSibling) {
-            if (previousSibling instanceof CharacterData) {
+            // If we're at the end of a node with children, dig into it.
+            const lastChild = node.lastChild;
+            if (offset === node.childNodes.length && lastChild) {
               return {
-                node: previousSibling,
-                offset: previousSibling.data.length,
+                node: lastChild,
+                offset:
+                  lastChild instanceof CharacterData
+                    ? lastChild.data.length
+                    : lastChild.childNodes.length,
               };
             }
 
+            // Prefer to step onto the previous sibling rather than using
+            // non-terminal offsets into a container node.
+            return stepOntoPreviousSibling(node);
+          }
+          case 'next': {
+            if (node instanceof CharacterData) {
+              // Move along the CharacterData, or onto the next sibling.
+              return offset < node.data.length
+                ? { node, offset: offset + 1 }
+                : stepOntoNextSibling(node);
+            }
+
+            // If we're at the start of a node with children, dig into it.
+            const firstChild = node.firstChild;
+            if (!offset && firstChild) {
+              return { node: firstChild, offset: 0 };
+            }
+
+            // Prefer to step onto the next sibling rather than using
+            // non-terminal offsets into a container node.
+            return stepOntoNextSibling(node);
+          }
+          default: {
+            throw new Error(`Unexpected case "${direction}".`);
+          }
+        }
+      }
+
+      /**
+       * @param node {Node}
+       */
+      function stepOntoPreviousSibling(node) {
+        // If there's a previous sibling, transfer to the end offset of it.
+        const previousSibling = node.previousSibling;
+        if (previousSibling) {
+          if (previousSibling instanceof CharacterData) {
             return {
               node: previousSibling,
-              offset: previousSibling.childNodes.length,
+              offset: previousSibling.data.length,
             };
           }
 
-          // This must be the first child in the container. Try transferring
-          // onto the front of it.
-
-          const parentElement = node.parentElement;
-          if (!parentElement) {
-            return null;
-          }
-
-          return { node: parentElement, offset: 0 };
-        }
-
-        /**
-         * @param node {Node}
-         */
-        function stepOntoNextSibling(node) {
-          // If there's a next sibling, transfer to the start offset of it.
-          const nextSibling = node.nextSibling;
-          if (nextSibling) {
-            return { node: nextSibling, offset: 0 };
-          }
-
-          // This must be the final child in the container. Try transferring
-          // onto the end of it.
-
-          const parentElement = node.parentElement;
-          if (!parentElement) {
-            return null;
-          }
-
           return {
-            node: parentElement,
-            offset: parentElement.childNodes.length,
+            node: previousSibling,
+            offset: previousSibling.childNodes.length,
           };
         }
 
-        function updateLog() {
-          const testAOffsetStart = document.querySelector(
-            '#test-a-offset td:nth-of-type(1)',
-          );
-          const testAOffsetEnd = document.querySelector(
-            '#test-a-offset td:nth-of-type(2)',
-          );
-          const testANodeStart = document.querySelector(
-            '#test-a-node td:nth-of-type(1)',
-          );
-          const testANodeEnd = document.querySelector(
-            '#test-a-node td:nth-of-type(2)',
-          );
+        // This must be the first child in the container. Try transferring
+        // onto the front of it.
 
-          const { startContainer, startOffset, endContainer, endOffset } =
-            testARange;
-
-          testAOffsetStart.textContent = startOffset;
-          testAOffsetEnd.textContent = endOffset;
-          testANodeStart.textContent = stringifyNode(startContainer);
-          testANodeEnd.textContent = stringifyNode(endContainer);
-
-          function stringifyNode(node) {
-            if (node instanceof CharacterData) {
-              return `${node.nodeName}:${node.textContent ?? ''}`;
-            }
-
-            if (node instanceof Element) {
-              return `<${node.tagName.toLowerCase()}>`;
-            }
-
-            return node?.toString() ?? 'null';
-          }
+        const parentElement = node.parentElement;
+        if (!parentElement) {
+          return null;
         }
-      </script>
 
-      <!--
-        <h2>Without &lt;rb&gt;</h2>
-        <p
-          >ここは<ruby>東<rt>とう</rt></ruby
-          ><ruby>京<rt>きょう</rt></ruby
-          >です。</p
-        >
-      -->
-    </section>
+        return { node: parentElement, offset: 0 };
+      }
+
+      /**
+       * @param node {Node}
+       */
+      function stepOntoNextSibling(node) {
+        // If there's a next sibling, transfer to the start offset of it.
+        const nextSibling = node.nextSibling;
+        if (nextSibling) {
+          return { node: nextSibling, offset: 0 };
+        }
+
+        // This must be the final child in the container. Try transferring
+        // onto the end of it.
+
+        const parentElement = node.parentElement;
+        if (!parentElement) {
+          return null;
+        }
+
+        return {
+          node: parentElement,
+          offset: parentElement.childNodes.length,
+        };
+      }
+
+      function updateLog() {
+        const testAOffsetStart = document.querySelector(
+          '#test-a-offset td:nth-of-type(1)',
+        );
+        const testAOffsetEnd = document.querySelector(
+          '#test-a-offset td:nth-of-type(2)',
+        );
+        const testANodeStart = document.querySelector(
+          '#test-a-node td:nth-of-type(1)',
+        );
+        const testANodeEnd = document.querySelector(
+          '#test-a-node td:nth-of-type(2)',
+        );
+
+        const { startContainer, startOffset, endContainer, endOffset } =
+          testARange;
+
+        testAOffsetStart.textContent = startOffset;
+        testAOffsetEnd.textContent = endOffset;
+        testANodeStart.textContent = stringifyNode(startContainer);
+        testANodeEnd.textContent = stringifyNode(endContainer);
+
+        function stringifyNode(node) {
+          if (node instanceof CharacterData) {
+            return `${node.nodeName}:${node.textContent ?? ''}`;
+          }
+
+          if (node instanceof Element) {
+            return `<${node.tagName.toLowerCase()}>`;
+          }
+
+          return node?.toString() ?? 'null';
+        }
+      }
+    </script>
   </body>
 </html>
