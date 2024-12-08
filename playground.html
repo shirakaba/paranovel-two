@@ -1,0 +1,183 @@
+<!--?xml version='1.0' encoding='utf-8'?-->
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ja" xml:lang="ja">
+  <head>
+    <title>Paranovel playground</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no" />
+    <style>
+      ::highlight(ruby-highlight) {
+        color: black;
+        background-color: yellow;
+      }
+    </style>
+  </head>
+  <body>
+    <section>
+      <h1>Ruby highlighting tests</h1>
+
+      <h2>With &lt;rb&gt;</h2>
+
+      <p id="test-a"
+        >ここは<ruby><rb>東</rb><rt>とう</rt></ruby
+        ><ruby><rb>京</rb><rt>きょう</rt></ruby
+        >です。</p
+      >
+      <table>
+        <thead>
+          <tr style="text-align: center">
+            <th></th>
+            <th>Start</th>
+            <th>End</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Adjust</th>
+            <td>
+              <button
+                onclick="adjustHighlight({ range: testARange, bound: 'start', direction: 'prev' }); updateLog()">
+                ◀️
+              </button>
+              <button
+                onclick="adjustHighlight({ range: testARange, bound: 'start', direction: 'next' }); updateLog()">
+                ▶️
+              </button>
+            </td>
+            <td>
+              <button
+                onclick="adjustHighlight({ range: testARange, bound: 'end', direction: 'prev' }); updateLog()">
+                ◀️
+              </button>
+              <button
+                onclick="adjustHighlight({ range: testARange, bound: 'end', direction: 'next' }); updateLog()">
+                ▶️
+              </button>
+            </td>
+          </tr>
+          <tr id="test-a-offset">
+            <th>Offset</th>
+            <td>0</td>
+            <td>0</td>
+          </tr>
+          <tr id="test-a-node">
+            <th>Node</th>
+            <td>0</td>
+            <td>0</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <script>
+        const rubyHighlight = new Highlight();
+        const testARange = new Range();
+        const testAruby1 = document.querySelector('#test-a ruby');
+        testARange.setStart(testAruby1, 0);
+        testARange.setEnd(testAruby1, testAruby1.childNodes.length);
+        rubyHighlight.add(testARange);
+        CSS.highlights.set('ruby-highlight', rubyHighlight);
+        updateLog();
+
+        /**
+         * @param obj {object}
+         * @param obj.range {Range}
+         * @param obj.bound {"start" | "end"}
+         * @param obj.direction {"prev" | "next"}
+         */
+        function adjustHighlight({ range, bound, direction }) {
+          console.log({ range, bound, direction });
+
+          const node =
+            bound === 'start' ? range.startContainer : range.endContainer;
+          const offset =
+            bound === 'start' ? range.startOffset : range.endOffset;
+
+          // If we're in a text node and not at the end, move by one character.
+          if (
+            !(node instanceof HTMLElement) &&
+            (direction === 'prev' ? offset > 0 : offset < node.data.length)
+          ) {
+            range.setStart(node, offset + (direction === 'prev' ? -1 : 1));
+            return;
+          }
+
+          const root = document.querySelector('#test-a');
+
+          // Otherwise, we're going to need to walk to the following node.
+          const treeWalker = document.createTreeWalker(
+            root,
+            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+          );
+          while (treeWalker.currentNode !== node) {
+            treeWalker.nextNode();
+          }
+
+          const followingNode =
+            direction === 'prev'
+              ? treeWalker.previousNode()
+              : treeWalker.nextNode();
+          if (!followingNode || followingNode === root) {
+            return;
+          }
+
+          if (direction === 'prev') {
+            range.setStart(
+              followingNode,
+              followingNode instanceof Text
+                ? followingNode.data.length
+                : followingNode.childNodes.length,
+            );
+            return;
+          }
+
+          range.setStart(followingNode, 0);
+        }
+
+        function updateLog() {
+          const testAOffsetStart = document.querySelector(
+            '#test-a-offset td:nth-of-type(1)',
+          );
+          const testAOffsetEnd = document.querySelector(
+            '#test-a-offset td:nth-of-type(2)',
+          );
+          const testANodeStart = document.querySelector(
+            '#test-a-node td:nth-of-type(1)',
+          );
+          const testANodeEnd = document.querySelector(
+            '#test-a-node td:nth-of-type(2)',
+          );
+
+          const { startContainer, startOffset, endContainer, endOffset } =
+            testARange;
+
+          testAOffsetStart.textContent = startOffset;
+          testAOffsetEnd.textContent = endOffset;
+          testANodeStart.textContent = stringifyNode(startContainer);
+          testANodeEnd.textContent = stringifyNode(endContainer);
+
+          function stringifyNode(node) {
+            if (node instanceof HTMLElement) {
+              return `<${node.tagName.toLowerCase()}>`;
+            }
+
+            if (node instanceof Text) {
+              return `#text:${node.textContent ?? ''}`;
+            }
+
+            return node?.toString() ?? 'null';
+          }
+        }
+      </script>
+
+      <!--
+        <h2>Without &lt;rb&gt;</h2>
+        <p
+          >ここは<ruby>東<rt>とう</rt></ruby
+          ><ruby>京<rt>きょう</rt></ruby
+          >です。</p
+        >
+      -->
+    </section>
+  </body>
+</html>
