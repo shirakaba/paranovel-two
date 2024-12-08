@@ -37,21 +37,21 @@
             <th>Adjust</th>
             <td>
               <button
-                onclick="adjustHighlight({ range: testARange, bound: 'start', direction: 'prev' }); updateLog()">
+                onclick="adjustHighlight({ range: testARange, bound: 'start', direction: 'prev', root: document.querySelector('#test-a') }); updateLog()">
                 ◀️
               </button>
               <button
-                onclick="adjustHighlight({ range: testARange, bound: 'start', direction: 'next' }); updateLog()">
+                onclick="adjustHighlight({ range: testARange, bound: 'start', direction: 'next', root: document.querySelector('#test-a') }); updateLog()">
                 ▶️
               </button>
             </td>
             <td>
               <button
-                onclick="adjustHighlight({ range: testARange, bound: 'end', direction: 'prev' }); updateLog()">
+                onclick="adjustHighlight({ range: testARange, bound: 'end', direction: 'prev', root: document.querySelector('#test-a') }); updateLog()">
                 ◀️
               </button>
               <button
-                onclick="adjustHighlight({ range: testARange, bound: 'end', direction: 'next' }); updateLog()">
+                onclick="adjustHighlight({ range: testARange, bound: 'end', direction: 'next', root: document.querySelector('#test-a') }); updateLog()">
                 ▶️
               </button>
             </td>
@@ -84,8 +84,10 @@
          * @param obj.range {Range}
          * @param obj.bound {"start" | "end"}
          * @param obj.direction {"prev" | "next"}
+         * @param [obj.root] {Node} An optional root to prevent extending the
+         *        range to.
          */
-        function adjustHighlight({ range, bound, direction }) {
+        function adjustHighlight({ range, bound, direction, root }) {
           console.log({ range, bound, direction });
 
           const node =
@@ -93,45 +95,201 @@
           const offset =
             bound === 'start' ? range.startOffset : range.endOffset;
 
-          // If we're in a text node and not at the end, move by one character.
-          if (
-            !(node instanceof HTMLElement) &&
-            (direction === 'prev' ? offset > 0 : offset < node.data.length)
-          ) {
-            range.setStart(node, offset + (direction === 'prev' ? -1 : 1));
+          const newRange = stepSelection({ node, offset, direction });
+          if (!newRange || (root && newRange.node === root)) {
             return;
           }
 
-          const root = document.querySelector('#test-a');
+          switch (bound) {
+            case 'start': {
+              range.setStart(newRange.node, newRange.offset);
+              return;
+            }
+            case 'end': {
+              range.setEnd(newRange.node, newRange.offset);
+              return;
+            }
+            default: {
+              return;
+            }
+          }
+        }
 
-          // Otherwise, we're going to need to walk to the following node.
-          const treeWalker = document.createTreeWalker(
-            root,
-            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-          );
-          while (treeWalker.currentNode !== node) {
-            treeWalker.nextNode();
+        /**
+         * @param obj {object}
+         * @param obj.node {Node | null}
+         * @param obj.offset {number}
+         * @param obj.direction {"prev" | "next"}
+         */
+        function stepSelection({ node, offset, direction }) {
+          if (node === null) {
+            return null;
           }
 
-          const followingNode =
-            direction === 'prev'
-              ? treeWalker.previousNode()
-              : treeWalker.nextNode();
-          if (!followingNode || followingNode === root) {
-            return;
+          if (node instanceof Text) {
+            return stepSelectionText({ node, offset, direction });
           }
 
-          if (direction === 'prev') {
-            range.setStart(
-              followingNode,
-              followingNode instanceof Text
-                ? followingNode.data.length
-                : followingNode.childNodes.length,
-            );
-            return;
+          if (node instanceof HTMLElement) {
+            return stepSelectionElement({ element: node, offset, direction });
           }
 
-          range.setStart(followingNode, 0);
+          // TODO: handle comment nodes
+          return null;
+        }
+
+        /**
+         * @param obj {object}
+         * @param obj.element {HTMLElement | null}
+         * @param obj.offset {number}
+         * @param obj.direction {"prev" | "next"}
+         */
+        function stepSelectionElement({ element, offset, direction }) {
+          switch (direction) {
+            case 'prev': {
+              if (offset === element.childNodes.length) {
+                const lastChild = element.lastChild;
+                return lastChild
+                  ? {
+                      node: lastChild,
+                      offset:
+                        lastChild instanceof Text
+                          ? lastChild.data.length
+                          : lastChild.childNodes.length,
+                    }
+                  : stepOntoPreviousSibling(element);
+              }
+
+              return stepOntoPreviousSibling(element);
+            }
+            case 'next': {
+              if (offset === 0) {
+                const firstChild = element.firstChild;
+                return firstChild
+                  ? { node: firstChild, offset: 0 }
+                  : stepOntoNextSibling(element);
+              }
+
+              if (offset === element.childNodes.length) {
+                return stepOntoNextSibling(element);
+              }
+
+              // Warning: haven't thought too much about offsets in the middle
+              // of an element.
+              return { node: element, offset: offset + 1 };
+            }
+          }
+
+          return null;
+        }
+
+        /**
+         * @param obj {object}
+         * @param obj.node {Node | null}
+         * @param obj.offset {number}
+         * @param obj.direction {"prev" | "next"}
+         */
+        function stepSelectionText({ node, offset, direction }) {
+          switch (direction) {
+            case 'prev': {
+              // If offset is non-zero, we can safely decrement.
+              if (offset) {
+                return { node, offset: offset - 1 };
+              }
+
+              // Otherwise, we'll have to try the previous sibling.
+
+              return stepOntoPreviousSibling(node);
+            }
+            case 'next': {
+              // If offset is within the text's length, we can safely increment.
+              if (offset < node.data.length) {
+                return { node, offset: offset + 1 };
+              }
+
+              // Otherwise, we'll have to try the next sibling.
+
+              return stepOntoNextSibling(node);
+            }
+          }
+
+          return null;
+        }
+
+        /**
+         * @param node {Node}
+         */
+        function stepOntoPreviousSibling(node) {
+          const previousSibling = node.previousSibling;
+          if (previousSibling) {
+            // In the unlikely event that there's a Text beside this Text,
+            // transfer to the end of it.
+            if (previousSibling instanceof Text) {
+              return {
+                node: previousSibling,
+                offset: previousSibling.data.length,
+              };
+            }
+
+            // If there's a sibling HTMLElement, transfer to the end of it.
+            if (previousSibling instanceof HTMLElement) {
+              return {
+                node: previousSibling,
+                offset: previousSibling.childNodes.length,
+              };
+            }
+
+            // Unexpected case.
+            return null;
+          }
+
+          // This must be the first child in the container. Try transferring
+          // onto the front of it.
+
+          const parentElement = node.parentElement;
+          if (!parentElement) {
+            return null;
+          }
+
+          return { node: parentElement, offset: 0 };
+        }
+
+        /**
+         * @param node {Node}
+         */
+        function stepOntoNextSibling(node) {
+          const nextSibling = node.nextSibling;
+          if (nextSibling) {
+            // In the unlikely event that there's a Text beside this Text,
+            // transfer to the start of it.
+            if (nextSibling instanceof Text) {
+              return { node: nextSibling, offset: 0 };
+            }
+
+            // If there's a sibling HTMLElement, transfer to the start of it.
+            if (nextSibling instanceof HTMLElement) {
+              return {
+                node: nextSibling,
+                offset: 0,
+              };
+            }
+
+            // Unexpected case.
+            return null;
+          }
+
+          // This must be the final child in the container. Try transferring
+          // onto the end of it.
+
+          const parentElement = node.parentElement;
+          if (!parentElement) {
+            return null;
+          }
+
+          return {
+            node: parentElement,
+            offset: parentElement.childNodes.length,
+          };
         }
 
         function updateLog() {
