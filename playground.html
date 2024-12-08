@@ -123,25 +123,31 @@
          */
         function stepSelection({ node, offset, direction }) {
           if (node instanceof CharacterData) {
-            return stepSelectionCharacterData({ node, offset, direction });
-          }
+            switch (direction) {
+              case 'prev': {
+                // If offset is non-zero, we can safely decrement.
+                if (offset) {
+                  return { node, offset: offset - 1 };
+                }
 
-          return stepSelectionOtherNode({ node, offset, direction });
+                // Otherwise, we'll have to try the previous sibling.
 
-          return null;
-        }
+                return stepOntoPreviousSibling(node);
+              }
+              case 'next': {
+                // If offset is within the text's length, we can safely increment.
+                if (offset < node.data.length) {
+                  return { node, offset: offset + 1 };
+                }
 
-        /**
-         * @param obj {object}
-         * @param obj.node {Node | null}
-         * @param obj.offset {number}
-         * @param obj.direction {"prev" | "next"}
-         */
-        function stepSelectionOtherNode({ node, offset, direction }) {
-          if (node instanceof CharacterData) {
-            throw new TypeError(
-              'Expected Node of type other than CharacterData.',
-            );
+                // Otherwise, we'll have to try the next sibling.
+
+                return stepOntoNextSibling(node);
+              }
+              default: {
+                throw new Error(`Unexpected case "${direction}".`);
+              }
+            }
           }
 
           switch (direction) {
@@ -177,42 +183,10 @@
               // of a node.
               return { node, offset: offset + 1 };
             }
-          }
-
-          return null;
-        }
-
-        /**
-         * @param obj {object}
-         * @param obj.node {CharacterData | null}
-         * @param obj.offset {number}
-         * @param obj.direction {"prev" | "next"}
-         */
-        function stepSelectionCharacterData({ node, offset, direction }) {
-          switch (direction) {
-            case 'prev': {
-              // If offset is non-zero, we can safely decrement.
-              if (offset) {
-                return { node, offset: offset - 1 };
-              }
-
-              // Otherwise, we'll have to try the previous sibling.
-
-              return stepOntoPreviousSibling(node);
-            }
-            case 'next': {
-              // If offset is within the text's length, we can safely increment.
-              if (offset < node.data.length) {
-                return { node, offset: offset + 1 };
-              }
-
-              // Otherwise, we'll have to try the next sibling.
-
-              return stepOntoNextSibling(node);
+            default: {
+              throw new Error(`Unexpected case "${direction}".`);
             }
           }
-
-          return null;
         }
 
         /**
