@@ -125,11 +125,13 @@
           switch (direction) {
             case 'prev': {
               if (node instanceof CharacterData) {
+                // Move along the CharacterData, or onto the previous sibling.
                 return offset
                   ? { node, offset: offset - 1 }
                   : stepOntoPreviousSibling(node);
               }
 
+              // If we're at the end of a node with children, dig into it.
               const lastChild = node.lastChild;
               if (offset === node.childNodes.length && lastChild) {
                 return {
@@ -141,27 +143,27 @@
                 };
               }
 
+              // Prefer to step onto the previous sibling rather than using
+              // non-terminal offsets into a container node.
               return stepOntoPreviousSibling(node);
             }
             case 'next': {
               if (node instanceof CharacterData) {
+                // Move along the CharacterData, or onto the next sibling.
                 return offset < node.data.length
                   ? { node, offset: offset + 1 }
                   : stepOntoNextSibling(node);
               }
 
+              // If we're at the start of a node with children, dig into it.
               const firstChild = node.firstChild;
               if (!offset && firstChild) {
                 return { node: firstChild, offset: 0 };
               }
 
-              if (offset === node.childNodes.length) {
-                return stepOntoNextSibling(node);
-              }
-
-              // Warning: haven't thought too much about offsets in the middle
-              // of a node.
-              return { node, offset: offset + 1 };
+              // Prefer to step onto the next sibling rather than using
+              // non-terminal offsets into a container node.
+              return stepOntoNextSibling(node);
             }
             default: {
               throw new Error(`Unexpected case "${direction}".`);
