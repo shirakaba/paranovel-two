@@ -400,10 +400,16 @@ history.scrollRestoration = "manual";
 
 rb {
   /*
-    Workaround for a horrible Safari bug whereby it draws a tall opaque
-    highlight that completely obscures the <rt>.
+    Workaround for a horrible WebKit-only bug, affecting both macOS Safari 17.6
+    and the Safari shipped with iOS 18.1 (both WebKit 605.1.15), whereby an
+    opaque highlight is composited over the <rt>, completely obscuring it.
+
+    By using isolation: isolate, we force a new stacking context. This is a
+    vital alternative to z-index, which was not working - though opacity 0.999
+    would have equally worked:
+    https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Understanding_z-index/Stacking_context
   */
- mix-blend-mode: multiply;
+ isolation: isolate;
 }
 
 * {

@@ -42,6 +42,15 @@
         >です。</p
       >
 
+      <h2>Unhappy case</h2>
+
+      <p id="test-e" style="writing-mode: vertical-rl"
+        >その指の下で、その指の下で、その指の下で、その指の下で、。その指の下で、<ruby
+          ><rb>稲</rb><rt>いな</rt></ruby
+        ><ruby><rb>妻</rb><rt>ずま</rt></ruby
+        >の形をした</p
+      >
+
       <table>
         <thead>
           <tr style="text-align: center">
@@ -60,6 +69,7 @@ adjustHighlight({ range: testARange, bound: 'start', direction: 'prev', root: do
 adjustHighlight({ range: testBRange, bound: 'start', direction: 'prev', root: document.querySelector('#test-b') });
 adjustHighlight({ range: testCRange, bound: 'start', direction: 'prev', root: document.querySelector('#test-c') });
 adjustHighlight({ range: testDRange, bound: 'start', direction: 'prev', root: document.querySelector('#test-d') });
+adjustHighlight({ range: testERange, bound: 'start', direction: 'prev', root: document.querySelector('#test-e') });
 updateLog();
                 ">
                 ◀️
@@ -70,6 +80,7 @@ adjustHighlight({ range: testARange, bound: 'start', direction: 'next', root: do
 adjustHighlight({ range: testBRange, bound: 'start', direction: 'next', root: document.querySelector('#test-b') });
 adjustHighlight({ range: testCRange, bound: 'start', direction: 'next', root: document.querySelector('#test-c') });
 adjustHighlight({ range: testDRange, bound: 'start', direction: 'next', root: document.querySelector('#test-d') });
+adjustHighlight({ range: testERange, bound: 'start', direction: 'next', root: document.querySelector('#test-e') });
 updateLog();
                 ">
                 ▶️
@@ -82,6 +93,7 @@ adjustHighlight({ range: testARange, bound: 'end', direction: 'prev', root: docu
 adjustHighlight({ range: testBRange, bound: 'end', direction: 'prev', root: document.querySelector('#test-b') });
 adjustHighlight({ range: testCRange, bound: 'end', direction: 'prev', root: document.querySelector('#test-c') });
 adjustHighlight({ range: testDRange, bound: 'end', direction: 'prev', root: document.querySelector('#test-d') });
+adjustHighlight({ range: testERange, bound: 'end', direction: 'prev', root: document.querySelector('#test-e') });
 updateLog();
                 ">
                 ◀️
@@ -92,6 +104,7 @@ adjustHighlight({ range: testARange, bound: 'end', direction: 'next', root: docu
 adjustHighlight({ range: testBRange, bound: 'end', direction: 'next', root: document.querySelector('#test-b') });
 adjustHighlight({ range: testCRange, bound: 'end', direction: 'next', root: document.querySelector('#test-c') });
 adjustHighlight({ range: testDRange, bound: 'end', direction: 'next', root: document.querySelector('#test-d') });
+adjustHighlight({ range: testERange, bound: 'end', direction: 'next', root: document.querySelector('#test-e') });
 updateLog();
                 ">
                 ▶️
@@ -138,6 +151,13 @@ updateLog();
       testDRange.setStart(testDruby1, 0);
       testDRange.setEnd(testDruby1, testDruby1.childNodes.length);
       rubyHighlight.add(testDRange);
+
+      const testERange = new Range();
+      const testEruby1 = document.querySelector('#test-e ruby:nth-of-type(1)');
+      const testEruby2 = document.querySelector('#test-e ruby:nth-of-type(2)');
+      testERange.setStart(testEruby1, 0);
+      testERange.setEnd(testEruby2, testEruby2.childNodes.length);
+      rubyHighlight.add(testERange);
 
       CSS.highlights.set('ruby-highlight', rubyHighlight);
       updateLog();
