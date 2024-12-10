@@ -1,0 +1,8 @@
+export const abc = 123;
+const foo = 'bar';
+function def() {
+  return 'ghi';
+}
+class JKL {}
+export class MNO {}
+export const PQR = () => {};
