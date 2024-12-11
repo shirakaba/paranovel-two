@@ -1,3 +1,9 @@
 {
-  "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "files.associations": {
+    "*.wvcss": "css",
+    "*.wvhtml": "html",
+    "*.wvjs": "javascript",
+    "*.wvts": "typescript"
+  }
 }

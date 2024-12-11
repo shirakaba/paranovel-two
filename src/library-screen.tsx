@@ -18,6 +18,11 @@ import type { Book } from '@/types/book.types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './navigation.types';
 
+import ExampleJS from './source-assets/example.wvjs';
+import ExampleTS from './source-assets/example.wvts';
+import ExampleCSS from './source-assets/example.wvcss';
+import ExampleHTML from './source-assets/example.wvhtml';
+
 export default function LibraryScreen({
   navigation,
 }: NativeStackScreenProps<RootStackParamList, 'Library'>) {
@@ -33,6 +38,13 @@ export default function LibraryScreen({
           ),
     [libraryStatus],
   );
+
+  React.useEffect(() => {
+    console.log(`Imported ExampleJS:\n${ExampleJS}`);
+    console.log(`Imported ExampleTS:\n${ExampleTS}`);
+    console.log(`Imported ExampleCSS:\n${ExampleCSS}`);
+    console.log(`Imported ExampleHTML:\n${ExampleHTML}`);
+  }, []);
 
   // Prompt the user to pick the directory where the novels are stored.
   const onPressPicker = React.useCallback(async () => {
