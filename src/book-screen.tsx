@@ -185,7 +185,7 @@ export default function BookScreen({
       }
       interface LookUpPayload {
         type: 'lookUpTerm';
-        message: string;
+        term: string;
       }
       interface TokenizePayload {
         type: 'tokenize';
@@ -219,6 +219,42 @@ export default function BookScreen({
           const { message } = parsed;
           console.log(`[WebView] log: ${message}`);
           break;
+        }
+        case 'lookUpTerm': {
+          const webView = webViewRef.current;
+          if (!webView) {
+            return;
+          }
+
+          // Gross, but just working with what react-native-webview gives me.
+          const settle = (
+            type: 'resolve' | 'reject',
+            value: string,
+            id?: number,
+          ) =>
+            webView.injectJavaScript(
+              typeof id === 'string'
+                ? `__paranovelState.tokenizationPromiseHandlers[${id}].${type}(${value});`
+                : `Object.keys(__paranovelState.tokenizationPromiseHandlers).forEach(id => __paranovelState.tokenizationPromiseHandlers[id].${type}(${value}));`,
+            );
+          const resolve = (value: string, id?: number) =>
+            settle('resolve', value, id);
+          const reject = (value: string, id?: number) =>
+            settle('reject', `new Error(${value})`, id);
+
+          if (typeof parsed !== 'object') {
+            return reject('"Expected message to be object"');
+          }
+
+          const { term } = parsed;
+          if (typeof term !== 'string') {
+            return reject('"Expected body to have term"');
+          }
+
+          // TODO: look up the term and respond with the result
+          console.log(`[WebView] lookUpTerm: ${term}`);
+          resolve(JSON.stringify(`Definition for "${term}"`));
+          return;
         }
         case 'navigation-request': {
           if (!spine) {

@@ -22,7 +22,12 @@ updatePopover({
 
 /**
  * @param {object} obj
- * @param {{ x: number; y: number; width: number; height: number; }} obj.sourceRect
+ * @param {DOMRect} obj.sourceRect The bounding client rect for the range that
+ * is highlighted (that the popover should avoid).
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode the
+ * writing mode of the range that has been highlighted (informing where the
+ * popover should prefer to align to if the source rect is particularly large,
+ * e.g. due to spanning two lines).
  * @param {string} obj.text
  * @param {"block" | "none"} obj.display
  */
@@ -224,7 +229,6 @@ async function onClickDocument(event) {
     offsetOfTargetTokenIntoBlockBaseText,
     offsetOfTargetCharacterIntoBlockBaseText,
   } = response;
-  lookUpTerm(dictionaryForm);
   log(
     `📖 dictionaryForm: "${dictionaryForm}"; tokenOffset: ${offsetOfTargetTokenIntoBlockBaseText}, characterOffset: ${offsetOfTargetCharacterIntoBlockBaseText}; length: ${tokenLength}`,
   );
@@ -273,15 +277,64 @@ async function onClickDocument(event) {
   }
 
   __paranovelState.wordHighlight.add(tokenRange);
+  const sourceRect = tokenRange.getBoundingClientRect();
+  const endContainerElement =
+    tokenRange.endContainer instanceof Element
+      ? tokenRange.endContainer
+      : tokenRange.endContainer.parentElement;
+  const writingMode =
+    endContainerElement?.computedStyleMap().get('writing-mode') ??
+    'horizontal-tb';
+
+  log(
+    `🔎 Looking up term "${dictionaryForm}" with sourceRect ${JSON.stringify(
+      sourceRect.toJSON(),
+    )} and writingMode "${writingMode}"`,
+  );
+  lookUpTerm({ dictionaryForm, sourceRect });
 }
 
-function lookUpTerm(dictionaryForm) {
-  window.ReactNativeWebView.postMessage(
-    JSON.stringify({
-      type: 'lookUpTerm',
-      message: dictionaryForm,
-    }),
-  );
+/**
+ *
+ * @param {object} obj
+ * @param {string} obj.dictionaryForm
+ * @param {DOMRect} obj.sourceRect
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
+ */
+async function lookUpTerm({ dictionaryForm, sourceRect, writingMode }) {
+  const id = __paranovelState.tokenizationPromiseCount++;
+
+  /** @type {string} */
+  let response;
+  try {
+    response = await new Promise((resolve, reject) => {
+      __paranovelState.tokenizationPromiseHandlers[id] = { resolve, reject };
+
+      // Promise is settled by onNovelViewMessage calling resolve/reject
+      window.ReactNativeWebView.postMessage(
+        JSON.stringify({
+          type: 'lookUpTerm',
+          term: dictionaryForm,
+        }),
+      );
+    });
+  } catch (error) {
+    console.error('lookUpTerm Promise rejected with error', error);
+    log(
+      `❌ lookUpTerm Promise rejected${
+        error instanceof Error ? ` with error: "${error.message}"` : '.'
+      }`,
+    );
+    return;
+  } finally {
+    delete __paranovelState.tokenizationPromiseHandlers[id];
+  }
+
+  updatePopover({
+    sourceRect,
+    text: response,
+    display: 'block',
+  });
 }
 
 function getRangeFromOffsetIntoBlockBaseText({
