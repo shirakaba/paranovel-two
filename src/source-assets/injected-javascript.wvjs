@@ -29,7 +29,7 @@ history.scrollRestoration = 'manual';
   background-color: yellow;
 }
 
-rb {
+rt {
   /*
     Workaround for a horrible WebKit-only bug, affecting both macOS Safari 17.6
     and the Safari shipped with iOS 18.1 (both WebKit 605.1.15), whereby an
