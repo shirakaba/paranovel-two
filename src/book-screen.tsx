@@ -20,7 +20,8 @@ import {
   parseOPF,
 } from '@/utils/epub-parsing';
 import type { RootStackParamList } from './navigation.types';
-import injectedJavaScript from './source-assets/injected-javascript.wvjs';
+import injectedCss from './source-assets/injected-css.wvcss';
+import mainScript from './source-assets/injected-javascript.wvjs';
 
 export default function BookScreen({
   navigation,
@@ -363,6 +364,16 @@ export default function BookScreen({
     </SafeAreaView>
   );
 }
+
+const injectedJavaScript = `
+{
+  const style = document.createElement('style');
+  style.textContent = ${JSON.stringify(injectedCss)};
+  document.head.appendChild(style);
+}
+
+${mainScript}
+`.trim();
 
 const style = StyleSheet.create({
   container: { flex: 1 },
