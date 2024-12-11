@@ -65,3 +65,14 @@ svg {
   /* Prevent images from dictating the height of the whole page. */
   max-inline-size: 100% !important;
 }
+
+#paranovel-popover {
+  position: fixed;
+  writing-mode: horizontal-tb;
+  padding: 16px;
+  background-color: blanchedalmond;
+  border: 1px solid saddlebrown;
+  color: slategrey;
+  /* Put it above our <rt> elements that have isolation: isolate */
+  z-index: 1;
+}
