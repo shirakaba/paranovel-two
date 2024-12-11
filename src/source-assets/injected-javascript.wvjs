@@ -14,6 +14,46 @@ history.scrollRestoration = 'manual';
 // a workaround.
 wrapRubyBaseTextsWithRb(document.body);
 
+updatePopover({
+  sourceRect: { x: 100, y: 100, width: 0, height: 0 },
+  text: 'hello',
+  display: 'block',
+});
+
+/**
+ * @param {object} obj
+ * @param {{ x: number; y: number; width: number; height: number; }} obj.sourceRect
+ * @param {string} obj.text
+ * @param {"block" | "none"} obj.display
+ */
+function updatePopover({ sourceRect: { x, y }, display, text }) {
+  const popover =
+    document.getElementById('paranovel-popover') ??
+    document.createElement('div');
+  popover.id = 'paranovel-popover';
+
+  if (!popover.isConnected) {
+    document.body.prepend(popover);
+  }
+
+  popover.style.left = `${x}px`;
+  popover.style.top = `${y}px`;
+  popover.style.width = '200px';
+  popover.style.height = '200px';
+  popover.style.display = display;
+
+  const contents = `
+  <div style="background-color: green;">
+    <p>${text}</p>
+  </div>
+    `.trim();
+  const template = document.createElement('template');
+  template.innerHTML = contents;
+  const contentsDom = template.content.firstChild;
+
+  popover.replaceChildren(contentsDom);
+}
+
 /**
  * Wraps any direct bare text node children in a `<ruby>` with `<rb>`:
  *
