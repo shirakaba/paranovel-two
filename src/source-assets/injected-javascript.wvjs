@@ -1,0 +1,553 @@
+// Prevent restoring the last-scrolled position from a previous session.
+history.scrollRestoration = 'manual';
+
+{
+  // Insert a viewport meta tag
+  const meta = document.createElement('meta');
+  meta.name = 'viewport';
+  meta.content = 'width=device-width, initial-scale=1, user-scalable=no';
+  document.head.appendChild(meta);
+
+  // Insert our custom styles. This approach reliably presents the styles in the
+  // WebKit web inspector's styles menu, unlike the adoptedStyleSheets approach,
+  // where I've noticed that body styles simply don't show up even if they take
+  // effect.
+  const style = document.createElement('style');
+  style.textContent = `
+:root {
+  /*
+   * - In vertical-rl text: 'block' = 'horizontal' and 'inline' = 'vertical'.
+   * - In horizontal-lr text: 'block' = 'vertical' and 'inline' = 'horizontal'.
+   */
+  --paranovel-block-padding: 24px;
+  --paranovel-inline-padding: 24px;
+  --paranovel-font-size: 24px;
+}
+
+::highlight(word) {
+  color: black;
+  background-color: yellow;
+}
+
+rb {
+  /*
+    Workaround for a horrible WebKit-only bug, affecting both macOS Safari 17.6
+    and the Safari shipped with iOS 18.1 (both WebKit 605.1.15), whereby an
+    opaque highlight is composited over the <rt>, completely obscuring it.
+
+    By using isolation: isolate, we force a new stacking context. This is a
+    vital alternative to z-index, which was not working - though opacity 0.999
+    would have equally worked:
+    https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Understanding_z-index/Stacking_context
+  */
+ isolation: isolate;
+}
+
+* {
+  /*
+    Prevent double-tap from zooming and centring on the element (e.g. <button>
+    elements). The zoom cancellation is redundant with the "user-scalable=no"
+    option specified in our <meta> tag, but the centring cancellation isn't.
+  */
+  touch-action: pan-x pan-y;
+}
+
+html {
+  margin: 0 !important;
+  max-inline-size: none !important;
+}
+
+body {
+  position: relative !important;
+  box-sizing: border-box !important;
+  padding-block: var(--paranovel-block-padding) !important;
+  padding-inline: var(--paranovel-inline-padding) !important;
+  margin: 0 !important;
+  inline-size: 100% !important;
+  font-size: var(--paranovel-font-size) !important;
+}
+
+div:has(img) {
+  height: auto !important;
+}
+
+img, svg {
+  /* Stop images sizing to their container  */
+  block-size: auto !important;
+
+  /* Prevent images from dictating the height of the whole page. */
+  max-inline-size: 100% !important;
+}
+`.trim();
+  document.head.appendChild(style);
+}
+
+/**
+ * Prepend a prelude and append a postlude into the <body>.
+ */
+function insertNavigationButtons(body) {
+  // TODO: style Previous & Next as primary, and the Jump buttons as secondary.
+  const commonStyles =
+    'display: flex; justify-content: center; align-items: center; column-gap: 8px;';
+
+  const prelude = `
+<div id="paranovel-prelude" style="${commonStyles} padding-block-end: 16px;">
+  <button id="paranovel-previous" type="button" style="writing-mode: horizontal-tb;">Previous</button>
+  <button id="paranovel-end" type="button" style="writing-mode: horizontal-tb;">Jump to end</button>
+</div>
+  `.trim();
+
+  const postlude = `
+<div id="paranovel-postlude" style="${commonStyles} padding-block-start: 16px;">
+  <button id="paranovel-start" type="button" style="writing-mode: horizontal-tb;">Return to start</button>
+  <button id="paranovel-next" type="button" style="writing-mode: horizontal-tb;">Next</button>
+</div>
+  `.trim();
+
+  for (const html of [postlude, prelude]) {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const dom = template.content.firstChild;
+
+    switch (dom.id) {
+      case 'paranovel-prelude': {
+        const prev = dom.querySelector('#paranovel-previous');
+        prev.onclick = event => {
+          window.ReactNativeWebView.postMessage(
+            JSON.stringify({
+              type: 'navigation-request',
+              value: 'prev',
+              currentHref: location.href,
+            }),
+          );
+        };
+
+        const end = dom.querySelector('#paranovel-end');
+        end.onclick = event => {
+          document.body.scrollIntoView({
+            block: 'end',
+            inline: 'end',
+            behavior: 'instant',
+          });
+        };
+
+        body.prepend(dom);
+        break;
+      }
+      case 'paranovel-postlude': {
+        const next = dom.querySelector('#paranovel-next');
+        next.onclick = event => {
+          window.ReactNativeWebView.postMessage(
+            JSON.stringify({
+              type: 'navigation-request',
+              value: 'next',
+              currentHref: location.href,
+            }),
+          );
+        };
+
+        const start = dom.querySelector('#paranovel-start');
+        start.onclick = event => {
+          document.body.scrollIntoView({
+            block: 'start',
+            inline: 'start',
+            behavior: 'instant',
+          });
+        };
+
+        body.append(dom);
+        break;
+      }
+    }
+  }
+}
+
+function log(message) {
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({ type: 'log', message }),
+  );
+}
+
+async function onClickDocument(event) {
+  const { x, y } = event;
+
+  const caretRange = document.caretRangeFromPoint(x, y);
+  if (!caretRange) {
+    log('❌ no caret range');
+    return;
+  }
+
+  const surroundingText = getSurroundingText(caretRange);
+  if (!surroundingText) {
+    log('❌ no surrounding text');
+    return;
+  }
+  console.log(surroundingText);
+  const {
+    blockBaseText,
+    closestBlock,
+    offsetOfTargetBaseTextIntoBlockBaseText,
+    targetNode,
+  } = surroundingText;
+
+  __paranovelState.wordHighlight.clear();
+
+  const id = __paranovelState.tokenizationPromiseCount++;
+
+  let response;
+  try {
+    response = await new Promise((resolve, reject) => {
+      __paranovelState.tokenizationPromiseHandlers[id] = { resolve, reject };
+
+      // Promise is settled by onNovelViewMessage calling resolve/reject
+      window.ReactNativeWebView.postMessage(
+        JSON.stringify({
+          type: 'tokenize',
+          id,
+          blockBaseText,
+          offset: offsetOfTargetBaseTextIntoBlockBaseText,
+        }),
+      );
+    });
+  } catch (error) {
+    console.error('Tokenize Promise rejected with error', error);
+    log(
+      `❌ Tokenize Promise rejected${
+        error instanceof Error ? ` with error: "${error.message}"` : '.'
+      }`,
+    );
+  } finally {
+    delete __paranovelState.tokenizationPromiseHandlers[id];
+  }
+
+  const {
+    dictionaryForm,
+    tokenLength,
+    offsetOfTargetTokenIntoBlockBaseText,
+    offsetOfTargetCharacterIntoBlockBaseText,
+  } = response;
+  lookUpTerm(dictionaryForm);
+  log(
+    `📖 dictionaryForm: "${dictionaryForm}"; tokenOffset: ${offsetOfTargetTokenIntoBlockBaseText}, characterOffset: ${offsetOfTargetCharacterIntoBlockBaseText}; length: ${tokenLength}`,
+  );
+
+  const tokenRange = getRangeFromOffsetIntoBlockBaseText({
+    blockElement: closestBlock,
+    blockBaseText,
+    startOffset: offsetOfTargetTokenIntoBlockBaseText,
+    endOffset: offsetOfTargetTokenIntoBlockBaseText + tokenLength,
+  });
+  if (!tokenRange) {
+    return;
+  }
+
+  // If we're inside a base text of a <ruby> (whether a text node or an <rb>),
+  // and the selection range terminates at the end of that base text, then
+  // search for the matching <rt> and extend the highlight to include that.
+  const { endContainer, endOffset } = tokenRange;
+  if (
+    (endContainer instanceof CharacterData &&
+      endOffset === endContainer.data.length) ||
+    endOffset === endContainer.childNodes.length
+  ) {
+    const endContainerElement =
+      endContainer instanceof Element
+        ? endContainer
+        : endContainer.parentElement;
+    const endContainerRuby = endContainerElement?.closest('ruby');
+    if (endContainerRuby) {
+      let correspondingRt;
+      for (const node of traverseFollowingText(
+        endContainerElement,
+        'next',
+        endContainerRuby,
+      )) {
+        if (node.nodeName === 'RT') {
+          correspondingRt = node;
+          break;
+        }
+      }
+      if (correspondingRt) {
+        tokenRange.setEnd(correspondingRt, correspondingRt.childNodes.length);
+      }
+    }
+  }
+
+  __paranovelState.wordHighlight.add(tokenRange);
+}
+
+function lookUpTerm(dictionaryForm) {
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({
+      type: 'lookUpTerm',
+      message: dictionaryForm,
+    }),
+  );
+}
+
+function getRangeFromOffsetIntoBlockBaseText({
+  blockElement,
+  blockBaseText,
+  startOffset,
+  endOffset,
+}) {
+  if (!(blockElement instanceof HTMLElement)) {
+    throw new TypeError('Expected blockElement to be an HTML Element.');
+  }
+
+  if (startOffset < 0 || startOffset > blockBaseText.length) {
+    throw new DOMException(
+      'The index is not in the allowed range.',
+      'IndexSizeError',
+    );
+  }
+
+  const rangeLength = endOffset - startOffset;
+
+  let offset = 0;
+  const range = document.createRange();
+  let foundStartOffset = false;
+  let prevNode = null;
+  for (const node of traverseBaseText(blockElement)) {
+    const actual = node.textContent;
+    const expected = blockBaseText.slice(offset, offset + actual.length);
+    if (actual !== expected) {
+      throw new Error(
+        'Expected to be able to reproduce the originally extracted base text when retraversing the same block.',
+      );
+    }
+
+    // If the offsets lie within this node, set the range accordingly.
+    //
+    // When there are multiple possible solutions due to the range being on a
+    // boundary between two nodes, prefer to keep the range as small as
+    // possible.
+    //
+    // Note that we blindly assume a forward range (startOffset < endOffset).
+
+    // For startOffset, prefer the following node (thus >)
+    if (!foundStartOffset && offset + actual.length > startOffset) {
+      const offsetWithinNode = startOffset - offset;
+      range.setStart(node, offsetWithinNode);
+      foundStartOffset = true;
+    }
+
+    // For endOffset, prefer the current node (thus >=)
+    if (foundStartOffset && offset + actual.length >= endOffset) {
+      const offsetWithinNode = endOffset - offset;
+      range.setEnd(node, offsetWithinNode);
+      return range;
+    }
+
+    offset += actual.length;
+    prevNode = node;
+  }
+
+  return null;
+}
+
+function getSurroundingText(range) {
+  const { startContainer: targetNode, startOffset: targetOffset } = range;
+  if (!(targetNode instanceof Text)) {
+    return;
+  }
+
+  const element = targetNode.parentElement;
+  if (!element) {
+    return;
+  }
+
+  const closestRuby = element.closest('ruby');
+  const blockElementsSelector =
+    'address,article,aside,blockquote,canvas,dd,div,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,noscript,ol,p,pre,section,table,tfoot,ul,video';
+  const closestBlock = element.closest(blockElementsSelector);
+
+  let leadingBaseText = '';
+  let targetBaseText = '';
+  let trailingBaseText = '';
+  for (const { baseTextContent, stage } of traverseBlock(targetNode)) {
+    switch (stage) {
+      case BlockTraversalStage.leading: {
+        leadingBaseText = `${baseTextContent}${leadingBaseText}`;
+        break;
+      }
+      case BlockTraversalStage.target: {
+        targetBaseText = baseTextContent;
+        break;
+      }
+      case BlockTraversalStage.trailing: {
+        trailingBaseText = `${trailingBaseText}${baseTextContent}`;
+        break;
+      }
+    }
+  }
+
+  const offsetOfTargetBaseTextIntoBlockBaseText =
+    leadingBaseText.length + (closestRuby ? 0 : targetOffset);
+  const blockBaseText = leadingBaseText + targetBaseText + trailingBaseText;
+
+  return {
+    leadingBaseText,
+    targetNode,
+    targetBaseText,
+    targetBaseTextSliced: targetBaseText.slice(
+      offsetOfTargetBaseTextIntoBlockBaseText,
+    ),
+    trailingBaseText,
+    closestBlock,
+    blockBaseText,
+    offsetOfTargetBaseTextIntoBlockBaseText,
+  };
+}
+
+function* traverseBlock(textNode) {
+  if (!(textNode instanceof Text)) {
+    return;
+  }
+
+  const element = textNode.parentElement;
+  if (!element) {
+    return;
+  }
+
+  const closestRuby = element.closest('ruby');
+  const pivot = closestRuby ?? textNode;
+  const blockElementsSelector =
+    'address,article,aside,blockquote,canvas,dd,div,dl,dt,fieldset,figcaption,figure,footer,form,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,noscript,ol,p,pre,section,table,tfoot,ul,video';
+  const closestBlock = element.closest(blockElementsSelector);
+
+  for (const node of traverseFollowingText(pivot, 'previous', closestBlock)) {
+    const baseTextContent = getBaseTextContent(node);
+    yield { baseTextContent, stage: BlockTraversalStage.leading };
+  }
+
+  const targetBaseText = getBaseTextContent(pivot);
+  yield { baseTextContent: targetBaseText, stage: BlockTraversalStage.target };
+
+  for (const node of traverseFollowingText(pivot, 'next', closestBlock)) {
+    const baseTextContent = getBaseTextContent(node);
+    yield { baseTextContent, stage: BlockTraversalStage.trailing };
+  }
+}
+
+const BlockTraversalStage = {
+  leading: 0,
+  target: 1,
+  trailing: 2,
+};
+
+function getFollowingText(
+  node,
+  direction,
+  untilAncestor,
+  blocklist = element => false,
+) {
+  let followingText = '';
+
+  if (direction === 'next') {
+    for (const node of traverseFollowingText(
+      node,
+      direction,
+      untilAncestor,
+      blocklist,
+    )) {
+      const baseTextContent = getBaseTextContent(node);
+      followingText = `${followingText}${baseTextContent}`;
+    }
+  } else {
+    for (const node of traverseFollowingText(
+      node,
+      direction,
+      untilAncestor,
+      blocklist,
+    )) {
+      const baseTextContent = getBaseTextContent(node);
+      followingText = `${baseTextContent}${followingText}`;
+    }
+  }
+
+  return followingText;
+}
+
+function* traverseFollowingText(
+  node,
+  direction,
+  untilAncestor,
+  blocklist = element => false,
+) {
+  let parent = node.parentElement;
+  let sibling = direction === 'next' ? node.nextSibling : node.previousSibling;
+  while (true) {
+    // If we've reached the end of the run, climb up to the parent and continue.
+    while (!sibling) {
+      if (!parent || parent === untilAncestor) {
+        return;
+      }
+
+      sibling =
+        direction === 'next' ? parent.nextSibling : parent.previousSibling;
+
+      // If we've walked into a blocklisted sibling, consider it the end of the
+      // line and climb up further.
+      if (blocklist(sibling)) {
+        sibling = null;
+      }
+
+      parent = parent.parentElement;
+    }
+
+    yield sibling;
+
+    sibling =
+      direction === 'next' ? sibling.nextSibling : sibling.previousSibling;
+  }
+}
+
+function* traverseBaseText(node) {
+  const treeWalker = document.createTreeWalker(
+    node,
+    // We need SHOW_ELEMENT to filter out all <rt> subtrees, while the payload
+    // we're actually interested in is SHOW_TEXT.
+    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+    node => {
+      switch (node.nodeName) {
+        case 'RT':
+          return NodeFilter.FILTER_REJECT;
+        case '#text':
+          return NodeFilter.FILTER_ACCEPT;
+        default:
+          return NodeFilter.FILTER_SKIP;
+      }
+    },
+  );
+
+  // Make the traversal inclusive of the target node.
+  if (node.nodeName === '#text') {
+    yield node;
+  }
+
+  let nextNode;
+  while ((nextNode = treeWalker.nextNode())) {
+    yield nextNode;
+  }
+}
+
+// Warning: does not return empty strings if called directly on/inside <rt>/<rp>
+function getBaseTextContent(node) {
+  let baseTextContent = '';
+  for (const textNode of traverseBaseText(node)) {
+    baseTextContent = `${baseTextContent}${textNode.textContent}`;
+  }
+  return baseTextContent;
+}
+
+const __paranovelState = {
+  wordHighlight: new Highlight(),
+  tokenizationPromiseCount: 0,
+  tokenizationPromiseHandlers: {},
+};
+
+CSS.highlights.set('word', __paranovelState.wordHighlight);
+
+insertNavigationButtons(document.body);
+document.addEventListener('click', onClickDocument);
