@@ -123,6 +123,9 @@ function log(message) {
   );
 }
 
+/**
+ * @param {MouseEvent} event
+ */
 async function onClickDocument(event) {
   const { x, y } = event;
 
@@ -211,13 +214,14 @@ async function onClickDocument(event) {
         : endContainer.parentElement;
     const endContainerRuby = endContainerElement?.closest('ruby');
     if (endContainerRuby) {
+      /** @type {HTMLElement | undefined} */
       let correspondingRt;
       for (const node of traverseFollowingText(
         endContainerElement,
         'next',
         endContainerRuby,
       )) {
-        if (node.nodeName === 'RT') {
+        if (node.nodeName.toUpperCase() === 'RT') {
           correspondingRt = node;
           break;
         }
@@ -424,6 +428,12 @@ function getFollowingText(
   return followingText;
 }
 
+/**
+ * @param {Node} node
+ * @param {"prev" | "next"} direction
+ * @param {Node} [untilAncestor]
+ * @param {(element: Element) => boolean} blocklist
+ */
 function* traverseFollowingText(
   node,
   direction,
@@ -466,6 +476,8 @@ function* traverseBaseText(node) {
     NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
     node => {
       switch (node.nodeName) {
+        // Element nodeNames are uppercase in HTML, yet lowercase in XHTML
+        case 'rt':
         case 'RT':
           return NodeFilter.FILTER_REJECT;
         case '#text':
