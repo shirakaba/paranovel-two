@@ -20,7 +20,8 @@ import {
   parseOPF,
 } from '@/utils/epub-parsing';
 import type { RootStackParamList } from './navigation.types';
-import injectedCss from './source-assets/injected-css.wvcss';
+import tailwindCss from './source-assets/tailwind-output.wvcss';
+import mainCss from './source-assets/injected-css.wvcss';
 import mainScript from './source-assets/injected-javascript.wvjs';
 
 export default function BookScreen({
@@ -366,9 +367,11 @@ export default function BookScreen({
 }
 
 const injectedJavaScript = `
-{
+for(const textContent of [${JSON.stringify(tailwindCss)}, ${JSON.stringify(
+  mainCss,
+)}]){
   const style = document.createElement('style');
-  style.textContent = ${JSON.stringify(injectedCss)};
+  style.textContent = textContent;
   document.head.appendChild(style);
 }
 

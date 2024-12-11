@@ -1,0 +1,30 @@
+/**
+# Background
+
+`tailwind-input.wvcss` gets compiled to `tailwind-output.wvcss` upon calling
+`npm run tailwind`. The Tailwind CLI successfully picks up any usages of
+Tailwind classes within `injected-javascript.wvjs` without any special
+configuration needed, thanks to Tailwind v4's automatic source detection:
+@see https://tailwindcss.com/docs/v4-beta#automatic-source-detection
+
+Until we have a workflow that ensures `tailwind-output.wvcss` is generated in
+dev and release builds and reacts to changes to our JS code, we shall commit it
+to source. In future, it would be nice if the source code could import
+`tailwind-input.wvcss` and for `tailwind-output.wvcss` to just sneak into the
+bundle transparently.
+
+# Known bugs
+## Unused classes in output
+
+The v4 Tailwind CLI retains previously-declared classes even if they're unused:
+https://github.com/tailwindlabs/tailwindcss/issues/14800
+The classes remain in the output whether you're using --watch mode or doing a
+fresh build and regardless of whether the --optimize/--minify flags are passed.
+
+## Watch mode buggy
+
+Watch mode seems to trigger recompiles even when no relevant file has been
+changed. Best to avoid using it for now.
+
+*/
+@import 'tailwindcss';

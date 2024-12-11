@@ -7,6 +7,7 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "tailwind": "tailwindcss -i src/source-assets/tailwind-input.css -o src/source-assets/tailwind-output.wvcss",
     "debug:start": "DEBUG=expo:* expo start",
     "debug:android": "DEBUG=expo:* expo run:android",
     "debug:ios": "DEBUG=expo:* expo run:ios",
@@ -44,6 +45,7 @@
     "@expo/metro-config": "^0.19.4",
     "@react-native/metro-config": "^0.76.3",
     "@rnx-kit/metro-config": "^2.0.1",
+    "@tailwindcss/cli": "^4.0.0-beta.6",
     "@types/jest": "^29.5.14",
     "@types/react": "~18.3.12",
     "@types/react-test-renderer": "^18.3.0",
@@ -51,6 +53,7 @@
     "jest-expo": "~52.0.2",
     "patch-package": "^8.0.0",
     "react-test-renderer": "^18.3.1",
+    "tailwindcss": "^4.0.0-beta.6",
     "typescript": "^5.3.3"
   },
   "resolutions": {
