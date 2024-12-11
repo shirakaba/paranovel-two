@@ -9,6 +9,34 @@ history.scrollRestoration = 'manual';
   document.head.appendChild(meta);
 }
 
+// Although <rb> is a deprecated element, on WebKit, the CSS Custom Highlight
+// API simply doesn't highlight the bare text nodes, so we apply this change as
+// a workaround.
+wrapRubyBaseTextsWithRb(document.body);
+
+/**
+ * Wraps any direct bare text node children in a `<ruby>` with `<rb>`:
+ *
+ * ```diff
+ * - <ruby>明日<rt>あした</rt></ruby>
+ * + <ruby><rb>明日</rb><rt>あした</rt></ruby>
+ * ```
+ *
+ * @param root {Element}
+ */
+function wrapRubyBaseTextsWithRb(root) {
+  for (const ruby of root.querySelectorAll('ruby')) {
+    for (const childNode of ruby.childNodes) {
+      if (childNode.nodeName !== '#text') {
+        continue;
+      }
+      const rb = document.createElement('rb');
+      ruby.replaceChild(rb, childNode);
+      rb.appendChild(childNode);
+    }
+  }
+}
+
 /**
  * Prepend a prelude and append a postlude into the <body>.
  */
