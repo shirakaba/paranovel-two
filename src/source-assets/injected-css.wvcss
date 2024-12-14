@@ -39,6 +39,8 @@ rt {
 html {
   margin: 0 !important;
   max-inline-size: none !important;
+  /* As the WebView bounces={false} prop is broken */
+  overscroll-behavior: none;
 }
 
 body {
