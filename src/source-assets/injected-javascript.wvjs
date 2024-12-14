@@ -22,7 +22,7 @@ wrapRubyBaseTextsWithRb(document.body);
  * writing mode of the range that has been highlighted (informing where the
  * popover should prefer to align to if the source rect is particularly large,
  * e.g. due to spanning two lines).
- * @param {Array<import("../../utils/look-up-term").LookupResult>} obj.results
+ * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
  * @param {"block" | "none"} obj.display
  */
 function updatePopover({ sourceRect: { x, y, width }, display, results }) {
@@ -38,20 +38,112 @@ function updatePopover({ sourceRect: { x, y, width }, display, results }) {
   popover.style.left = `${x + width + 10}px`;
   popover.style.top = `${y}px`;
   popover.style.width = '200px';
-  popover.style.height = '200px';
+  popover.style.height = 'auto';
+  popover.style.maxHeight = '400px';
   popover.style.display = display;
 
-  // See `src/screens/novel/DictView.tsx` in Paranovel v1 for how to render
-  const contents = `
-  <div>
-    <p>${JSON.stringify(results)}</p>
-  </div>
-    `.trim();
-  const template = document.createElement('template');
-  template.innerHTML = contents;
-  const contentsDom = template.content.firstChild;
+  // UI ported over from Paranovel v1's `src/screens/novel/DictView.tsx`.
+  // The container here maps to DictView's `ScrollView`, but we hoist its styles
+  // up to #paranovel-popover's CSS declaration instead.
 
-  popover.replaceChildren(contentsDom);
+  const defaultFontSize = '14px';
+
+  const container = document.createDocumentFragment();
+
+  if (!results?.length) {
+    const p = document.createElement('p');
+    p.style.margin = '0';
+    p.style.color = 'white';
+    p.style.fontSize = defaultFontSize;
+    p.textContent = 'No results.';
+    container.appendChild(p);
+    popover.replaceChildren(container);
+    return;
+  }
+
+  const resultsFragment = document.createDocumentFragment();
+  for (const { forms, senses } of results) {
+    const readings = forms
+      .sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0))
+      .filter(({ kana }) => kana);
+
+    // <Result>
+    const resultContainer = document.createElement('div');
+    resultContainer.style.display = 'flex';
+    resultContainer.style.flexDirection = 'column';
+    resultContainer.style.gap = '8px';
+    resultContainer.style.alignItems = 'flex-start';
+
+    const headWord = document.createElement('p');
+    headWord.style.color = 'white';
+    headWord.style.fontSize = '22px';
+    headWord.style.margin = '0';
+    headWord.textContent = forms
+      .filter(({ kana }) => !kana)
+      .map(({ common, form }) => (common ? form : `（${form}）`))
+      .join('、');
+    resultContainer.appendChild(headWord);
+
+    const readingItem = document.createElement('p');
+    readingItem.style.margin = '0';
+    readingItem.style.color = 'white';
+    readingItem.style.fontSize = defaultFontSize;
+    readingItem.textContent = readings
+      // Could represent uncommon using dice
+      .map(({ common, form }) => (common ? form : `（${form}）`))
+      .join('、');
+    resultContainer.appendChild(readingItem);
+
+    const senseList = document.createElement('div');
+    senseList.style.display = 'flex';
+    senseList.style.flexDirection = 'column';
+    senseList.style.gap = '16px';
+    for (const [i, { pos, gloss }] of senses.entries()) {
+      const senseItem = document.createElement('div');
+      senseItem.style.display = 'flex';
+      senseItem.style.flexDirection = 'column';
+      senseItem.style.alignItems = 'flex-start';
+      senseItem.style.gap = '8px';
+      senseItem.style.fontSize = defaultFontSize;
+
+      const posList = document.createElement('ul');
+      posList.style.display = 'flex';
+      posList.style.flexDirection = 'row';
+      posList.style.gap = '8px';
+      posList.style.margin = '0';
+      posList.style.padding = '0';
+      posList.style.listStyle = 'none';
+      for (const textContent of pos) {
+        const posItem = document.createElement('li');
+        posItem.style.color = 'white';
+        posItem.style.borderWidth = '1px';
+        posItem.style.borderStyle = 'solid';
+        posItem.style.borderColor = 'grey';
+        posItem.style.borderRadius = '4px';
+        posItem.style.paddingLeft = '4px';
+        posItem.style.paddingRight = '4px';
+        posItem.style.fontSize = defaultFontSize;
+        posItem.textContent = textContent;
+        posList.appendChild(posItem);
+      }
+      senseItem.appendChild(posList);
+
+      const glossItem = document.createElement('p');
+      glossItem.style.margin = '0';
+      glossItem.style.color = 'white';
+      glossItem.style.fontSize = defaultFontSize;
+      glossItem.textContent = `${i + 1}. ${gloss.join('; ')}`;
+      senseItem.appendChild(glossItem);
+
+      senseList.appendChild(senseItem);
+    }
+
+    resultContainer.appendChild(senseList);
+    resultsFragment.appendChild(resultContainer);
+  }
+
+  container.appendChild(resultsFragment);
+  popover.replaceChildren(container);
 }
 
 /**

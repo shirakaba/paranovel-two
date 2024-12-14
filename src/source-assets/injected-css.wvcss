@@ -70,10 +70,8 @@ svg {
   position: fixed;
   writing-mode: horizontal-tb;
   padding: 8px;
-  font-size: 18px;
-  background-color: blanchedalmond;
-  border: 1px solid saddlebrown;
-  color: black;
+  background-color: #222;
+  overflow-y: scroll;
   /* Put it above our <rt> elements that have isolation: isolate */
   z-index: 1;
 }
