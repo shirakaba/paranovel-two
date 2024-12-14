@@ -9,18 +9,18 @@ export function DatabaseProvider({
   children,
 }: React.PropsWithChildren<object>) {
   const ref = React.useRef<QuickSQLiteConnection | null>(null);
-  // React.useEffect(() => {
-  //   // Implicitly searches bundle directory (due to patch-package)
-  //   const db = open({ name: 'jmdict.sqlite3' });
-  //   ref.current = db;
-  //   console.log('opened db', db);
+  React.useEffect(() => {
+    // Implicitly searches bundle directory (due to patch-package)
+    const db = open({ name: 'jmdict.sqlite3' });
+    ref.current = db;
+    console.log('opened db', db);
 
-  //   return () => {
-  //     db.close();
-  //     ref.current = null;
-  //     console.log('closed db', db);
-  //   };
-  // }, []);
+    return () => {
+      db.close();
+      ref.current = null;
+      console.log('closed db', db);
+    };
+  }, []);
 
   return (
     <DatabaseContext.Provider value={ref}>{children}</DatabaseContext.Provider>

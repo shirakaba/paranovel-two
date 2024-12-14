@@ -22,10 +22,10 @@ wrapRubyBaseTextsWithRb(document.body);
  * writing mode of the range that has been highlighted (informing where the
  * popover should prefer to align to if the source rect is particularly large,
  * e.g. due to spanning two lines).
- * @param {string} obj.text
+ * @param {Array<import("../../utils/look-up-term").LookupResult>} obj.results
  * @param {"block" | "none"} obj.display
  */
-function updatePopover({ sourceRect: { x, y, width }, display, text }) {
+function updatePopover({ sourceRect: { x, y, width }, display, results }) {
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
@@ -41,9 +41,10 @@ function updatePopover({ sourceRect: { x, y, width }, display, text }) {
   popover.style.height = '200px';
   popover.style.display = display;
 
+  // See `src/screens/novel/DictView.tsx` in Paranovel v1 for how to render
   const contents = `
   <div>
-    <p>${text}</p>
+    <p>${JSON.stringify(results)}</p>
   </div>
     `.trim();
   const template = document.createElement('template');
@@ -326,7 +327,7 @@ async function lookUpTerm({ dictionaryForm, sourceRect, writingMode }) {
 
   updatePopover({
     sourceRect,
-    text: response,
+    results: response,
     display: 'block',
   });
 }

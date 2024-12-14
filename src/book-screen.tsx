@@ -19,12 +19,14 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useLibrary } from '@/hooks/useLibrary';
 import { tokenize } from '@/modules/mecab';
 import type { OPF, NCX } from '@/types/epub.types';
+import { useDatabase } from '@/utils/DatabaseProvider';
 import {
   getSpineFromOpf,
   getTocFromNCX,
   parseNCX,
   parseOPF,
 } from '@/utils/epub-parsing';
+import { lookUpTerm } from '@/utils/look-up-term';
 import type { RootStackParamList } from './navigation.types';
 import injectedCss from './source-assets/injected-css.wvcss';
 import mainScript from './source-assets/injected-javascript.wvjs';
@@ -37,6 +39,8 @@ export default function BookScreen({
 
   const [webViewUri, setWebViewUri] = useState(params.href);
   const webViewRef = useRef<WebView>(null);
+
+  const dbRef = useDatabase();
 
   // This hook, and the navigationTimestamp, are a crude workaround for the
   // webViewUri not updating when a sub-screen (e.g. ToC) unwinds back to this
@@ -251,9 +255,30 @@ export default function BookScreen({
             return reject('"Expected body to have term"');
           }
 
-          // TODO: look up the term and respond with the result
-          console.log(`[WebView] lookUpTerm: ${term}`);
-          resolve(JSON.stringify(`Definition for "${term}"`));
+          const db = dbRef.current;
+          if (!db) {
+            console.log(
+              `[WebView] lookUpTerm "${term}" unable to complete due to lack of dictionary database`,
+            );
+            return reject('"Lacked database"');
+          }
+
+          lookUpTerm(term, db)
+            .then(results => {
+              console.log(
+                `[WebView] lookUpTerm: "${term}" got results`,
+                results,
+              );
+              resolve(JSON.stringify(results));
+            })
+            .catch(error => {
+              console.error('Error during database lookup', error);
+              reject(
+                `"Error during database lookup${
+                  error instanceof Error ? `: ${error.message}` : ''
+                }"`,
+              );
+            });
           return;
         }
         case 'navigation-request': {
