@@ -14,12 +14,6 @@ history.scrollRestoration = 'manual';
 // a workaround.
 wrapRubyBaseTextsWithRb(document.body);
 
-updatePopover({
-  sourceRect: { x: 100, y: 100, width: 0, height: 0 },
-  text: 'hello',
-  display: 'block',
-});
-
 /**
  * @param {object} obj
  * @param {DOMRect} obj.sourceRect The bounding client rect for the range that
@@ -31,7 +25,7 @@ updatePopover({
  * @param {string} obj.text
  * @param {"block" | "none"} obj.display
  */
-function updatePopover({ sourceRect: { x, y }, display, text }) {
+function updatePopover({ sourceRect: { x, y, width }, display, text }) {
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
@@ -41,14 +35,14 @@ function updatePopover({ sourceRect: { x, y }, display, text }) {
     document.body.prepend(popover);
   }
 
-  popover.style.left = `${x}px`;
+  popover.style.left = `${x + width + 10}px`;
   popover.style.top = `${y}px`;
   popover.style.width = '200px';
   popover.style.height = '200px';
   popover.style.display = display;
 
   const contents = `
-  <div style="background-color: green;">
+  <div>
     <p>${text}</p>
   </div>
     `.trim();
