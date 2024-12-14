@@ -69,10 +69,11 @@ svg {
 #paranovel-popover {
   position: fixed;
   writing-mode: horizontal-tb;
-  padding: 16px;
+  padding: 8px;
+  font-size: 18px;
   background-color: blanchedalmond;
   border: 1px solid saddlebrown;
-  color: slategrey;
+  color: black;
   /* Put it above our <rt> elements that have isolation: isolate */
   z-index: 1;
 }
