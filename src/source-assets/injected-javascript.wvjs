@@ -36,50 +36,6 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
     document.body.prepend(popover);
   }
 
-  const popoverLayout = calculatePopoverLayout({
-    permittedArrowDirections:
-      writingMode === 'horizontal-tb'
-        ? [
-            PopoverArrowDirection.down,
-            PopoverArrowDirection.up,
-            PopoverArrowDirection.left,
-            PopoverArrowDirection.right,
-          ]
-        : [
-            ...(writingMode === 'vertical-rl'
-              ? [PopoverArrowDirection.left, PopoverArrowDirection.right]
-              : [PopoverArrowDirection.right, PopoverArrowDirection.left]),
-            PopoverArrowDirection.down,
-            PopoverArrowDirection.up,
-          ],
-    safeAreaEdgeInsets: {
-      left: 8,
-      top: 8,
-      bottom: 8,
-      right: 8,
-    },
-    sourceRect,
-    backdropWidth: window.innerWidth,
-    backdropHeight: window.innerHeight,
-    preferredWidth: 300,
-    preferredHeight: 400,
-
-    arrowBreadth: 30,
-    arrowLength: 15,
-    cornerWidth: 30,
-    borderRadius: 15,
-  });
-
-  log(`ℹ️ Got popoverLayout ${JSON.stringify(popoverLayout)}`);
-
-  popover.style.left = `${popoverLayout.popover.x}px`;
-  popover.style.top = `${popoverLayout.popover.y}px`;
-  popover.style.width = 'auto';
-  popover.style.maxWidth = `${popoverLayout.popover.width}px`;
-  popover.style.height = 'auto';
-  popover.style.maxHeight = `${popoverLayout.popover.height}px`;
-  popover.style.display = display;
-
   // UI ported over from Paranovel v1's `src/screens/novel/DictView.tsx`.
   // The container here maps to DictView's `ScrollView`, but we hoist its styles
   // up to #paranovel-popover's CSS declaration instead.
@@ -182,6 +138,64 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
 
   container.appendChild(resultsFragment);
   popover.replaceChildren(container);
+
+  popover.style.left = '0px';
+  popover.style.top = '0px';
+  popover.style.width = 'auto';
+  popover.style.height = 'auto';
+  popover.style.display = 'block';
+  popover.style.visibility = 'hidden';
+
+  const preferredSize = {
+    width: popover.clientWidth,
+    height: popover.clientHeight,
+  };
+  log(`ℹ️ Got preferredSize ${JSON.stringify(preferredSize)}`);
+
+  const popoverLayout = calculatePopoverLayout({
+    permittedArrowDirections:
+      writingMode === 'horizontal-tb'
+        ? [
+            PopoverArrowDirection.down,
+            PopoverArrowDirection.up,
+            PopoverArrowDirection.left,
+            PopoverArrowDirection.right,
+          ]
+        : [
+            ...(writingMode === 'vertical-rl'
+              ? [PopoverArrowDirection.left, PopoverArrowDirection.right]
+              : [PopoverArrowDirection.right, PopoverArrowDirection.left]),
+            PopoverArrowDirection.down,
+            PopoverArrowDirection.up,
+          ],
+    safeAreaEdgeInsets: {
+      left: 8,
+      top: 8,
+      bottom: 8,
+      right: 8,
+    },
+    sourceRect,
+    backdropWidth: window.innerWidth,
+    backdropHeight: window.innerHeight,
+    preferredWidth: preferredSize.width,
+    preferredHeight: preferredSize.height,
+
+    arrowBreadth: 30,
+    arrowLength: 15,
+    cornerWidth: 30,
+    borderRadius: 15,
+  });
+  log(`ℹ️ Got popoverLayout ${JSON.stringify(popoverLayout)}`);
+
+  popover.style.left = `${popoverLayout.popover.x}px`;
+  popover.style.top = `${popoverLayout.popover.y}px`;
+  popover.style.width = `${popoverLayout.popover.width}px`;
+  popover.style.height = `${popoverLayout.popover.height}px`;
+  popover.style.visibility = 'visible';
+  popover.style.display = display;
+
+  // Set width and height to 'auto' with no maximum, lay it out once to get the
+  // preferred width and height, then lay out once again.
 }
 
 ////////////////////////////////////////////////////////////////////////////////
