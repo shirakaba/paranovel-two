@@ -1045,6 +1045,7 @@ async function lookUpTerm({ dictionaryForm, sourceRect, writingMode }) {
         JSON.stringify({
           type: 'lookUpTerm',
           term: dictionaryForm,
+          id,
         }),
       );
     });

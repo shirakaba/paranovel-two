@@ -189,6 +189,7 @@ export default function BookScreen({
       }
       interface LookUpPayload {
         type: 'lookUpTerm';
+        id: number;
         term: string;
       }
       interface TokenizePayload {
@@ -237,7 +238,7 @@ export default function BookScreen({
             id?: number,
           ) =>
             webView.injectJavaScript(
-              typeof id === 'string'
+              typeof id === 'number'
                 ? `__paranovelState.tokenizationPromiseHandlers[${id}].${type}(${value});`
                 : `Object.keys(__paranovelState.tokenizationPromiseHandlers).forEach(id => __paranovelState.tokenizationPromiseHandlers[id].${type}(${value}));`,
             );
@@ -323,7 +324,7 @@ export default function BookScreen({
             id?: number,
           ) =>
             webView.injectJavaScript(
-              typeof id === 'string'
+              typeof id === 'number'
                 ? `__paranovelState.tokenizationPromiseHandlers[${id}].${type}(${value});`
                 : `Object.keys(__paranovelState.tokenizationPromiseHandlers).forEach(id => __paranovelState.tokenizationPromiseHandlers[id].${type}(${value}));`,
             );
