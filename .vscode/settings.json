@@ -1,5 +1,7 @@
 {
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.enable": true,
+  "biome.enabled": false,
   "files.associations": {
     "*.wvcss": "css",
     "*.wvhtml": "html",
