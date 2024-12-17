@@ -18,6 +18,9 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {object} obj
  * @param {DOMRect} obj.sourceRect The bounding client rect for the range that
  * is highlighted (that the popover should avoid).
+ * @param {{ offsetLeft: number; offsetTop: number; }} obj.offset The offset of
+ * that bounding client rect, relative to the document body (that this popover
+ * is absolute against).
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode the
  * writing mode of the range that has been highlighted (informing where the
  * popover should prefer to align to if the source rect is particularly large,
@@ -25,9 +28,13 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
  * @param {"block" | "none"} obj.display
  */
-function updatePopover({ sourceRect, writingMode, display, results }) {
-  log(`ℹ️ Got sourceRect ${JSON.stringify(sourceRect)}`);
-  const { x, y, width } = sourceRect;
+function updatePopover({ sourceRect, offset, writingMode, display, results }) {
+  log(
+    `ℹ️ Got sourceRect ${JSON.stringify(
+      sourceRect,
+    )} and offset ${JSON.stringify(offset)}`,
+  );
+  calculatePopoverLayout2({ sourceRect, offset });
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
@@ -197,6 +204,37 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
 
   // Set width and height to 'auto' with no maximum, lay it out once to get the
   // preferred width and height, then lay out once again.
+}
+
+/**
+ *
+ * @param {object} obj
+ * @param {DOMRect} obj.sourceRect
+ * @param {{ offsetLeft: number; offsetTop: number; }} obj.offset The offset of
+ * that bounding client rect, relative to the document body (that this popover
+ * is absolute against).
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
+ */
+function calculatePopoverLayout2({
+  sourceRect,
+  offset: { offsetLeft, offsetTop },
+}) {
+  sourceRect = DOMRect.fromRect({
+    height: sourceRect.height,
+    width: sourceRect.width,
+    x: sourceRect.x + offsetLeft,
+    y: sourceRect.y + offsetTop,
+  });
+
+  const div =
+    document.getElementById('offset-test') ?? document.createElement('div');
+  div.id = 'offset-test';
+
+  div.style = `position: absolute; left: ${sourceRect.x}px; top: ${sourceRect.y}px; width: ${sourceRect.width}px; height: ${sourceRect.height}px; background-color: cyan;`;
+
+  if (!div.isConnected) {
+    document.body.appendChild(div);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1009,6 +1047,10 @@ async function onClickDocument(event) {
 
   __paranovelState.wordHighlight.add(tokenRange);
   const sourceRect = tokenRange.getBoundingClientRect();
+  const startContainerElement =
+    tokenRange.startContainer instanceof Element
+      ? tokenRange.startContainer
+      : tokenRange.startContainer.parentElement;
   const endContainerElement =
     tokenRange.endContainer instanceof Element
       ? tokenRange.endContainer
@@ -1017,12 +1059,41 @@ async function onClickDocument(event) {
     endContainerElement?.computedStyleMap().get('writing-mode') ??
     'horizontal-tb';
 
+  // boundingClientRect() returns x and y (screen coords), which would be fine
+  // if laying out the popover with `position: fixed`, but we want to use
+  // `position: absolute` so we need offsets relative to the body.
+  // TODO: find a strategy for SVGElement, which does not implement offsetLeft
+  const startContainerOffset =
+    startContainerElement instanceof HTMLElement
+      ? {
+          offsetLeft: startContainerElement.offsetLeft,
+          offsetTop: startContainerElement.offsetTop,
+        }
+      : null;
+  const endContainerOffset =
+    endContainerElement instanceof HTMLElement
+      ? {
+          offsetLeft: endContainerElement.offsetLeft,
+          offsetTop: endContainerElement.offsetTop,
+        }
+      : null;
+  const offset = {
+    offsetLeft: Math.min(
+      startContainerOffset?.offsetLeft ?? 0,
+      endContainerOffset?.offsetLeft ?? 0,
+    ),
+    offsetTop: Math.min(
+      startContainerOffset?.offsetTop ?? 0,
+      endContainerOffset?.offsetTop ?? 0,
+    ),
+  };
+
   log(
     `🔎 Looking up term "${dictionaryForm}" with sourceRect ${JSON.stringify(
       sourceRect.toJSON(),
     )} and writingMode "${writingMode}"`,
   );
-  lookUpTerm({ dictionaryForm, sourceRect });
+  lookUpTerm({ dictionaryForm, sourceRect, offset, writingMode });
 }
 
 /**
@@ -1030,9 +1101,12 @@ async function onClickDocument(event) {
  * @param {object} obj
  * @param {string} obj.dictionaryForm
  * @param {DOMRect} obj.sourceRect
+ * @param {{ offsetLeft: number; offsetTop: number; }} obj.offset The offset of
+ * that bounding client rect, relative to the document body (that this popover
+ * is absolute against).
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
  */
-async function lookUpTerm({ dictionaryForm, sourceRect, writingMode }) {
+async function lookUpTerm({ dictionaryForm, sourceRect, offset, writingMode }) {
   const id = __paranovelState.tokenizationPromiseCount++;
 
   /** @type {string} */
@@ -1064,6 +1138,8 @@ async function lookUpTerm({ dictionaryForm, sourceRect, writingMode }) {
 
   updatePopover({
     sourceRect,
+    offset,
+    writingMode,
     results: response,
     display: 'block',
   });
