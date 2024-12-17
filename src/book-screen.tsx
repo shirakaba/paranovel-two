@@ -266,10 +266,10 @@ export default function BookScreen({
 
           lookUpTerm(term, db)
             .then(results => {
-              console.log(
-                `[WebView] lookUpTerm: "${term}" got results`,
-                results,
-              );
+              // console.log(
+              //   `[WebView] lookUpTerm: "${term}" got results`,
+              //   results,
+              // );
               resolve(JSON.stringify(results));
             })
             .catch(error => {

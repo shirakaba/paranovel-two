@@ -26,6 +26,7 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {"block" | "none"} obj.display
  */
 function updatePopover({ sourceRect, writingMode, display, results }) {
+  log(`ℹ️ Got sourceRect ${JSON.stringify(sourceRect)}`);
   const { x, y, width } = sourceRect;
   const popover =
     document.getElementById('paranovel-popover') ??
@@ -150,7 +151,7 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
     width: popover.clientWidth,
     height: popover.clientHeight,
   };
-  log(`ℹ️ Got preferredSize ${JSON.stringify(preferredSize)}`);
+  // log(`ℹ️ Got preferredSize ${JSON.stringify(preferredSize)}`);
 
   const popoverLayout = calculatePopoverLayout({
     permittedArrowDirections:
@@ -185,7 +186,7 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
     cornerWidth: 30,
     borderRadius: 15,
   });
-  log(`ℹ️ Got popoverLayout ${JSON.stringify(popoverLayout)}`);
+  // log(`ℹ️ Got popoverLayout ${JSON.stringify(popoverLayout)}`);
 
   popover.style.left = `${popoverLayout.popover.x}px`;
   popover.style.top = `${popoverLayout.popover.y}px`;
@@ -218,7 +219,7 @@ function calculatePopoverLayout({
   cornerWidth,
   borderRadius,
 }) {
-  log('backdrop:', { width: backdropWidth, height: backdropHeight });
+  // log('backdrop:', { width: backdropWidth, height: backdropHeight });
   // Note: it is possible for backdrop size to briefly be (0, 0), so cater accordingly.
 
   /*
@@ -261,7 +262,7 @@ function calculatePopoverLayout({
     ),
   };
 
-  log('sourceRectClipped:', sourceRectClipped);
+  // log('sourceRectClipped:', sourceRectClipped);
 
   const sourceRectClippedMidpoint = {
     x: sourcePointClipped.x + sourceRectClipped.width / 2,
@@ -650,7 +651,7 @@ function calculatePopoverLayoutForArrowDirectionRight({
   const preferredX = arrowPoint.x - preferredWidth;
   const preferredY = sourceRectClippedMidpoint.y - preferredHeight / 2;
 
-  log('[DEBUG] safeAreaEdgeInsets', safeAreaEdgeInsets);
+  // log('[DEBUG] safeAreaEdgeInsets', safeAreaEdgeInsets);
 
   const popoverOrigin = {
     x: Math.min(Math.max(safeAreaEdgeInsets.left, preferredX), arrowPoint.x),
@@ -723,7 +724,7 @@ function calculatePopoverLayoutForArrowDirectionNone({
   const preferredX = sourceRectClippedMidpoint.x - preferredWidth / 2;
   const preferredY = sourceRectClippedMidpoint.y - preferredHeight / 2;
 
-  log('[DEBUG] safeAreaEdgeInsets', safeAreaEdgeInsets);
+  // log('[DEBUG] safeAreaEdgeInsets', safeAreaEdgeInsets);
 
   const popoverOrigin = {
     x: Math.min(
