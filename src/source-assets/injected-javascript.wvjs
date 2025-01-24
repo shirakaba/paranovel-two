@@ -1059,6 +1059,18 @@ async function onClickDocument(event) {
     endContainerElement?.computedStyleMap().get('writing-mode') ??
     'horizontal-tb';
 
+  const viewportScrollLeft = getViewportScrollLeft();
+  const viewportScrollTop = getViewportScrollTop();
+
+  const startContainerAbsoluteLeft =
+    startContainerElement.getBoundingClientRect().left + viewportScrollLeft;
+  const startContainerAbsoluteTop =
+    startContainerElement.getBoundingClientRect().top + viewportScrollTop;
+  const endContainerAbsoluteLeft =
+    endContainerElement.getBoundingClientRect().left + viewportScrollLeft;
+  const endContainerAbsoluteTop =
+    endContainerElement.getBoundingClientRect().top + viewportScrollTop;
+
   // boundingClientRect() returns x and y (screen coords), which would be fine
   // if laying out the popover with `position: fixed`, but we want to use
   // `position: absolute` so we need offsets relative to the body.
@@ -1070,6 +1082,10 @@ async function onClickDocument(event) {
           offsetTop: startContainerElement.offsetTop,
         }
       : null;
+  console.log('startContainerOffset', {
+    startContainerOffset,
+    startContainerElement,
+  });
   const endContainerOffset =
     endContainerElement instanceof HTMLElement
       ? {
@@ -1077,15 +1093,81 @@ async function onClickDocument(event) {
           offsetTop: endContainerElement.offsetTop,
         }
       : null;
+  console.log('endContainerOffset', {
+    endContainerOffset,
+    endContainerElement,
+  });
+
+  // let startContainerElementExtraOffsetTop = 0;
+  // let startContainerElementExtraOffsetLeft = 0;
+  // let parent = startContainerElement.parentElement;
+  // while (parent) {
+  //   startContainerElementExtraOffsetTop +=
+  //     parent.computedStyleMap().get('padding-top')?.to('px').value ?? 0;
+  //   startContainerElementExtraOffsetLeft +=
+  //     parent.computedStyleMap().get('padding-left')?.to('px').value ?? 0;
+  //   parent = parent.parentElement;
+  // }
+
+  // let endContainerElementExtraOffsetTop = 0;
+  // let endContainerElementExtraOffsetLeft = 0;
+  // parent = endContainerElement.parentElement;
+  // while (parent && parent !== document.body) {
+  //   endContainerElementExtraOffsetTop +=
+  //     parent.computedStyleMap().get('padding-top')?.to('px').value ?? 0;
+  //   endContainerElementExtraOffsetLeft +=
+  //     parent.computedStyleMap().get('padding-left')?.to('px').value ?? 0;
+  //   parent = parent.parentElement;
+  // }
+
+  const bodyComputedStyleMap = document.body.computedStyleMap();
+  const bodyPaddingTop =
+    bodyComputedStyleMap.get('padding-top')?.to('px').value ?? 0;
+  const bodyBorderTop =
+    bodyComputedStyleMap.get('border-top-width')?.to('px').value ?? 0;
+  const bodyMarginTop =
+    bodyComputedStyleMap.get('margin-top')?.to('px').value ?? 0;
+  const bodyPaddingLeft =
+    bodyComputedStyleMap.get('padding-left')?.to('px').value ?? 0;
+  const bodyBorderLeft =
+    bodyComputedStyleMap.get('border-left-width')?.to('px').value ?? 0;
+  const bodyMarginLeft =
+    bodyComputedStyleMap.get('margin-left')?.to('px').value ?? 0;
+
+  console.log('Ideal', {
+    // Relative to viewport
+    boundingClientRect: sourceRect,
+    startContainerAbsoluteLeft,
+    startContainerAbsoluteTop,
+    endContainerAbsoluteLeft,
+    endContainerAbsoluteTop,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    viewportScrollLeft: getViewportScrollLeft(),
+    windowScrollX: window.scrollX,
+    windowScrollY: window.scrollY,
+    bodyPaddingTop,
+    bodyBorderTop,
+    bodyMarginTop,
+    bodyPaddingLeft,
+    bodyBorderLeft,
+    bodyMarginLeft,
+  });
+
+  // const offset = {
+  //   offsetLeft: Math.min(
+  //     startContainerOffset?.offsetLeft ?? 0,
+  //     endContainerOffset?.offsetLeft ?? 0,
+  //   ),
+  //   offsetTop: Math.min(
+  //     startContainerOffset?.offsetTop ?? 0,
+  //     endContainerOffset?.offsetTop ?? 0,
+  //   ),
+  // };
+
   const offset = {
-    offsetLeft: Math.min(
-      startContainerOffset?.offsetLeft ?? 0,
-      endContainerOffset?.offsetLeft ?? 0,
-    ),
-    offsetTop: Math.min(
-      startContainerOffset?.offsetTop ?? 0,
-      endContainerOffset?.offsetTop ?? 0,
-    ),
+    offsetLeft: viewportScrollLeft,
+    offsetTop: viewportScrollTop,
   };
 
   log(
@@ -1094,6 +1176,21 @@ async function onClickDocument(event) {
     )} and writingMode "${writingMode}"`,
   );
   lookUpTerm({ dictionaryForm, sourceRect, offset, writingMode });
+}
+
+function getViewportScrollLeft() {
+  return (
+    document.body.scrollWidth -
+    Math.abs(document.body.scrollLeft) -
+    window.innerWidth
+  );
+}
+function getViewportScrollTop() {
+  return (
+    document.body.scrollHeight -
+    Math.abs(document.body.scrollTop) -
+    window.innerHeight
+  );
 }
 
 /**
