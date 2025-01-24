@@ -37,7 +37,7 @@
     "react-native-quick-sqlite": "^8.2.2",
     "react-native-safe-area-context": "^4.14.0",
     "react-native-screens": "^4.3.0",
-    "react-native-webview": "13.12.3"
+    "react-native-webview": "^13.13.1"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

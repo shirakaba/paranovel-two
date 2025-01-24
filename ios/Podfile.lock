@@ -1399,7 +1399,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-webview (13.12.3):
+  - react-native-webview (13.13.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2013,7 +2013,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  Bookmarks: 5f9eb7fdd625e4a4ed2926e30343b3bc644e90bd
+  Bookmarks: 10db85d793e93b40583a0729e948c5165739d349
   boost: 1dca942403ed9342f98334bf4c3621f011aa7946
   DoubleConversion: f16ae600a246532c4020132d54af21d0ddb2a385
   EXConstants: dd2fe64c6cdb1383b694c309a63028a8e9f2be6d
@@ -2022,7 +2022,7 @@ SPEC CHECKSUMS:
   ExpoFileSystem: 80bfe850b1f9922c16905822ecbf97acd711dc51
   ExpoFont: 7522d869d84ee2ee8093ee997fef5b86f85d856b
   ExpoKeepAwake: 783e68647b969b210a786047c3daa7b753dcac1f
-  ExpoMecab: 58b0ca1d148fdde1cf6ce1202fe18e763569515f
+  ExpoMecab: 0303572109456dfd5321d7f20d01bc7f69e02036
   ExpoModulesCore: bb3f481a7912159f2289a653e4195146170f0a00
   ExpoSplashScreen: 43692d041bf848883410ed9d8836871ca5cf4d6a
   ExpoSymbols: 81d7f433d7a7b20658029eae524a4fa93627159e
@@ -2032,7 +2032,7 @@ SPEC CHECKSUMS:
   hermes-engine: 46f1ffbf0297f4298862068dd4c274d4ac17a1fd
   mecab-ko: c09af77c01775b6561e0de61e91431d8a48d994a
   mecab-naist-jdic-utf-8: 0df05453d30e5774bf28f019eb45507fc8a4f740
-  Onkyou: 60bd1f5b0f0a5ab44a2146fb6189c3a3e4e1e0ff
+  Onkyou: 4027d107d2b38a3172fdfc7502d22fe29d90f767
   RCT-Folly: bf5c0376ffe4dd2cf438dcf86db385df9fdce648
   RCTDeprecation: fde92935b3caa6cb65cbff9fbb7d3a9867ffb259
   RCTRequired: 75c6cee42d21c1530a6f204ba32ff57335d19007
@@ -2065,7 +2065,7 @@ SPEC CHECKSUMS:
   react-native-document-picker: e9d83c149bdd72dc01cf8dcb8df0389c6bd5fddb
   react-native-quick-sqlite: 0343c42aea5343b3bce9554daa5668d973e7cf47
   react-native-safe-area-context: 2500e4fe998caad50ad3bc51ec23ef951308569e
-  react-native-webview: 8039cbb0aa6ad2fd7918e23aebb5586f127d3e91
+  react-native-webview: ce6e24111244cea3b9cefbb65d8c32ad0a0c7b45
   React-nativeconfig: 93fe8c85a8c40820c57814e30f3e44b94c995a7b
   React-NativeModulesApple: b3e076fd0d7b73417fe1e8c8b26e3c57ae9b74aa
   React-perflogger: 1c55bcd3c392137cbaf0d21d8bb87ce9a0cebb15
