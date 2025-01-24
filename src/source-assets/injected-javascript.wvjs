@@ -210,21 +210,10 @@ function updatePopover({ sourceRect, offset, writingMode, display, results }) {
  *
  * @param {object} obj
  * @param {DOMRect} obj.sourceRect
- * @param {{ offsetLeft: number; offsetTop: number; }} obj.offset The offset of
- * that bounding client rect, relative to the document body (that this popover
- * is absolute against).
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
  */
-function calculatePopoverLayout2({
-  sourceRect,
-  offset: { offsetLeft, offsetTop },
-}) {
-  sourceRect = DOMRect.fromRect({
-    height: sourceRect.height,
-    width: sourceRect.width,
-    x: sourceRect.x + offsetLeft,
-    y: sourceRect.y + offsetTop,
-  });
+function calculatePopoverLayout2({ sourceRect }) {
+  console.log('calculatePopoverLayout2', { sourceRect });
 
   const div =
     document.getElementById('offset-test') ?? document.createElement('div');
@@ -1047,10 +1036,6 @@ async function onClickDocument(event) {
 
   __paranovelState.wordHighlight.add(tokenRange);
   const sourceRect = tokenRange.getBoundingClientRect();
-  const startContainerElement =
-    tokenRange.startContainer instanceof Element
-      ? tokenRange.startContainer
-      : tokenRange.startContainer.parentElement;
   const endContainerElement =
     tokenRange.endContainer instanceof Element
       ? tokenRange.endContainer
@@ -1062,120 +1047,19 @@ async function onClickDocument(event) {
   const viewportScrollLeft = getViewportScrollLeft();
   const viewportScrollTop = getViewportScrollTop();
 
-  const startContainerAbsoluteLeft =
-    startContainerElement.getBoundingClientRect().left + viewportScrollLeft;
-  const startContainerAbsoluteTop =
-    startContainerElement.getBoundingClientRect().top + viewportScrollTop;
-  const endContainerAbsoluteLeft =
-    endContainerElement.getBoundingClientRect().left + viewportScrollLeft;
-  const endContainerAbsoluteTop =
-    endContainerElement.getBoundingClientRect().top + viewportScrollTop;
-
-  // boundingClientRect() returns x and y (screen coords), which would be fine
-  // if laying out the popover with `position: fixed`, but we want to use
-  // `position: absolute` so we need offsets relative to the body.
-  // TODO: find a strategy for SVGElement, which does not implement offsetLeft
-  const startContainerOffset =
-    startContainerElement instanceof HTMLElement
-      ? {
-          offsetLeft: startContainerElement.offsetLeft,
-          offsetTop: startContainerElement.offsetTop,
-        }
-      : null;
-  console.log('startContainerOffset', {
-    startContainerOffset,
-    startContainerElement,
+  const offsetSourceRect = DOMRect.fromRect({
+    height: sourceRect.height,
+    width: sourceRect.width,
+    x: sourceRect.x + viewportScrollLeft,
+    y: sourceRect.y + viewportScrollTop,
   });
-  const endContainerOffset =
-    endContainerElement instanceof HTMLElement
-      ? {
-          offsetLeft: endContainerElement.offsetLeft,
-          offsetTop: endContainerElement.offsetTop,
-        }
-      : null;
-  console.log('endContainerOffset', {
-    endContainerOffset,
-    endContainerElement,
-  });
-
-  // let startContainerElementExtraOffsetTop = 0;
-  // let startContainerElementExtraOffsetLeft = 0;
-  // let parent = startContainerElement.parentElement;
-  // while (parent) {
-  //   startContainerElementExtraOffsetTop +=
-  //     parent.computedStyleMap().get('padding-top')?.to('px').value ?? 0;
-  //   startContainerElementExtraOffsetLeft +=
-  //     parent.computedStyleMap().get('padding-left')?.to('px').value ?? 0;
-  //   parent = parent.parentElement;
-  // }
-
-  // let endContainerElementExtraOffsetTop = 0;
-  // let endContainerElementExtraOffsetLeft = 0;
-  // parent = endContainerElement.parentElement;
-  // while (parent && parent !== document.body) {
-  //   endContainerElementExtraOffsetTop +=
-  //     parent.computedStyleMap().get('padding-top')?.to('px').value ?? 0;
-  //   endContainerElementExtraOffsetLeft +=
-  //     parent.computedStyleMap().get('padding-left')?.to('px').value ?? 0;
-  //   parent = parent.parentElement;
-  // }
-
-  const bodyComputedStyleMap = document.body.computedStyleMap();
-  const bodyPaddingTop =
-    bodyComputedStyleMap.get('padding-top')?.to('px').value ?? 0;
-  const bodyBorderTop =
-    bodyComputedStyleMap.get('border-top-width')?.to('px').value ?? 0;
-  const bodyMarginTop =
-    bodyComputedStyleMap.get('margin-top')?.to('px').value ?? 0;
-  const bodyPaddingLeft =
-    bodyComputedStyleMap.get('padding-left')?.to('px').value ?? 0;
-  const bodyBorderLeft =
-    bodyComputedStyleMap.get('border-left-width')?.to('px').value ?? 0;
-  const bodyMarginLeft =
-    bodyComputedStyleMap.get('margin-left')?.to('px').value ?? 0;
-
-  console.log('Ideal', {
-    // Relative to viewport
-    boundingClientRect: sourceRect,
-    startContainerAbsoluteLeft,
-    startContainerAbsoluteTop,
-    endContainerAbsoluteLeft,
-    endContainerAbsoluteTop,
-    clientX: event.clientX,
-    clientY: event.clientY,
-    viewportScrollLeft: getViewportScrollLeft(),
-    windowScrollX: window.scrollX,
-    windowScrollY: window.scrollY,
-    bodyPaddingTop,
-    bodyBorderTop,
-    bodyMarginTop,
-    bodyPaddingLeft,
-    bodyBorderLeft,
-    bodyMarginLeft,
-  });
-
-  // const offset = {
-  //   offsetLeft: Math.min(
-  //     startContainerOffset?.offsetLeft ?? 0,
-  //     endContainerOffset?.offsetLeft ?? 0,
-  //   ),
-  //   offsetTop: Math.min(
-  //     startContainerOffset?.offsetTop ?? 0,
-  //     endContainerOffset?.offsetTop ?? 0,
-  //   ),
-  // };
-
-  const offset = {
-    offsetLeft: viewportScrollLeft,
-    offsetTop: viewportScrollTop,
-  };
 
   log(
     `🔎 Looking up term "${dictionaryForm}" with sourceRect ${JSON.stringify(
       sourceRect.toJSON(),
     )} and writingMode "${writingMode}"`,
   );
-  lookUpTerm({ dictionaryForm, sourceRect, offset, writingMode });
+  lookUpTerm({ dictionaryForm, sourceRect: offsetSourceRect, writingMode });
 }
 
 function getViewportScrollLeft() {
