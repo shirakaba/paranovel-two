@@ -18,9 +18,6 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {object} obj
  * @param {DOMRect} obj.sourceRect The bounding client rect for the range that
  * is highlighted (that the popover should avoid).
- * @param {{ offsetLeft: number; offsetTop: number; }} obj.offset The offset of
- * that bounding client rect, relative to the document body (that this popover
- * is absolute against).
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode the
  * writing mode of the range that has been highlighted (informing where the
  * popover should prefer to align to if the source rect is particularly large,
@@ -28,13 +25,10 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
  * @param {"block" | "none"} obj.display
  */
-function updatePopover({ sourceRect, offset, writingMode, display, results }) {
-  log(
-    `ℹ️ Got sourceRect ${JSON.stringify(
-      sourceRect,
-    )} and offset ${JSON.stringify(offset)}`,
-  );
-  calculatePopoverLayout2({ sourceRect, offset });
+function updatePopover({ sourceRect, writingMode, display, results }) {
+  log(`ℹ️ Got sourceRect ${JSON.stringify(sourceRect)}`);
+
+  // calculatePopoverLayout2({ sourceRect });
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
@@ -195,11 +189,22 @@ function updatePopover({ sourceRect, offset, writingMode, display, results }) {
   });
   // log(`ℹ️ Got popoverLayout ${JSON.stringify(popoverLayout)}`);
 
-  popover.style.left = `${popoverLayout.popover.x}px`;
-  popover.style.top = `${popoverLayout.popover.y}px`;
+  const viewportScrollLeft = getViewportScrollLeft();
+  const viewportScrollTop = getViewportScrollTop();
+
+  // const offsetSourceRect = DOMRect.fromRect({
+  //   height: sourceRect.height,
+  //   width: sourceRect.width,
+  //   x: sourceRect.x + viewportScrollLeft,
+  //   y: sourceRect.y + viewportScrollTop,
+  // });
+
+  popover.style.left = `${popoverLayout.popover.x + viewportScrollLeft}px`;
+  popover.style.top = `${popoverLayout.popover.y + viewportScrollTop}px`;
   popover.style.width = `${popoverLayout.popover.width}px`;
   popover.style.height = `${popoverLayout.popover.height}px`;
   popover.style.visibility = 'visible';
+  popover.style.position = 'absolute';
   popover.style.display = display;
 
   // Set width and height to 'auto' with no maximum, lay it out once to get the
@@ -1044,22 +1049,12 @@ async function onClickDocument(event) {
     endContainerElement?.computedStyleMap().get('writing-mode') ??
     'horizontal-tb';
 
-  const viewportScrollLeft = getViewportScrollLeft();
-  const viewportScrollTop = getViewportScrollTop();
-
-  const offsetSourceRect = DOMRect.fromRect({
-    height: sourceRect.height,
-    width: sourceRect.width,
-    x: sourceRect.x + viewportScrollLeft,
-    y: sourceRect.y + viewportScrollTop,
-  });
-
   log(
     `🔎 Looking up term "${dictionaryForm}" with sourceRect ${JSON.stringify(
       sourceRect.toJSON(),
     )} and writingMode "${writingMode}"`,
   );
-  lookUpTerm({ dictionaryForm, sourceRect: offsetSourceRect, writingMode });
+  lookUpTerm({ dictionaryForm, sourceRect, writingMode });
 }
 
 function getViewportScrollLeft() {
@@ -1082,12 +1077,9 @@ function getViewportScrollTop() {
  * @param {object} obj
  * @param {string} obj.dictionaryForm
  * @param {DOMRect} obj.sourceRect
- * @param {{ offsetLeft: number; offsetTop: number; }} obj.offset The offset of
- * that bounding client rect, relative to the document body (that this popover
- * is absolute against).
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
  */
-async function lookUpTerm({ dictionaryForm, sourceRect, offset, writingMode }) {
+async function lookUpTerm({ dictionaryForm, sourceRect, writingMode }) {
   const id = __paranovelState.tokenizationPromiseCount++;
 
   /** @type {string} */
@@ -1119,7 +1111,6 @@ async function lookUpTerm({ dictionaryForm, sourceRect, offset, writingMode }) {
 
   updatePopover({
     sourceRect,
-    offset,
     writingMode,
     results: response,
     display: 'block',
