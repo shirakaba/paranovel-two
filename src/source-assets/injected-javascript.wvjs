@@ -140,6 +140,14 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
   container.appendChild(resultsFragment);
   popover.replaceChildren(container);
 
+  // Make sure to record these values before doing the first layout pass of the
+  // popover, as I found the popover itself can budge the scroll. I think it may
+  // happen if the popover overflows out of the viewport?
+  const viewportScrollPosition = {
+    scrollLeft: getViewportScrollLeft(),
+    scrollTop: getViewportScrollTop(),
+  };
+
   popover.style.left = 'var(--paranovel-popover-inset-size)';
   popover.style.top = 'var(--paranovel-popover-inset-size)';
   popover.style.boxSizing = 'border-box';
@@ -161,9 +169,9 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
     ).split('px')[0],
   );
 
-  calculatePopoverLayout2({
+  const solutions = calculatePopoverLayout2({
     sourceRect,
-    sourceTextWritingMode,
+    sourceTextWritingMode: writingMode,
     popoverWritingMode: 'horizontal-tb',
     popoverPreferredSize: {
       width: popover.clientWidth,
@@ -176,53 +184,23 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
     popoverInsetSize,
   });
 
-  // log(`ℹ️ Got preferredSize ${JSON.stringify(preferredSize)}`);
-
-  // const popoverLayout = calculatePopoverLayout({
-  //   permittedArrowDirections:
-  //     writingMode === 'horizontal-tb'
-  //       ? [
-  //           PopoverArrowDirection.down,
-  //           PopoverArrowDirection.up,
-  //           PopoverArrowDirection.left,
-  //           PopoverArrowDirection.right,
-  //         ]
-  //       : [
-  //           ...(writingMode === 'vertical-rl'
-  //             ? [PopoverArrowDirection.left, PopoverArrowDirection.right]
-  //             : [PopoverArrowDirection.right, PopoverArrowDirection.left]),
-  //           PopoverArrowDirection.down,
-  //           PopoverArrowDirection.up,
-  //         ],
-  //   safeAreaEdgeInsets: {
-  //     left: 8,
-  //     top: 8,
-  //     bottom: 8,
-  //     right: 8,
-  //   },
-  //   sourceRect,
-  //   backdropWidth: window.innerWidth,
-  //   backdropHeight: window.innerHeight,
-  //   preferredWidth: preferredSize.width,
-  //   preferredHeight: preferredSize.height,
-
-  //   arrowBreadth: 30,
-  //   arrowLength: 15,
-  //   cornerWidth: 30,
-  //   borderRadius: 15,
-  // });
-  // log(`ℹ️ Got popoverLayout ${JSON.stringify(popoverLayout)}`);
-
-  // const viewportScrollLeft = getViewportScrollLeft();
-  // const viewportScrollTop = getViewportScrollTop();
-
-  // popover.style.left = `${popoverLayout.popover.x + viewportScrollLeft}px`;
-  // popover.style.top = `${popoverLayout.popover.y + viewportScrollTop}px`;
-  // popover.style.width = `${popoverLayout.popover.width}px`;
-  // popover.style.height = `${popoverLayout.popover.height}px`;
-  // popover.style.visibility = 'visible';
-  // popover.style.position = 'absolute';
-  // popover.style.display = display;
+  const bestSolution = solutions[0];
+  console.log(
+    `Got bestSolution ${JSON.stringify(
+      bestSolution,
+    )} with viewport scroll position`,
+    viewportScrollPosition,
+  );
+  popover.style.left = `${
+    viewportScrollPosition.scrollLeft + bestSolution.x
+  }px`;
+  popover.style.top = `${viewportScrollPosition.scrollTop + bestSolution.y}px`;
+  popover.style.inlineSize = `${bestSolution.width}px`;
+  popover.style.maxInlineSize = 'none';
+  popover.style.blockSize = `${bestSolution.height}px`;
+  popover.style.visibility = 'visible';
+  popover.style.position = 'absolute';
+  popover.style.display = display;
 }
 
 /**
@@ -240,13 +218,12 @@ function calculatePopoverLayout2({
   sourceTextWritingMode,
   popoverWritingMode,
   popoverPreferredSize,
-  popoverInsetSize,
   arrowSize,
+  popoverInsetSize,
 }) {
   console.log('calculatePopoverLayout2', {
     sourceRect,
-    writingMode,
-    preferredSize,
+    popoverPreferredSize,
   });
 
   const preferredInlineSize =
@@ -277,8 +254,13 @@ function calculatePopoverLayout2({
           'above',
           'below',
         ];
+  console.log('preferenceOrder', { preferenceOrder, sourceTextWritingMode });
 
-  const usableSpaceAboutSourceRect = {
+  /**
+   * The usable space about the sourceRect. Excludes the arrow and the popover
+   * insets.
+   */
+  const space = {
     above: sourceRect.top - popoverInsetSize - arrowSize.length,
     below:
       viewportHeight - sourceRect.bottom - popoverInsetSize - arrowSize.length,
@@ -287,9 +269,66 @@ function calculatePopoverLayout2({
       viewportWidth - sourceRect.right - popoverInsetSize - arrowSize.length,
   };
 
-  // TODO: solve for each direction. Although we may only end up using the first
-  // choice, it would be nice to have the option of rendering all options
-  // simultaneously to debug things.
+  // TODO: Should we just inline `space` into each of these?
+
+  // FIXME: currently this uses up *all* available space without caring for the
+  // preferred size, so the popup may be bigger than needed. We could get clever
+  // with setting a flex/block justification/alignment, or just do some more
+  // maths.
+
+  const above = DOMRect.fromRect({
+    x: popoverInsetSize,
+    y: popoverInsetSize,
+    width: viewportWidth - popoverInsetSize * 2,
+    height: space.above,
+  });
+
+  const below = DOMRect.fromRect({
+    x: popoverInsetSize,
+    y: sourceRect.bottom + arrowSize.length,
+    width: viewportWidth - popoverInsetSize * 2,
+    height: space.below,
+  });
+  console.log({ space, below });
+
+  const toLeft = DOMRect.fromRect({
+    x: popoverInsetSize,
+    y: popoverInsetSize,
+    width: space.toLeft,
+    height: viewportHeight - popoverInsetSize * 2,
+  });
+
+  const toRight = DOMRect.fromRect({
+    x: sourceRect.right + arrowSize.length,
+    y: popoverInsetSize,
+    width: space.toRight,
+    height: viewportHeight - popoverInsetSize * 2,
+  });
+
+  /** @type {Array<DOMRect>} */
+  const result = [];
+  for (const value of preferenceOrder) {
+    switch (value) {
+      case 'above': {
+        result.push(above);
+        break;
+      }
+      case 'below': {
+        result.push(below);
+        break;
+      }
+      case 'on the left': {
+        result.push(toLeft);
+        break;
+      }
+      case 'on the right': {
+        result.push(toRight);
+        break;
+      }
+    }
+  }
+
+  return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1107,7 +1146,7 @@ async function onClickDocument(event) {
       ? tokenRange.endContainer
       : tokenRange.endContainer.parentElement;
   const writingMode =
-    endContainerElement?.computedStyleMap().get('writing-mode') ??
+    endContainerElement?.computedStyleMap().get('writing-mode').value ??
     'horizontal-tb';
 
   log(
