@@ -262,10 +262,32 @@ function calculatePopoverLayout2({
   // with setting a flex/block justification/alignment, or just do some more
   // maths.
 
-  // ┏━━━━━━━┓
-  // ┃       ┃
-  // ┣━━━━━━━┛
-  // ⏷
+  // Based on the scenarios sketched out below, it seems the ideal placement
+  // should be:
+  // - LTR: Popover fills out into the right-hand side (unless arrow in way)
+  // - RTL: Popover fills out into the left-hand side (unless arrow in way)
+
+  //        horizontal-tb ltr               horizontal-tb rtl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃                            ┃   ┃                            ┃
+  // ┃    ┏━━━━━━━┓               ┃   ┃                ┏━━━━━━━┓   ┃
+  // ┃    ┃ abc   ┃               ┃   ┃                ┃   cba ┃   ┃
+  // ┃    ┃ defg  ┃               ┃   ┃                ┃  gfed ┃   ┃
+  // ┃    ┣━━━━━━━┛               ┃   ┃                ┗━━━━━━━┫   ┃
+  // ┃    ⏷                       ┃   ┃                        ⏷   ┃
+  // ┃ abcdefghij                 ┃   ┃                 jihgfedcba ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  //
+  //          vertical-lr                      vertical-rl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ a h                        ┃   ┃                        h a ┃
+  // ┃ b ┏━━━━━━━┓                ┃   ┃                ┏━━━━━━━┓ b ┃
+  // ┃ c ┃ ac    ┃                ┃   ┃                ┃    ca ┃ c ┃
+  // ┃ d ┃ b     ┃                ┃   ┃                ┃     b ┃ d ┃
+  // ┃ e ┣━━━━━━━┛                ┃   ┃                ┗━━━━━━━┫ e ┃
+  // ┃ f ⏷                        ┃   ┃                        ⏷ f ┃
+  // ┃ g n                        ┃   ┃                        n g ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const above = DOMRect.fromRect({
     x: popoverInsetSize,
     y: popoverInsetSize,
@@ -273,10 +295,28 @@ function calculatePopoverLayout2({
     height: sourceRect.top - popoverInsetSize - arrowSize.length,
   });
 
-  // ⏶
-  // ┣━━━━━━━┓
-  // ┃       ┃
-  // ┗━━━━━━━┛
+  //        horizontal-tb ltr               horizontal-tb rtl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ abcdefghij                 ┃   ┃                 jihgfedcba ┃
+  // ┃    ⏶                       ┃   ┃                        ⏶   ┃
+  // ┃    ┣━━━━━━━┓               ┃   ┃                ┏━━━━━━━┫   ┃
+  // ┃    ┃ abc   ┃               ┃   ┃                ┃   cba ┃   ┃
+  // ┃    ┃ defg  ┃               ┃   ┃                ┃  gfed ┃   ┃
+  // ┃    ┗━━━━━━━┛               ┃   ┃                ┗━━━━━━━┛   ┃
+  // ┃                            ┃   ┃                            ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  //
+  //          vertical-lr                      vertical-rl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ a i                        ┃   ┃                        i a ┃
+  // ┃ b ⏶                        ┃   ┃                        ⏶ b ┃
+  // ┃ c ┣━━━━━━━┓                ┃   ┃                ┏━━━━━━━┫ c ┃
+  // ┃ d ┃ ac    ┃                ┃   ┃                ┃    ca ┃ d ┃
+  // ┃ e ┃ b     ┃                ┃   ┃                ┃     b ┃ e ┃
+  // ┃ f ┗━━━━━━━┛                ┃   ┃                ┗━━━━━━━┛ f ┃
+  // ┃ g o                        ┃   ┃                        o g ┃
+  // ┃ h p                        ┃   ┃                        p h ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const below = DOMRect.fromRect({
     x: popoverInsetSize,
     y: sourceRect.bottom + arrowSize.length,
@@ -286,9 +326,28 @@ function calculatePopoverLayout2({
   });
   console.log({ space, below });
 
-  // ┏━━━━━━━┓
-  // ┃       ┣⏵
-  // ┗━━━━━━━┛
+  //        horizontal-tb ltr               horizontal-tb rtl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+  // ┃              ┏━━━━━━━┳⏵abc ┃   ┃              ┏━━━━━━━┳⏵cba ┃
+  // ┃              ┃ abc   ┃ abc ┃   ┃              ┃   cba ┃ cba ┃
+  // ┃              ┃ defg  ┃ abc ┃   ┃              ┃  gfed ┃ cba ┃
+  // ┃              ┗━━━━━━━┛ abc ┃   ┃              ┗━━━━━━━┛ cba ┃
+  // ┃                            ┃   ┃                            ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  //
+  //          vertical-lr                      vertical-rl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ a a a a a a a a a a a a a  ┃   ┃                          a ┃
+  // ┃ b b b b b b b b b b b b b  ┃   ┃                          b ┃
+  // ┃ c c c c c c c ┏━━━━━━━┳⏵c  ┃   ┃                ┏━━━━━━━┳⏵c ┃
+  // ┃ d d d d d d d ┃ ac    ┃ d  ┃   ┃                ┃    ca ┃ d ┃
+  // ┃ e e e e e e e ┃ b     ┃    ┃   ┃                ┃     b ┃ e ┃
+  // ┃ f f f f f f f ┗━━━━━━━┛    ┃   ┃                ┗━━━━━━━┛ f ┃
+  // ┃ g g g g g g g g g g g g    ┃   ┃                            ┃
+  // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const toLeft = DOMRect.fromRect({
     x: popoverInsetSize,
     y: popoverInsetSize,
@@ -296,9 +355,28 @@ function calculatePopoverLayout2({
     height: viewportHeight - popoverInsetSize * 2,
   });
 
-  //  ┏━━━━━━━┓
-  // ⏴┫       ┃
-  //  ┗━━━━━━━┛
+  //        horizontal-tb ltr               horizontal-tb rtl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+  // ┃ abc⏴┳━━━━━━━┓              ┃   ┃ zyx⏴┳━━━━━━━┓ lkjihgfedcba ┃
+  // ┃ abc ┃ abc   ┃              ┃   ┃ zyx ┃ edcba ┃          cba ┃
+  // ┃ abc ┃ defg  ┃              ┃   ┃ zyx ┃    gf ┃              ┃
+  // ┃ abc ┗━━━━━━━┛              ┃   ┃ zyx ┗━━━━━━━┛              ┃
+  // ┃                            ┃   ┃                            ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  //
+  //          vertical-lr                      vertical-rl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ a a                        ┃   ┃   a a a a a a  a a a a a a ┃
+  // ┃ b b                        ┃   ┃   b b b b b b  b b b b b b ┃
+  // ┃ c c ⏴┳━━━━━━━┓             ┃   ┃   c ⏴┳━━━━━━━┓ c c c c c c ┃
+  // ┃ d d  ┃ ac    ┃             ┃   ┃   d  ┃    ca ┃ d d d d d d ┃
+  // ┃ e e  ┃ b     ┃             ┃   ┃   e  ┃     b ┃ e e e e e e ┃
+  // ┃ f f  ┗━━━━━━━┛             ┃   ┃      ┗━━━━━━━┛ f f f f f f ┃
+  // ┃ g                          ┃   ┃     g g g g g  g g g g g g ┃
+  // ┃ h                          ┃   ┃     h h h h h  h h h h h h ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const toRight = DOMRect.fromRect({
     x: sourceRect.right + arrowSize.length,
     y: popoverInsetSize,
