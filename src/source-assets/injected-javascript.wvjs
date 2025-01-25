@@ -169,7 +169,9 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
     ).split('px')[0],
   );
 
-  const solutions = calculatePopoverLayout2({
+  const {
+    preferredOrder: [bestSolution],
+  } = calculatePopoverLayout2({
     sourceRect,
     sourceTextWritingMode: writingMode,
     popoverWritingMode: 'horizontal-tb',
@@ -184,7 +186,6 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
     popoverInsetSize,
   });
 
-  const bestSolution = solutions[0];
   console.log(
     `Got bestSolution ${JSON.stringify(
       bestSolution,
@@ -256,57 +257,58 @@ function calculatePopoverLayout2({
         ];
   console.log('preferenceOrder', { preferenceOrder, sourceTextWritingMode });
 
-  /**
-   * The usable space about the sourceRect. Excludes the arrow and the popover
-   * insets.
-   */
-  const space = {
-    above: sourceRect.top - popoverInsetSize - arrowSize.length,
-    below:
-      viewportHeight - sourceRect.bottom - popoverInsetSize - arrowSize.length,
-    toLeft: sourceRect.left - popoverInsetSize - arrowSize.length,
-    toRight:
-      viewportWidth - sourceRect.right - popoverInsetSize - arrowSize.length,
-  };
-
-  // TODO: Should we just inline `space` into each of these?
-
   // FIXME: currently this uses up *all* available space without caring for the
   // preferred size, so the popup may be bigger than needed. We could get clever
   // with setting a flex/block justification/alignment, or just do some more
   // maths.
 
+  // ┏━━━━━━━┓
+  // ┃       ┃
+  // ┣━━━━━━━┛
+  // ⏷
   const above = DOMRect.fromRect({
     x: popoverInsetSize,
     y: popoverInsetSize,
     width: viewportWidth - popoverInsetSize * 2,
-    height: space.above,
+    height: sourceRect.top - popoverInsetSize - arrowSize.length,
   });
 
+  // ⏶
+  // ┣━━━━━━━┓
+  // ┃       ┃
+  // ┗━━━━━━━┛
   const below = DOMRect.fromRect({
     x: popoverInsetSize,
     y: sourceRect.bottom + arrowSize.length,
     width: viewportWidth - popoverInsetSize * 2,
-    height: space.below,
+    height:
+      viewportHeight - sourceRect.bottom - popoverInsetSize - arrowSize.length,
   });
   console.log({ space, below });
 
+  // ┏━━━━━━━┓
+  // ┃       ┣⏵
+  // ┗━━━━━━━┛
   const toLeft = DOMRect.fromRect({
     x: popoverInsetSize,
     y: popoverInsetSize,
-    width: space.toLeft,
+    width: sourceRect.left - popoverInsetSize - arrowSize.length,
     height: viewportHeight - popoverInsetSize * 2,
   });
 
+  //  ┏━━━━━━━┓
+  // ⏴┫       ┃
+  //  ┗━━━━━━━┛
   const toRight = DOMRect.fromRect({
     x: sourceRect.right + arrowSize.length,
     y: popoverInsetSize,
-    width: space.toRight,
+    width:
+      viewportWidth - sourceRect.right - popoverInsetSize - arrowSize.length,
     height: viewportHeight - popoverInsetSize * 2,
   });
 
   /** @type {Array<DOMRect>} */
-  const result = [];
+  const preferredOrder = [];
   for (const value of preferenceOrder) {
     switch (value) {
       case 'above': {
@@ -328,7 +330,7 @@ function calculatePopoverLayout2({
     }
   }
 
-  return result;
+  return { above, below, toLeft, toRight, preferredOrder };
 }
 
 ////////////////////////////////////////////////////////////////////////////////
