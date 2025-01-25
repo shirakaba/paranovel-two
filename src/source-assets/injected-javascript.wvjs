@@ -158,6 +158,20 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
   popover.style.maxInlineSize =
     'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
   popover.style.blockSize = 'auto';
+  popover.style.maxBlockSize = 'none';
+
+  const popoverPreferredSize = {
+    width: popover.clientWidth,
+    height: popover.clientHeight,
+  };
+  console.log(`popoverPreferredSize ${JSON.stringify(popoverPreferredSize)}`);
+
+  /** @type {boolean} Debug flag */
+  const doSecondPass = true;
+  if (!doSecondPass) {
+    popover.style.visibility = 'visible';
+    return;
+  }
 
   // I'm not aware of a safer way to parse this, but we own the code, so I'm
   // being a bit reckless here.
@@ -170,15 +184,13 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
   );
 
   const {
-    preferredOrder: [bestSolution],
+    above: bestSolution,
+    // preferredOrder: [bestSolution],
   } = calculatePopoverLayout2({
     sourceRect,
     sourceTextWritingMode: writingMode,
     popoverWritingMode: 'horizontal-tb',
-    popoverPreferredSize: {
-      width: popover.clientWidth,
-      height: popover.clientHeight,
-    },
+    popoverPreferredSize,
     arrowSize: {
       breadth: 20,
       length: 20,
@@ -197,8 +209,9 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
   }px`;
   popover.style.top = `${viewportScrollPosition.scrollTop + bestSolution.y}px`;
   popover.style.inlineSize = `${bestSolution.width}px`;
-  popover.style.maxInlineSize = 'none';
+  popover.style.maxInlineSize = `${bestSolution.maxWidth}px`;
   popover.style.blockSize = `${bestSolution.height}px`;
+  popover.style.maxBlockSize = `${bestSolution.maxHeight}px`;
   popover.style.visibility = 'visible';
   popover.style.position = 'absolute';
   popover.style.display = display;
@@ -288,12 +301,14 @@ function calculatePopoverLayout2({
   // ┃ f ⏷                        ┃   ┃                        ⏷ f ┃
   // ┃ g n                        ┃   ┃                        n g ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  const above = DOMRect.fromRect({
+  const above = {
     x: popoverInsetSize,
     y: popoverInsetSize,
-    width: viewportWidth - popoverInsetSize * 2,
-    height: sourceRect.top - popoverInsetSize - arrowSize.length,
-  });
+    width: popoverPreferredSize.width,
+    height: popoverPreferredSize.height,
+    maxWidth: viewportWidth - popoverInsetSize * 2,
+    maxHeight: sourceRect.top - popoverInsetSize - arrowSize.length,
+  };
 
   //        horizontal-tb ltr               horizontal-tb rtl
   // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -317,14 +332,15 @@ function calculatePopoverLayout2({
   // ┃ g o                        ┃   ┃                        o g ┃
   // ┃ h p                        ┃   ┃                        p h ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  const below = DOMRect.fromRect({
+  const below = {
     x: popoverInsetSize,
     y: sourceRect.bottom + arrowSize.length,
-    width: viewportWidth - popoverInsetSize * 2,
-    height:
+    width: popoverPreferredSize.width,
+    height: popoverPreferredSize.height,
+    maxWidth: viewportWidth - popoverInsetSize * 2,
+    maxHeight:
       viewportHeight - sourceRect.bottom - popoverInsetSize - arrowSize.length,
-  });
-  console.log({ space, below });
+  };
 
   //        horizontal-tb ltr               horizontal-tb rtl
   // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -348,12 +364,14 @@ function calculatePopoverLayout2({
   // ┃ g g g g g g g g g g g g    ┃   ┃                            ┃
   // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  const toLeft = DOMRect.fromRect({
+  const toLeft = {
     x: popoverInsetSize,
     y: popoverInsetSize,
-    width: sourceRect.left - popoverInsetSize - arrowSize.length,
-    height: viewportHeight - popoverInsetSize * 2,
-  });
+    width: popoverPreferredSize.width,
+    height: popoverPreferredSize.height,
+    maxWidth: sourceRect.left - popoverInsetSize - arrowSize.length,
+    maxHeight: viewportHeight - popoverInsetSize * 2,
+  };
 
   //        horizontal-tb ltr               horizontal-tb rtl
   // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -377,32 +395,34 @@ function calculatePopoverLayout2({
   // ┃ g                          ┃   ┃     g g g g g  g g g g g g ┃
   // ┃ h                          ┃   ┃     h h h h h  h h h h h h ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  const toRight = DOMRect.fromRect({
+  const toRight = {
     x: sourceRect.right + arrowSize.length,
     y: popoverInsetSize,
-    width:
+    width: popoverPreferredSize.width,
+    height: popoverPreferredSize.height,
+    maxWidth:
       viewportWidth - sourceRect.right - popoverInsetSize - arrowSize.length,
-    height: viewportHeight - popoverInsetSize * 2,
-  });
+    maxHeight: viewportHeight - popoverInsetSize * 2,
+  };
 
-  /** @type {Array<DOMRect>} */
+  /** @type {Array<{ x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; }>} */
   const preferredOrder = [];
   for (const value of preferenceOrder) {
     switch (value) {
       case 'above': {
-        result.push(above);
+        preferredOrder.push(above);
         break;
       }
       case 'below': {
-        result.push(below);
+        preferredOrder.push(below);
         break;
       }
       case 'on the left': {
-        result.push(toLeft);
+        preferredOrder.push(toLeft);
         break;
       }
       case 'on the right': {
-        result.push(toRight);
+        preferredOrder.push(toRight);
         break;
       }
     }
