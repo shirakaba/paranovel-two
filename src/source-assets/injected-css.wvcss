@@ -6,6 +6,9 @@
   --paranovel-block-padding: 24px;
   --paranovel-inline-padding: 24px;
   --paranovel-font-size: 24px;
+
+  --paranovel-popover-inset-size: 8px;
+  --paranovel-max-readable-inline-size: 600px;
 }
 
 ::highlight(word) {

@@ -141,12 +141,16 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
   container.appendChild(resultsFragment);
   popover.replaceChildren(container);
 
-  popover.style.left = '0px';
-  popover.style.top = '0px';
-  popover.style.width = 'auto';
-  popover.style.height = 'auto';
+  popover.style.left = 'var(--paranovel-popover-inset-size)';
+  popover.style.top = 'var(--paranovel-popover-inset-size)';
+  popover.style.boxSizing = 'border-box';
   popover.style.display = 'block';
   popover.style.visibility = 'hidden';
+
+  popover.style.inlineSize = 'auto';
+  popover.style.maxInlineSize =
+    'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
+  popover.style.blockSize = 'auto';
 
   const preferredSize = {
     width: popover.clientWidth,
