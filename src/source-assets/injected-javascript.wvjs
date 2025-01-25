@@ -28,7 +28,6 @@ wrapRubyBaseTextsWithRb(document.body);
 function updatePopover({ sourceRect, writingMode, display, results }) {
   log(`ℹ️ Got sourceRect ${JSON.stringify(sourceRect)}`);
 
-  // calculatePopoverLayout2({ sourceRect });
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
@@ -152,87 +151,145 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
     'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
   popover.style.blockSize = 'auto';
 
-  const preferredSize = {
-    width: popover.clientWidth,
-    height: popover.clientHeight,
-  };
+  // I'm not aware of a safer way to parse this, but we own the code, so I'm
+  // being a bit reckless here.
+  const popoverInsetSize = parseFloat(
+    (
+      getComputedStyle(popover).getPropertyValue(
+        '--paranovel-popover-inset-size',
+      ) || '0px'
+    ).split('px')[0],
+  );
+
+  calculatePopoverLayout2({
+    sourceRect,
+    sourceTextWritingMode,
+    popoverWritingMode: 'horizontal-tb',
+    popoverPreferredSize: {
+      width: popover.clientWidth,
+      height: popover.clientHeight,
+    },
+    arrowSize: {
+      breadth: 20,
+      length: 20,
+    },
+    popoverInsetSize,
+  });
+
   // log(`ℹ️ Got preferredSize ${JSON.stringify(preferredSize)}`);
 
-  const popoverLayout = calculatePopoverLayout({
-    permittedArrowDirections:
-      writingMode === 'horizontal-tb'
-        ? [
-            PopoverArrowDirection.down,
-            PopoverArrowDirection.up,
-            PopoverArrowDirection.left,
-            PopoverArrowDirection.right,
-          ]
-        : [
-            ...(writingMode === 'vertical-rl'
-              ? [PopoverArrowDirection.left, PopoverArrowDirection.right]
-              : [PopoverArrowDirection.right, PopoverArrowDirection.left]),
-            PopoverArrowDirection.down,
-            PopoverArrowDirection.up,
-          ],
-    safeAreaEdgeInsets: {
-      left: 8,
-      top: 8,
-      bottom: 8,
-      right: 8,
-    },
-    sourceRect,
-    backdropWidth: window.innerWidth,
-    backdropHeight: window.innerHeight,
-    preferredWidth: preferredSize.width,
-    preferredHeight: preferredSize.height,
+  // const popoverLayout = calculatePopoverLayout({
+  //   permittedArrowDirections:
+  //     writingMode === 'horizontal-tb'
+  //       ? [
+  //           PopoverArrowDirection.down,
+  //           PopoverArrowDirection.up,
+  //           PopoverArrowDirection.left,
+  //           PopoverArrowDirection.right,
+  //         ]
+  //       : [
+  //           ...(writingMode === 'vertical-rl'
+  //             ? [PopoverArrowDirection.left, PopoverArrowDirection.right]
+  //             : [PopoverArrowDirection.right, PopoverArrowDirection.left]),
+  //           PopoverArrowDirection.down,
+  //           PopoverArrowDirection.up,
+  //         ],
+  //   safeAreaEdgeInsets: {
+  //     left: 8,
+  //     top: 8,
+  //     bottom: 8,
+  //     right: 8,
+  //   },
+  //   sourceRect,
+  //   backdropWidth: window.innerWidth,
+  //   backdropHeight: window.innerHeight,
+  //   preferredWidth: preferredSize.width,
+  //   preferredHeight: preferredSize.height,
 
-    arrowBreadth: 30,
-    arrowLength: 15,
-    cornerWidth: 30,
-    borderRadius: 15,
-  });
+  //   arrowBreadth: 30,
+  //   arrowLength: 15,
+  //   cornerWidth: 30,
+  //   borderRadius: 15,
+  // });
   // log(`ℹ️ Got popoverLayout ${JSON.stringify(popoverLayout)}`);
 
-  const viewportScrollLeft = getViewportScrollLeft();
-  const viewportScrollTop = getViewportScrollTop();
+  // const viewportScrollLeft = getViewportScrollLeft();
+  // const viewportScrollTop = getViewportScrollTop();
 
-  // const offsetSourceRect = DOMRect.fromRect({
-  //   height: sourceRect.height,
-  //   width: sourceRect.width,
-  //   x: sourceRect.x + viewportScrollLeft,
-  //   y: sourceRect.y + viewportScrollTop,
-  // });
-
-  popover.style.left = `${popoverLayout.popover.x + viewportScrollLeft}px`;
-  popover.style.top = `${popoverLayout.popover.y + viewportScrollTop}px`;
-  popover.style.width = `${popoverLayout.popover.width}px`;
-  popover.style.height = `${popoverLayout.popover.height}px`;
-  popover.style.visibility = 'visible';
-  popover.style.position = 'absolute';
-  popover.style.display = display;
-
-  // Set width and height to 'auto' with no maximum, lay it out once to get the
-  // preferred width and height, then lay out once again.
+  // popover.style.left = `${popoverLayout.popover.x + viewportScrollLeft}px`;
+  // popover.style.top = `${popoverLayout.popover.y + viewportScrollTop}px`;
+  // popover.style.width = `${popoverLayout.popover.width}px`;
+  // popover.style.height = `${popoverLayout.popover.height}px`;
+  // popover.style.visibility = 'visible';
+  // popover.style.position = 'absolute';
+  // popover.style.display = display;
 }
 
 /**
  *
  * @param {object} obj
  * @param {DOMRect} obj.sourceRect
- * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.sourceTextWritingMode
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.popoverWritingMode
+ * @param {{ width: number; height: number }} obj.popoverPreferredSize
+ * @param {{ breadth: number; length: number }} obj.arrowSize
+ * @param {number} obj.popoverInsetSize
  */
-function calculatePopoverLayout2({ sourceRect }) {
-  console.log('calculatePopoverLayout2', { sourceRect });
+function calculatePopoverLayout2({
+  sourceRect,
+  sourceTextWritingMode,
+  popoverWritingMode,
+  popoverPreferredSize,
+  popoverInsetSize,
+  arrowSize,
+}) {
+  console.log('calculatePopoverLayout2', {
+    sourceRect,
+    writingMode,
+    preferredSize,
+  });
 
-  const div =
-    document.getElementById('offset-test') ?? document.createElement('div');
-  div.id = 'offset-test';
+  const preferredInlineSize =
+    popoverWritingMode === 'horizontal-tb'
+      ? popoverPreferredSize.width
+      : popoverPreferredSize.height;
+  const preferredBlockSize =
+    popoverWritingMode === 'horizontal-tb'
+      ? popoverPreferredSize.height
+      : popoverPreferredSize.width;
 
-  div.style = `position: absolute; left: ${sourceRect.x}px; top: ${sourceRect.y}px; width: ${sourceRect.width}px; height: ${sourceRect.height}px; background-color: cyan;`;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
 
-  if (!div.isConnected) {
-    document.body.appendChild(div);
-  }
+  /**
+   * The order of preference as to where the popover should be placed relative
+   * to the content to avoid downstream (not yet read) text, if multiple
+   * solutions satisfy.
+   * @type {Array<'above' | 'below' | 'on the left' | 'on the right'>}
+   */
+  const preferenceOrder =
+    sourceTextWritingMode === 'horizontal-tb'
+      ? ['below', 'above', 'on the left', 'on the right']
+      : [
+          ...(sourceTextWritingMode === 'vertical-rl'
+            ? ['on the left', 'on the right']
+            : ['on the right', 'on the left']),
+          'above',
+          'below',
+        ];
+
+  const usableSpaceAboutSourceRect = {
+    above: sourceRect.top - popoverInsetSize - arrowSize.length,
+    below:
+      viewportHeight - sourceRect.bottom - popoverInsetSize - arrowSize.length,
+    toLeft: sourceRect.left - popoverInsetSize - arrowSize.length,
+    toRight:
+      viewportWidth - sourceRect.right - popoverInsetSize - arrowSize.length,
+  };
+
+  // TODO: solve for each direction. Although we may only end up using the first
+  // choice, it would be nice to have the option of rendering all options
+  // simultaneously to debug things.
 }
 
 ////////////////////////////////////////////////////////////////////////////////
