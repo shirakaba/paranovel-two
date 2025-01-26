@@ -569,6 +569,24 @@ function alignAndJustify({
     }
   }
 
+  switch (verticalAlign) {
+    case 'top': {
+      break;
+    }
+    case 'bottom': {
+      const idealY = Math.max(constraints.y, arrowRect.y - constraints.height);
+      const availableHeightWithIdealY = bottomLimit - idealY;
+      solution.y =
+        constraints.height > availableHeightWithIdealY
+          ? Math.max(
+              bottomLimit - constraints.height,
+              bottomLimit - constraints.maxHeight,
+            )
+          : idealY;
+      break;
+    }
+  }
+
   return solution;
 }
 
