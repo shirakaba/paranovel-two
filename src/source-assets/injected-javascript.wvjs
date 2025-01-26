@@ -521,6 +521,7 @@ function calculatePopoverLayout2({
  * @param {object} obj
  * @param {"left" | "right"} obj.horizontalAlign
  * @param {"top" | "bottom"} obj.verticalAlign
+ * @param {{ x: number; y: number; width: number; height: number; }} obj.arrowRect
  * @param {{ x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; }} obj.constraints
  */
 function alignAndJustify({ horizontalAlign, verticalAlign, constraints }) {
@@ -1351,10 +1352,20 @@ async function onClickDocument(event) {
     tokenRange.endContainer instanceof Element
       ? tokenRange.endContainer
       : tokenRange.endContainer.parentElement;
-  console.log({
+  const clientRects = tokenRange.getClientRects();
+  const idealClientRectForArrow = getIdealClientRectForArrow(tokenRange);
+  console.log('onClickDocument', {
     boundingClientRect,
+    tokenRange,
+    tokenRangeRect: tokenRange.getBoundingClientRect(),
+    tokenRangeRects: tokenRange.getClientRects(),
+    endContainerElement,
     endContainerRect: endContainerElement.getBoundingClientRect(),
+    endContainerRects: endContainerElement.getClientRects(),
+    clientRects,
+    idealClientRectForArrow,
   });
+  window.tokenRange = tokenRange;
   const writingMode =
     endContainerElement?.computedStyleMap().get('writing-mode').value ??
     'horizontal-tb';
@@ -1367,16 +1378,70 @@ async function onClickDocument(event) {
   lookUpTerm({
     dictionaryForm,
     boundingClientRect,
-    // FIXME: In practice, endContainerElement is rarely what we want. It
-    // returns either the <rt> or the <p>. But what we really want is probably
-    // the client rect for the final base text in the token, so that we can
-    // handle both transcribed and untranscribed segments of a highlighted
-    // range wrapping over to the next line. We'll use boundingClientRect for
-    // now, which isn't perfect but is undesirable in fewer cases.
-    // clientRect: endContainerElement.getBoundingClientRect(),
-    clientRect: boundingClientRect,
+    clientRect: idealClientRectForArrow,
     writingMode,
   });
+}
+
+/**
+ * Gets the ideal client rect that the arrow should point at. If the tokenRange
+ * spans multiple lines, this is a rect encompassing both the base/<rb> and the
+ * <rt>. Otherwise, it's just the boundingClientRect for the whole tokenRange.
+ *
+ * @param {Range} tokenRange
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} writingMode
+ */
+function getIdealClientRectForArrow(tokenRange, writingMode) {
+  const clientRects = tokenRange.getClientRects();
+
+  // FIXME: this automatically assumes that the selection spans multiple lines.
+  // Instead of pre-emptively choosing the last one, we should first check
+  // whether penultimateClientRect.x differs from the first clientRect.
+
+  // firstClientRect *should* represent a base/<rb>, assuming it's legal.
+  const firstClientRect = clientRects[0];
+  const lastClientRect = clientRects[clientRects.length - 1];
+  if (!firstClientRect || !lastClientRect) {
+    return tokenRange.getBoundingClientRect();
+  }
+
+  // If the final clientRect doesn't belong to an <rt>, then we can use it as-is
+  // rather than joining it together with its corresponding base text's
+  // clientRect.
+  if (tokenRange.endContainer.nodeName.toUpperCase() !== 'RT') {
+    const isOnSameLine =
+      writingMode === 'horizontal-tb'
+        ? lastClientRect.y === firstClientRect.y
+        : lastClientRect.x === firstClientRect.x;
+
+    return isOnSameLine ? tokenRange.getBoundingClientRect() : lastClientRect;
+  }
+
+  // Otherwise, we must combine the clientRect for the <rt> with that of the
+  // preceding clientRect (which will correspond to either an <rb> or a text
+  // node).
+
+  const penultimateClientRect = clientRects[clientRects.length - 2];
+  if (!penultimateClientRect) {
+    return tokenRange.getBoundingClientRect();
+  }
+
+  const x = Math.min(penultimateClientRect.x, lastClientRect.x);
+  const y = Math.min(penultimateClientRect.y, lastClientRect.y);
+
+  const finalBaseAndRtRect = DOMRect.fromRect({
+    x,
+    y,
+    width: Math.max(penultimateClientRect.right, lastClientRect.right) - x,
+    height: Math.max(penultimateClientRect.bottom, lastClientRect.bottom) - y,
+  });
+
+  const isOnSameLine =
+    writingMode === 'horizontal-tb'
+      ? finalBaseAndRtRect.y === firstClientRect.y
+      : finalBaseAndRtRect.x === firstClientRect.x;
+
+  return isOnSameLine ? tokenRange.getBoundingClientRect() : finalBaseAndRtRect;
 }
 
 function getViewportScrollLeft() {
