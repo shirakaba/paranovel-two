@@ -198,7 +198,7 @@ function updatePopover({
   );
 
   const {
-    aboveAdjusted: { arrow: arrowLayout, popover: bestSolution },
+    belowAdjusted: { arrow: arrowLayout, popover: bestSolution },
     // preferredOrder: [bestSolution],
   } = calculatePopoverLayout2({
     boundingClientRect,
@@ -355,6 +355,7 @@ function calculatePopoverLayout2({
   const aboveAdjusted = {
     arrow: above.arrow,
     popover: alignAndJustify({
+      popoverPlacement: 'above',
       horizontalAlign: 'right',
       verticalAlign: 'bottom',
       constraints: above.popover,
@@ -408,6 +409,17 @@ function calculatePopoverLayout2({
         popoverInsetSize -
         arrowSize.length,
     },
+  };
+  const belowAdjusted = {
+    arrow: below.arrow,
+    popover: alignAndJustify({
+      popoverPlacement: 'below',
+      horizontalAlign: 'right',
+      verticalAlign: 'top',
+      constraints: below.popover,
+      arrowRect: below.arrow,
+      arrowOverhang: 20,
+    }),
   };
 
   //        horizontal-tb ltr               horizontal-tb rtl
@@ -515,7 +527,15 @@ function calculatePopoverLayout2({
     }
   }
 
-  return { above, aboveAdjusted, below, toLeft, toRight, preferredOrder };
+  return {
+    above,
+    aboveAdjusted,
+    below,
+    belowAdjusted,
+    toLeft,
+    toRight,
+    preferredOrder,
+  };
 }
 
 /**
@@ -537,6 +557,7 @@ function calculatePopoverLayout2({
  * @param {{ x: number; y: number; width: number; height: number; }} obj.arrowRect
  * @param {number} obj.arrowOverhang
  * @param {{ x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; }} obj.constraints
+ * @param {'above' | 'below' | 'on the left' | 'on the right'} popoverPlacement
  */
 function alignAndJustify({
   horizontalAlign,
@@ -544,6 +565,7 @@ function alignAndJustify({
   arrowRect,
   arrowOverhang,
   constraints,
+  popoverPlacement,
 }) {
   // const { x, y, width, height, maxWidth, maxHeight } = constraints;
   const rightLimit = constraints.x + constraints.maxWidth;
@@ -571,9 +593,22 @@ function alignAndJustify({
 
   switch (verticalAlign) {
     case 'top': {
+      if (popoverPlacement !== 'below') {
+        console.warn(
+          `[alignAndJustify] verticalAlign: "bottom" only implemented for popoverPlacement "below".`,
+        );
+        break;
+      }
+      solution.y = arrowRect.y + arrowRect.height;
       break;
     }
     case 'bottom': {
+      if (popoverPlacement !== 'above') {
+        console.warn(
+          `[alignAndJustify] verticalAlign: "bottom" only implemented for popoverPlacement "above".`,
+        );
+        break;
+      }
       const idealY = Math.max(constraints.y, arrowRect.y - constraints.height);
       const availableHeightWithIdealY = bottomLimit - idealY;
       solution.y =
