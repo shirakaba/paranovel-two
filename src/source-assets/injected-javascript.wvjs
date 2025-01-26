@@ -208,7 +208,7 @@ function updatePopover({
     popoverPreferredSize,
     arrowSize: {
       breadth: 20,
-      length: 20,
+      length: Math.ceil((13 / 15) * 20),
     },
     popoverInsetSize,
   });
@@ -236,11 +236,42 @@ function updatePopover({
   arrow.style.position = 'absolute';
   arrow.style.left = `${viewportScrollPosition.scrollLeft + arrowLayout.x}px`;
   arrow.style.top = `${viewportScrollPosition.scrollTop + arrowLayout.y}px`;
-  arrow.style.width = `${arrowLayout.width}px`;
-  arrow.style.height = `${arrowLayout.height}px`;
-  arrow.style.backgroundColor = 'cyan';
   arrow.style.zIndex = '1';
   arrow.style.display = display;
+
+  /** @type {"up" | "right" | "down" | "left"} */
+  const arrowOrientation = 'up';
+  const arrowColor = 'var(--paranovel-popover-background-color)';
+  switch (arrowOrientation) {
+    case 'up': {
+      arrow.style.borderTop = 'initial';
+      arrow.style.borderLeft = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderRight = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderBottom = `${arrowLayout.height}px solid ${arrowColor}`;
+      break;
+    }
+    case 'down': {
+      arrow.style.borderBottom = 'initial';
+      arrow.style.borderLeft = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderRight = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderTop = `${arrowLayout.height}px solid ${arrowColor}`;
+      break;
+    }
+    case 'right': {
+      arrow.style.borderRight = 'initial';
+      arrow.style.borderTop = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderBottom = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderLeft = `${arrowLayout.height}px solid ${arrowColor}`;
+      break;
+    }
+    case 'left': {
+      arrow.style.borderLeft = 'initial';
+      arrow.style.borderTop = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderBottom = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderRight = `${arrowLayout.height}px solid ${arrowColor}`;
+      break;
+    }
+  }
 }
 
 /**
