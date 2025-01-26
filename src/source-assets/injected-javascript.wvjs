@@ -199,6 +199,7 @@ function updatePopover({
 
   const {
     best: { popoverPlacement, arrow: arrowLayout, popover: popoverLayout },
+    sorted,
   } = calculatePopoverLayout2({
     boundingClientRect,
     clientRect,
@@ -215,10 +216,9 @@ function updatePopover({
   console.log(
     `Got best popoverLayout ${JSON.stringify(
       popoverLayout,
-    )} with viewport scroll position and arrowLayout, given clientRect`,
-    viewportScrollPosition,
-    arrowLayout,
+    )}, given clientRect and other sorted options`,
     clientRect,
+    sorted,
   );
   popover.style.left = `${
     viewportScrollPosition.scrollLeft + popoverLayout.x
@@ -566,6 +566,18 @@ function calculatePopoverLayout2({
       }
     })
     .sort((a, b) => {
+      // If one of the two has an arrow out of bounds, sort the one whose arrow
+      // is in bounds to the front.
+      //
+      // If they both have an arrow out of bounds, continue to the next check.
+      if (a.arrow.x < popoverInsetSize || a.arrow.y < popoverInsetSize) {
+        if (b.arrow.x >= popoverInsetSize || b.arrow.y >= popoverInsetSize) {
+          return 1;
+        }
+      } else if (b.arrow.x < popoverInsetSize || b.arrow.y < popoverInsetSize) {
+        return -1;
+      }
+
       const aFits =
         a.popover.width <= a.popover.maxWidth &&
         a.popover.height <= a.popover.maxHeight;
