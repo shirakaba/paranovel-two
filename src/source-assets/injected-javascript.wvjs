@@ -162,6 +162,8 @@ function updatePopover({
     scrollTop: getViewportScrollTop(),
   };
 
+  // First layout pass
+
   popover.style.left = 'var(--paranovel-popover-inset-size)';
   popover.style.top = 'var(--paranovel-popover-inset-size)';
   popover.style.boxSizing = 'border-box';
@@ -186,6 +188,8 @@ function updatePopover({
     popover.style.visibility = 'visible';
     return;
   }
+
+  // Second layout pass
 
   // I'm not aware of a safer way to parse this, but we own the code, so I'm
   // being a bit reckless here.
