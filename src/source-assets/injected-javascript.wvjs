@@ -198,7 +198,7 @@ function updatePopover({
   );
 
   const {
-    belowAdjusted: { arrow: arrowLayout, popover: bestSolution },
+    toLeftAdjusted: { arrow: arrowLayout, popover: bestSolution },
     // preferredOrder: [bestSolution],
   } = calculatePopoverLayout2({
     boundingClientRect,
@@ -240,7 +240,7 @@ function updatePopover({
   arrow.style.display = display;
 
   /** @type {"up" | "right" | "down" | "left"} */
-  const arrowOrientation = 'up';
+  const arrowOrientation = 'right';
   const arrowColor = 'var(--paranovel-popover-background-color)';
   switch (arrowOrientation) {
     case 'up': {
@@ -491,6 +491,17 @@ function calculatePopoverLayout2({
       maxHeight: viewportHeight - popoverInsetSize * 2,
     },
   };
+  const toLeftAdjusted = {
+    arrow: toLeft.arrow,
+    popover: alignAndJustify({
+      popoverPlacement: 'on the left',
+      horizontalAlign: 'right',
+      verticalAlign: 'bottom',
+      constraints: toLeft.popover,
+      arrowRect: toLeft.arrow,
+      arrowOverhang: 20,
+    }),
+  };
 
   //        horizontal-tb ltr               horizontal-tb rtl
   // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -564,6 +575,7 @@ function calculatePopoverLayout2({
     below,
     belowAdjusted,
     toLeft,
+    toLeftAdjusted,
     toRight,
     preferredOrder,
   };
@@ -634,13 +646,18 @@ function alignAndJustify({
       break;
     }
     case 'bottom': {
-      if (popoverPlacement !== 'above') {
+      if (popoverPlacement !== 'above' && popoverPlacement !== 'on the left') {
         console.warn(
-          `[alignAndJustify] verticalAlign: "bottom" only implemented for popoverPlacement "above".`,
+          `[alignAndJustify] verticalAlign: "bottom" only implemented for popoverPlacement "above" and "on the left".`,
         );
         break;
       }
-      const idealY = Math.max(constraints.y, arrowRect.y - constraints.height);
+      const idealY = Math.max(
+        constraints.y,
+        popoverPlacement === 'above'
+          ? arrowRect.y - constraints.height
+          : arrowRect.y - arrowOverhang,
+      );
       const availableHeightWithIdealY = bottomLimit - idealY;
       solution.y =
         constraints.height > availableHeightWithIdealY
