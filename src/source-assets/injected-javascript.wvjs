@@ -16,7 +16,7 @@ wrapRubyBaseTextsWithRb(document.body);
 
 /**
  * @param {object} obj
- * @param {DOMRect} obj.sourceRect The bounding client rect for the range that
+ * @param {DOMRect} obj.boundingClientRect The bounding client rect for the range that
  * is highlighted (that the popover should avoid).
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode the
  * writing mode of the range that has been highlighted (informing where the
@@ -25,8 +25,8 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
  * @param {"block" | "none"} obj.display
  */
-function updatePopover({ sourceRect, writingMode, display, results }) {
-  log(`ℹ️ Got sourceRect ${JSON.stringify(sourceRect)}`);
+function updatePopover({ boundingClientRect, writingMode, display, results }) {
+  log(`ℹ️ Got boundingClientRect ${JSON.stringify(boundingClientRect)}`);
 
   const popover =
     document.getElementById('paranovel-popover') ??
@@ -187,7 +187,7 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
     above: { popover: bestSolution },
     // preferredOrder: [bestSolution],
   } = calculatePopoverLayout2({
-    sourceRect,
+    boundingClientRect,
     sourceTextWritingMode: writingMode,
     popoverWritingMode: 'horizontal-tb',
     popoverPreferredSize,
@@ -220,7 +220,7 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
 /**
  *
  * @param {object} obj
- * @param {DOMRect} obj.sourceRect
+ * @param {DOMRect} obj.boundingClientRect
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.sourceTextWritingMode
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.popoverWritingMode
  * @param {{ width: number; height: number }} obj.popoverPreferredSize
@@ -228,7 +228,7 @@ function updatePopover({ sourceRect, writingMode, display, results }) {
  * @param {number} obj.popoverInsetSize
  */
 function calculatePopoverLayout2({
-  sourceRect,
+  boundingClientRect,
   sourceTextWritingMode,
   popoverWritingMode,
   popoverPreferredSize,
@@ -236,7 +236,7 @@ function calculatePopoverLayout2({
   popoverInsetSize,
 }) {
   console.log('calculatePopoverLayout2', {
-    sourceRect,
+    boundingClientRect,
     popoverPreferredSize,
   });
 
@@ -309,11 +309,11 @@ function calculatePopoverLayout2({
       width: popoverPreferredSize.width,
       height: popoverPreferredSize.height,
       maxWidth: viewportWidth - popoverInsetSize * 2,
-      maxHeight: sourceRect.top - popoverInsetSize - arrowSize.length,
+      maxHeight: boundingClientRect.top - popoverInsetSize - arrowSize.length,
     },
   };
 
-  // TODO: return arrow position (centred on sourceRect).
+  // TODO: return arrow position (centred on boundingClientRect).
   // TODO: adjust this such that the popover juts out from the arrow in the
   //       direction of writing (ltr/rtl), potentially with an overhang.
 
@@ -343,13 +343,13 @@ function calculatePopoverLayout2({
     arrow: {},
     popover: {
       x: popoverInsetSize,
-      y: sourceRect.bottom + arrowSize.length,
+      y: boundingClientRect.bottom + arrowSize.length,
       width: popoverPreferredSize.width,
       height: popoverPreferredSize.height,
       maxWidth: viewportWidth - popoverInsetSize * 2,
       maxHeight:
         viewportHeight -
-        sourceRect.bottom -
+        boundingClientRect.bottom -
         popoverInsetSize -
         arrowSize.length,
     },
@@ -384,7 +384,7 @@ function calculatePopoverLayout2({
       y: popoverInsetSize,
       width: popoverPreferredSize.width,
       height: popoverPreferredSize.height,
-      maxWidth: sourceRect.left - popoverInsetSize - arrowSize.length,
+      maxWidth: boundingClientRect.left - popoverInsetSize - arrowSize.length,
       maxHeight: viewportHeight - popoverInsetSize * 2,
     },
   };
@@ -414,12 +414,15 @@ function calculatePopoverLayout2({
   const toRight = {
     arrow: {},
     popover: {
-      x: sourceRect.right + arrowSize.length,
+      x: boundingClientRect.right + arrowSize.length,
       y: popoverInsetSize,
       width: popoverPreferredSize.width,
       height: popoverPreferredSize.height,
       maxWidth:
-        viewportWidth - sourceRect.right - popoverInsetSize - arrowSize.length,
+        viewportWidth -
+        boundingClientRect.right -
+        popoverInsetSize -
+        arrowSize.length,
       maxHeight: viewportHeight - popoverInsetSize * 2,
     },
   };
@@ -1259,21 +1262,25 @@ async function onClickDocument(event) {
   }
 
   __paranovelState.wordHighlight.add(tokenRange);
-  const sourceRect = tokenRange.getBoundingClientRect();
+  const boundingClientRect = tokenRange.getBoundingClientRect();
   const endContainerElement =
     tokenRange.endContainer instanceof Element
       ? tokenRange.endContainer
       : tokenRange.endContainer.parentElement;
+  console.log({
+    boundingClientRect,
+    endContainerRect: endContainerElement.getBoundingClientRect(),
+  });
   const writingMode =
     endContainerElement?.computedStyleMap().get('writing-mode').value ??
     'horizontal-tb';
 
   log(
-    `🔎 Looking up term "${dictionaryForm}" with sourceRect ${JSON.stringify(
-      sourceRect.toJSON(),
+    `🔎 Looking up term "${dictionaryForm}" with boundingClientRect ${JSON.stringify(
+      boundingClientRect.toJSON(),
     )} and writingMode "${writingMode}"`,
   );
-  lookUpTerm({ dictionaryForm, sourceRect, writingMode });
+  lookUpTerm({ dictionaryForm, boundingClientRect, writingMode });
 }
 
 function getViewportScrollLeft() {
@@ -1295,10 +1302,10 @@ function getViewportScrollTop() {
  *
  * @param {object} obj
  * @param {string} obj.dictionaryForm
- * @param {DOMRect} obj.sourceRect
+ * @param {DOMRect} obj.boundingClientRect
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
  */
-async function lookUpTerm({ dictionaryForm, sourceRect, writingMode }) {
+async function lookUpTerm({ dictionaryForm, boundingClientRect, writingMode }) {
   const id = __paranovelState.tokenizationPromiseCount++;
 
   /** @type {string} */
@@ -1329,7 +1336,7 @@ async function lookUpTerm({ dictionaryForm, sourceRect, writingMode }) {
   }
 
   updatePopover({
-    sourceRect,
+    boundingClientRect,
     writingMode,
     results: response,
     display: 'block',
