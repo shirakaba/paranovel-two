@@ -198,7 +198,7 @@ function updatePopover({
   );
 
   const {
-    above: { arrow: arrowLayout, popover: bestSolution },
+    aboveAdjusted: { arrow: arrowLayout, popover: bestSolution },
     // preferredOrder: [bestSolution],
   } = calculatePopoverLayout2({
     boundingClientRect,
@@ -334,6 +334,9 @@ function calculatePopoverLayout2({
   // ┃ g n                        ┃   ┃                        n g ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const above = {
+    // FIXME: would be nice to ensure the arrow stays within popoverInsetSize,
+    //        as otherwise, when the arrow is at the viewport edge, the popover
+    //        can detach from it.
     arrow: {
       x: clientRect.left + clientRect.width / 2 - arrowSize.breadth / 2,
       y: clientRect.top - arrowSize.length,
@@ -348,6 +351,16 @@ function calculatePopoverLayout2({
       maxWidth: viewportWidth - popoverInsetSize * 2,
       maxHeight: boundingClientRect.top - popoverInsetSize - arrowSize.length,
     },
+  };
+  const aboveAdjusted = {
+    arrow: above.arrow,
+    popover: alignAndJustify({
+      horizontalAlign: 'right',
+      verticalAlign: 'bottom',
+      constraints: above.popover,
+      arrowRect: above.arrow,
+      arrowOverhang: 20,
+    }),
   };
 
   // TODO: return arrow position (centred on boundingClientRect).
@@ -502,7 +515,7 @@ function calculatePopoverLayout2({
     }
   }
 
-  return { above, below, toLeft, toRight, preferredOrder };
+  return { above, aboveAdjusted, below, toLeft, toRight, preferredOrder };
 }
 
 /**
@@ -522,10 +535,19 @@ function calculatePopoverLayout2({
  * @param {"left" | "right"} obj.horizontalAlign
  * @param {"top" | "bottom"} obj.verticalAlign
  * @param {{ x: number; y: number; width: number; height: number; }} obj.arrowRect
+ * @param {number} obj.arrowOverhang
  * @param {{ x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; }} obj.constraints
  */
-function alignAndJustify({ horizontalAlign, verticalAlign, constraints }) {
-  const { x, y, width, height, maxWidth, maxHeight } = constraints;
+function alignAndJustify({
+  horizontalAlign,
+  verticalAlign,
+  arrowRect,
+  arrowOverhang,
+  constraints,
+}) {
+  // const { x, y, width, height, maxWidth, maxHeight } = constraints;
+  const rightLimit = constraints.x + constraints.maxWidth;
+  const bottomLimit = constraints.y + constraints.maxHeight;
   const solution = { ...constraints };
 
   switch (horizontalAlign) {
@@ -533,9 +555,21 @@ function alignAndJustify({ horizontalAlign, verticalAlign, constraints }) {
       break;
     }
     case 'right': {
+      const idealX = Math.max(constraints.x, arrowRect.x - arrowOverhang);
+      const availableWidthWithIdealX = rightLimit - idealX;
+      solution.x =
+        constraints.width > availableWidthWithIdealX
+          ? Math.max(
+              rightLimit - constraints.width,
+              rightLimit - constraints.maxWidth,
+            )
+          : idealX;
+      log(`solution.x: ${constraints.x} -> ${solution.x}`);
       break;
     }
   }
+
+  return solution;
 }
 
 /**
