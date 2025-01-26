@@ -198,7 +198,7 @@ function updatePopover({
   );
 
   const {
-    toLeftAdjusted: { arrow: arrowLayout, popover: bestSolution },
+    toRightAdjusted: { arrow: arrowLayout, popover: bestSolution },
     // preferredOrder: [bestSolution],
   } = calculatePopoverLayout2({
     boundingClientRect,
@@ -240,7 +240,7 @@ function updatePopover({
   arrow.style.display = display;
 
   /** @type {"up" | "right" | "down" | "left"} */
-  const arrowOrientation = 'right';
+  const arrowOrientation = 'left';
   const arrowColor = 'var(--paranovel-popover-background-color)';
   switch (arrowOrientation) {
     case 'up': {
@@ -333,16 +333,6 @@ function calculatePopoverLayout2({
         ];
   console.log('preferenceOrder', { preferenceOrder, sourceTextWritingMode });
 
-  // FIXME: currently this uses up *all* available space without caring for the
-  // preferred size, so the popup may be bigger than needed. We could get clever
-  // with setting a flex/block justification/alignment, or just do some more
-  // maths.
-
-  // Based on the scenarios sketched out below, it seems the ideal placement
-  // should be:
-  // - LTR: Popover fills out into the right-hand side (unless arrow in way)
-  // - RTL: Popover fills out into the left-hand side (unless arrow in way)
-
   //        horizontal-tb ltr               horizontal-tb rtl
   // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
   // ┃                            ┃   ┃                            ┃
@@ -394,10 +384,6 @@ function calculatePopoverLayout2({
       arrowOverhang: 20,
     }),
   };
-
-  // TODO: return arrow position (centred on boundingClientRect).
-  // TODO: adjust this such that the popover juts out from the arrow in the
-  //       direction of writing (ltr/rtl), potentially with an overhang.
 
   //        horizontal-tb ltr               horizontal-tb rtl
   // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -545,6 +531,17 @@ function calculatePopoverLayout2({
       maxHeight: viewportHeight - popoverInsetSize * 2,
     },
   };
+  const toRightAdjusted = {
+    arrow: toRight.arrow,
+    popover: alignAndJustify({
+      popoverPlacement: 'on the right',
+      horizontalAlign: 'left',
+      verticalAlign: 'bottom',
+      constraints: toRight.popover,
+      arrowRect: toRight.arrow,
+      arrowOverhang: 20,
+    }),
+  };
 
   /** @type {Array<{ arrow: { x: number; y: number; width: number; height: number; }, popover: { x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; } }>} */
   const preferredOrder = [];
@@ -577,14 +574,14 @@ function calculatePopoverLayout2({
     toLeft,
     toLeftAdjusted,
     toRight,
+    toRightAdjusted,
     preferredOrder,
   };
 }
 
 /**
- * WIP. Intended to align the popover within its available space based on its
- * preferred size. We may need to anchor it about the arrow element and ensure
- * that the arrow element reliably points at the token rather than <p> or <rt>.
+ * Aligns the popover within its available space based on its preferred size and
+ * orientation, with reference to the arrow element and any desired overhang.
  *
  * Expects to be given constraints where:
  * - x is the left limit of the viewport
@@ -610,13 +607,13 @@ function alignAndJustify({
   constraints,
   popoverPlacement,
 }) {
-  // const { x, y, width, height, maxWidth, maxHeight } = constraints;
   const rightLimit = constraints.x + constraints.maxWidth;
   const bottomLimit = constraints.y + constraints.maxHeight;
   const solution = { ...constraints };
 
   switch (horizontalAlign) {
     case 'left': {
+      solution.x = arrowRect.x + arrowRect.width;
       break;
     }
     case 'right': {
@@ -629,7 +626,6 @@ function alignAndJustify({
               rightLimit - constraints.maxWidth,
             )
           : idealX;
-      log(`solution.x: ${constraints.x} -> ${solution.x}`);
       break;
     }
   }
@@ -642,13 +638,16 @@ function alignAndJustify({
         );
         break;
       }
-      solution.y = arrowRect.y + arrowRect.height;
+      solution.y =
+        popoverPlacement === 'below'
+          ? arrowRect.y + arrowRect.height
+          : arrowRect.y + arrowRect.height + arrowOverhang;
       break;
     }
     case 'bottom': {
-      if (popoverPlacement !== 'above' && popoverPlacement !== 'on the left') {
+      if (popoverPlacement === 'below') {
         console.warn(
-          `[alignAndJustify] verticalAlign: "bottom" only implemented for popoverPlacement "above" and "on the left".`,
+          `[alignAndJustify] verticalAlign: "bottom" not implemented for popoverPlacement "below".`,
         );
         break;
       }
