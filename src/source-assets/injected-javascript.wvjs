@@ -174,7 +174,7 @@ function updatePopover({
   popover.style.maxInlineSize =
     'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
   popover.style.blockSize = 'auto';
-  popover.style.maxBlockSize = 'none';
+  popover.style.maxBlockSize = '50%';
 
   const popoverPreferredSize = {
     width: popover.clientWidth,
