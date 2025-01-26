@@ -505,6 +505,38 @@ function calculatePopoverLayout2({
   return { above, below, toLeft, toRight, preferredOrder };
 }
 
+/**
+ * WIP. Intended to align the popover within its available space based on its
+ * preferred size. We may need to anchor it about the arrow element and ensure
+ * that the arrow element reliably points at the token rather than <p> or <rt>.
+ *
+ * Expects to be given constraints where:
+ * - x is the left limit of the viewport
+ * - maxWidth is the right limit of the viewport
+ * - y is the top limit of the viewport
+ * - maxHeight is the bottom limit of the viewport
+ * - width is the preferred width of the popover
+ * - height is the preferred height of the popover
+ *
+ * @param {object} obj
+ * @param {"left" | "right"} obj.horizontalAlign
+ * @param {"top" | "bottom"} obj.verticalAlign
+ * @param {{ x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; }} obj.constraints
+ */
+function alignAndJustify({ horizontalAlign, verticalAlign, constraints }) {
+  const { x, y, width, height, maxWidth, maxHeight } = constraints;
+  const solution = { ...constraints };
+
+  switch (horizontalAlign) {
+    case 'left': {
+      break;
+    }
+    case 'right': {
+      break;
+    }
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// Popover Layout /////////////////////////////////
 
