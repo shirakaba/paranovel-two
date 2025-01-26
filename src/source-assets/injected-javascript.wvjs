@@ -34,6 +34,14 @@ function updatePopover({
 }) {
   log(`ℹ️ Got boundingClientRect ${JSON.stringify(boundingClientRect)}`);
 
+  const arrow =
+    document.getElementById('paranovel-arrow') ?? document.createElement('div');
+  arrow.id = 'paranovel-arrow';
+
+  if (!arrow.isConnected) {
+    document.body.prepend(arrow);
+  }
+
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
@@ -190,7 +198,7 @@ function updatePopover({
   );
 
   const {
-    above: { popover: bestSolution },
+    above: { arrow: arrowLayout, popover: bestSolution },
     // preferredOrder: [bestSolution],
   } = calculatePopoverLayout2({
     boundingClientRect,
@@ -208,8 +216,10 @@ function updatePopover({
   console.log(
     `Got bestSolution ${JSON.stringify(
       bestSolution,
-    )} with viewport scroll position`,
+    )} with viewport scroll position and arrowLayout given clientRect`,
     viewportScrollPosition,
+    arrowLayout,
+    clientRect,
   );
   popover.style.left = `${
     viewportScrollPosition.scrollLeft + bestSolution.x
@@ -222,6 +232,15 @@ function updatePopover({
   popover.style.visibility = 'visible';
   popover.style.position = 'absolute';
   popover.style.display = display;
+
+  arrow.style.position = 'absolute';
+  arrow.style.left = `${viewportScrollPosition.scrollLeft + arrowLayout.x}px`;
+  arrow.style.top = `${viewportScrollPosition.scrollTop + arrowLayout.y}px`;
+  arrow.style.width = `${arrowLayout.width}px`;
+  arrow.style.height = `${arrowLayout.height}px`;
+  arrow.style.backgroundColor = 'cyan';
+  arrow.style.zIndex = '1';
+  arrow.style.display = display;
 }
 
 /**
@@ -315,7 +334,12 @@ function calculatePopoverLayout2({
   // ┃ g n                        ┃   ┃                        n g ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const above = {
-    arrow: {},
+    arrow: {
+      x: clientRect.left + clientRect.width / 2 - arrowSize.breadth / 2,
+      y: clientRect.top - arrowSize.length,
+      width: arrowSize.breadth,
+      height: arrowSize.length,
+    },
     popover: {
       x: popoverInsetSize,
       y: popoverInsetSize,
@@ -353,7 +377,12 @@ function calculatePopoverLayout2({
   // ┃ h p                        ┃   ┃                        p h ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const below = {
-    arrow: {},
+    arrow: {
+      x: above.arrow.x,
+      y: clientRect.bottom,
+      width: arrowSize.breadth,
+      height: arrowSize.length,
+    },
     popover: {
       x: popoverInsetSize,
       y: boundingClientRect.bottom + arrowSize.length,
@@ -391,7 +420,12 @@ function calculatePopoverLayout2({
   // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const toLeft = {
-    arrow: {},
+    arrow: {
+      x: clientRect.left - arrowSize.length,
+      y: clientRect.top + clientRect.height / 2 - arrowSize.breadth / 2,
+      width: arrowSize.length,
+      height: arrowSize.breadth,
+    },
     popover: {
       x: popoverInsetSize,
       y: popoverInsetSize,
@@ -425,7 +459,12 @@ function calculatePopoverLayout2({
   // ┃ h                          ┃   ┃     h h h h h  h h h h h h ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const toRight = {
-    arrow: {},
+    arrow: {
+      x: clientRect.right,
+      y: toLeft.arrow.y,
+      width: arrowSize.length,
+      height: arrowSize.breadth,
+    },
     popover: {
       x: boundingClientRect.right + arrowSize.length,
       y: popoverInsetSize,
@@ -440,7 +479,7 @@ function calculatePopoverLayout2({
     },
   };
 
-  /** @type {Array<{ arrow: {}, popover: { x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; } }>} */
+  /** @type {Array<{ arrow: { x: number; y: number; width: number; height: number; }, popover: { x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; } }>} */
   const preferredOrder = [];
   for (const value of preferenceOrder) {
     switch (value) {
@@ -1296,7 +1335,14 @@ async function onClickDocument(event) {
   lookUpTerm({
     dictionaryForm,
     boundingClientRect,
-    clientRect: endContainerElement.getBoundingClientRect(),
+    // FIXME: In practice, endContainerElement is rarely what we want. It
+    // returns either the <rt> or the <p>. But what we really want is probably
+    // the client rect for the final base text in the token, so that we can
+    // handle both transcribed and untranscribed segments of a highlighted
+    // range wrapping over to the next line. We'll use boundingClientRect for
+    // now, which isn't perfect but is undesirable in fewer cases.
+    // clientRect: endContainerElement.getBoundingClientRect(),
+    clientRect: boundingClientRect,
     writingMode,
   });
 }
