@@ -198,8 +198,7 @@ function updatePopover({
   );
 
   const {
-    toRightAdjusted: { arrow: arrowLayout, popover: bestSolution },
-    // preferredOrder: [bestSolution],
+    best: { popoverPlacement, arrow: arrowLayout, popover: popoverLayout },
   } = calculatePopoverLayout2({
     boundingClientRect,
     clientRect,
@@ -214,21 +213,21 @@ function updatePopover({
   });
 
   console.log(
-    `Got bestSolution ${JSON.stringify(
-      bestSolution,
-    )} with viewport scroll position and arrowLayout given clientRect`,
+    `Got best popoverLayout ${JSON.stringify(
+      popoverLayout,
+    )} with viewport scroll position and arrowLayout, given clientRect`,
     viewportScrollPosition,
     arrowLayout,
     clientRect,
   );
   popover.style.left = `${
-    viewportScrollPosition.scrollLeft + bestSolution.x
+    viewportScrollPosition.scrollLeft + popoverLayout.x
   }px`;
-  popover.style.top = `${viewportScrollPosition.scrollTop + bestSolution.y}px`;
-  popover.style.inlineSize = `${bestSolution.width}px`;
-  popover.style.maxInlineSize = `${bestSolution.maxWidth}px`;
-  popover.style.blockSize = `${bestSolution.height}px`;
-  popover.style.maxBlockSize = `${bestSolution.maxHeight}px`;
+  popover.style.top = `${viewportScrollPosition.scrollTop + popoverLayout.y}px`;
+  popover.style.inlineSize = `${popoverLayout.width}px`;
+  popover.style.maxInlineSize = `${popoverLayout.maxWidth}px`;
+  popover.style.blockSize = `${popoverLayout.height}px`;
+  popover.style.maxBlockSize = `${popoverLayout.maxHeight}px`;
   popover.style.visibility = 'visible';
   popover.style.position = 'absolute';
   popover.style.display = display;
@@ -239,32 +238,34 @@ function updatePopover({
   arrow.style.zIndex = '1';
   arrow.style.display = display;
 
-  /** @type {"up" | "right" | "down" | "left"} */
-  const arrowOrientation = 'left';
   const arrowColor = 'var(--paranovel-popover-background-color)';
-  switch (arrowOrientation) {
-    case 'up': {
+  switch (popoverPlacement) {
+    case 'below': {
+      // arrow points up
       arrow.style.borderTop = 'initial';
       arrow.style.borderLeft = `${arrowLayout.width / 2}px solid transparent`;
       arrow.style.borderRight = `${arrowLayout.width / 2}px solid transparent`;
       arrow.style.borderBottom = `${arrowLayout.height}px solid ${arrowColor}`;
       break;
     }
-    case 'down': {
+    case 'above': {
+      // arrow points down
       arrow.style.borderBottom = 'initial';
       arrow.style.borderLeft = `${arrowLayout.width / 2}px solid transparent`;
       arrow.style.borderRight = `${arrowLayout.width / 2}px solid transparent`;
       arrow.style.borderTop = `${arrowLayout.height}px solid ${arrowColor}`;
       break;
     }
-    case 'right': {
+    case 'on the left': {
+      // arrow points right
       arrow.style.borderRight = 'initial';
       arrow.style.borderTop = `${arrowLayout.width / 2}px solid transparent`;
       arrow.style.borderBottom = `${arrowLayout.width / 2}px solid transparent`;
       arrow.style.borderLeft = `${arrowLayout.height}px solid ${arrowColor}`;
       break;
     }
-    case 'left': {
+    case 'on the right': {
+      // arrow points left
       arrow.style.borderLeft = 'initial';
       arrow.style.borderTop = `${arrowLayout.width / 2}px solid transparent`;
       arrow.style.borderBottom = `${arrowLayout.width / 2}px solid transparent`;
@@ -355,6 +356,7 @@ function calculatePopoverLayout2({
   // ┃ g n                        ┃   ┃                        n g ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const above = {
+    popoverPlacement: 'above',
     // FIXME: would be nice to ensure the arrow stays within popoverInsetSize,
     //        as otherwise, when the arrow is at the viewport edge, the popover
     //        can detach from it.
@@ -374,6 +376,7 @@ function calculatePopoverLayout2({
     },
   };
   const aboveAdjusted = {
+    popoverPlacement: 'above',
     arrow: above.arrow,
     popover: alignAndJustify({
       popoverPlacement: 'above',
@@ -408,6 +411,7 @@ function calculatePopoverLayout2({
   // ┃ h p                        ┃   ┃                        p h ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const below = {
+    popoverPlacement: 'below',
     arrow: {
       x: above.arrow.x,
       y: clientRect.bottom,
@@ -428,6 +432,7 @@ function calculatePopoverLayout2({
     },
   };
   const belowAdjusted = {
+    popoverPlacement: 'below',
     arrow: below.arrow,
     popover: alignAndJustify({
       popoverPlacement: 'below',
@@ -462,6 +467,7 @@ function calculatePopoverLayout2({
   // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const toLeft = {
+    popoverPlacement: 'on the left',
     arrow: {
       x: clientRect.left - arrowSize.length,
       y: clientRect.top + clientRect.height / 2 - arrowSize.breadth / 2,
@@ -478,6 +484,7 @@ function calculatePopoverLayout2({
     },
   };
   const toLeftAdjusted = {
+    popoverPlacement: 'on the left',
     arrow: toLeft.arrow,
     popover: alignAndJustify({
       popoverPlacement: 'on the left',
@@ -512,6 +519,7 @@ function calculatePopoverLayout2({
   // ┃ h                          ┃   ┃     h h h h h  h h h h h h ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
   const toRight = {
+    popoverPlacement: 'on the right',
     arrow: {
       x: clientRect.right,
       y: toLeft.arrow.y,
@@ -532,6 +540,7 @@ function calculatePopoverLayout2({
     },
   };
   const toRightAdjusted = {
+    popoverPlacement: 'on the right',
     arrow: toRight.arrow,
     popover: alignAndJustify({
       popoverPlacement: 'on the right',
@@ -543,39 +552,37 @@ function calculatePopoverLayout2({
     }),
   };
 
-  /** @type {Array<{ arrow: { x: number; y: number; width: number; height: number; }, popover: { x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; } }>} */
-  const preferredOrder = [];
-  for (const value of preferenceOrder) {
-    switch (value) {
-      case 'above': {
-        preferredOrder.push(above);
-        break;
+  const sorted = preferenceOrder
+    .map(preference => {
+      switch (preference) {
+        case 'above':
+          return aboveAdjusted;
+        case 'below':
+          return belowAdjusted;
+        case 'on the left':
+          return toLeftAdjusted;
+        case 'on the right':
+          return toRightAdjusted;
       }
-      case 'below': {
-        preferredOrder.push(below);
-        break;
-      }
-      case 'on the left': {
-        preferredOrder.push(toLeft);
-        break;
-      }
-      case 'on the right': {
-        preferredOrder.push(toRight);
-        break;
-      }
-    }
-  }
+    })
+    .sort((a, b) => {
+      const aFits =
+        a.popover.width <= a.popover.maxWidth &&
+        a.popover.height <= a.popover.maxHeight;
+      const bFits =
+        b.popover.width <= b.popover.maxWidth &&
+        b.popover.height <= b.popover.maxHeight;
+
+      return aFits ? (bFits ? 0 : -1) : bFits ? 1 : 0;
+    });
 
   return {
-    above,
-    aboveAdjusted,
-    below,
-    belowAdjusted,
-    toLeft,
-    toLeftAdjusted,
-    toRight,
-    toRightAdjusted,
-    preferredOrder,
+    best: sorted[0],
+    sorted,
+    aboveAdjusted: above,
+    belowAdjusted: below,
+    toLeftAdjusted: toLeft,
+    toRightAdjusted: toRight,
   };
 }
 
