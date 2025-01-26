@@ -238,6 +238,9 @@ function updatePopover({
   arrow.style.zIndex = '1';
   arrow.style.display = display;
 
+  // TODO: If the arrow rendered outside of the viewport while the popover
+  // stayed inside, we could consider just hiding the arrow.
+
   const arrowColor = 'var(--paranovel-popover-background-color)';
   switch (popoverPlacement) {
     case 'below': {
@@ -518,16 +521,23 @@ function calculatePopoverLayout2({
   // ┃ g                          ┃   ┃     g g g g g  g g g g g g ┃
   // ┃ h                          ┃   ┃     h h h h h  h h h h h h ┃
   // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  const toRightArrow = {
+    x: clientRect.right,
+    y: toLeft.arrow.y,
+    width: arrowSize.length,
+    height: arrowSize.breadth,
+  };
   const toRight = {
     popoverPlacement: 'on the right',
-    arrow: {
-      x: clientRect.right,
-      y: toLeft.arrow.y,
-      width: arrowSize.length,
-      height: arrowSize.breadth,
-    },
+    arrow: toRightArrow,
     popover: {
-      x: boundingClientRect.right + arrowSize.length,
+      // We have an interesting case with vertical-rl when a word flows onto a
+      // new line such that the start of the word is clickable within the
+      // viewport, yet the end of the word extends out of the viewport. We've
+      // generally chosen to point at the end of the word, but in this rare case
+      // it might make more sense to point at the start just to stay within the
+      // viewport. However, it's okay to just do what's easiest.
+      x: Math.max(popoverInsetSize, toRightArrow.x + toRightArrow.width),
       y: popoverInsetSize,
       width: popoverPreferredSize.width,
       height: popoverPreferredSize.height,
@@ -573,6 +583,10 @@ function calculatePopoverLayout2({
       if (a.arrow.x < popoverInsetSize || a.arrow.y < popoverInsetSize) {
         if (b.arrow.x >= popoverInsetSize || b.arrow.y >= popoverInsetSize) {
           return 1;
+        } else {
+          // They're both out of bounds. We could sort by the one that's least
+          // out of bounds, or just invest our time improving the layout
+          // algorithm instead.
         }
       } else if (b.arrow.x < popoverInsetSize || b.arrow.y < popoverInsetSize) {
         return -1;
