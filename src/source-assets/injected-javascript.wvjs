@@ -15,6 +15,701 @@ history.scrollRestoration = 'manual';
 wrapRubyBaseTextsWithRb(document.body);
 
 /**
+ * @param {object} obj
+ * @param {DOMRect} obj.boundingClientRect
+ * @param {DOMRect} [obj.clientRect]
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode the
+ * writing mode of the range that has been highlighted (informing where the
+ * popover should prefer to align to if the source rect is particularly large,
+ * e.g. due to spanning two lines).
+ * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
+ * @param {"block" | "none"} obj.display
+ */
+function updatePopover({
+  boundingClientRect,
+  clientRect = boundingClientRect,
+  writingMode,
+  display,
+  results,
+}) {
+  log(`ℹ️ Got boundingClientRect ${JSON.stringify(boundingClientRect)}`);
+
+  const arrow =
+    document.getElementById('paranovel-arrow') ?? document.createElement('div');
+  arrow.id = 'paranovel-arrow';
+
+  if (!arrow.isConnected) {
+    document.body.prepend(arrow);
+  }
+
+  const popover =
+    document.getElementById('paranovel-popover') ??
+    document.createElement('div');
+  popover.id = 'paranovel-popover';
+
+  if (!popover.isConnected) {
+    document.body.prepend(popover);
+  }
+
+  // UI ported over from Paranovel v1's `src/screens/novel/DictView.tsx`.
+  // The container here maps to DictView's `ScrollView`, but we hoist its styles
+  // up to #paranovel-popover's CSS declaration instead.
+
+  const defaultFontSize = '14px';
+
+  const container = document.createDocumentFragment();
+
+  if (!results?.length) {
+    const p = document.createElement('p');
+    p.style.margin = '0';
+    p.style.color = 'white';
+    p.style.fontSize = defaultFontSize;
+    p.textContent = 'No results.';
+    container.appendChild(p);
+    popover.replaceChildren(container);
+    return;
+  }
+
+  const resultsFragment = document.createDocumentFragment();
+  for (const { forms, senses } of results) {
+    const readings = forms
+      .sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0))
+      .filter(({ kana }) => kana);
+
+    // <Result>
+    const resultContainer = document.createElement('div');
+    resultContainer.style.display = 'flex';
+    resultContainer.style.flexDirection = 'column';
+    resultContainer.style.gap = '8px';
+    resultContainer.style.alignItems = 'flex-start';
+
+    const headWord = document.createElement('p');
+    headWord.style.color = 'white';
+    headWord.style.fontSize = '22px';
+    headWord.style.margin = '0';
+    headWord.textContent = forms
+      .filter(({ kana }) => !kana)
+      .map(({ common, form }) => (common ? form : `（${form}）`))
+      .join('、');
+    resultContainer.appendChild(headWord);
+
+    const readingItem = document.createElement('p');
+    readingItem.style.margin = '0';
+    readingItem.style.color = 'white';
+    readingItem.style.fontSize = defaultFontSize;
+    readingItem.textContent = readings
+      // Could represent uncommon using dice
+      .map(({ common, form }) => (common ? form : `（${form}）`))
+      .join('、');
+    resultContainer.appendChild(readingItem);
+
+    const senseList = document.createElement('div');
+    senseList.style.display = 'flex';
+    senseList.style.flexDirection = 'column';
+    senseList.style.gap = '16px';
+    for (const [i, { pos, gloss }] of senses.entries()) {
+      const senseItem = document.createElement('div');
+      senseItem.style.display = 'flex';
+      senseItem.style.flexDirection = 'column';
+      senseItem.style.alignItems = 'flex-start';
+      senseItem.style.gap = '8px';
+      senseItem.style.fontSize = defaultFontSize;
+
+      const posList = document.createElement('ul');
+      posList.style.display = 'flex';
+      posList.style.flexDirection = 'row';
+      posList.style.gap = '8px';
+      posList.style.margin = '0';
+      posList.style.padding = '0';
+      posList.style.listStyle = 'none';
+      for (const textContent of pos) {
+        const posItem = document.createElement('li');
+        posItem.style.color = 'white';
+        posItem.style.borderWidth = '1px';
+        posItem.style.borderStyle = 'solid';
+        posItem.style.borderColor = 'grey';
+        posItem.style.borderRadius = '4px';
+        posItem.style.paddingLeft = '4px';
+        posItem.style.paddingRight = '4px';
+        posItem.style.fontSize = defaultFontSize;
+        posItem.textContent = textContent;
+        posList.appendChild(posItem);
+      }
+      senseItem.appendChild(posList);
+
+      const glossItem = document.createElement('p');
+      glossItem.style.margin = '0';
+      glossItem.style.color = 'white';
+      glossItem.style.fontSize = defaultFontSize;
+      glossItem.textContent = `${i + 1}. ${gloss.join('; ')}`;
+      senseItem.appendChild(glossItem);
+
+      senseList.appendChild(senseItem);
+    }
+
+    resultContainer.appendChild(senseList);
+    resultsFragment.appendChild(resultContainer);
+  }
+
+  container.appendChild(resultsFragment);
+  popover.replaceChildren(container);
+
+  // Make sure to record these values before doing the first layout pass of the
+  // popover, as I found the popover itself can budge the scroll. I think it may
+  // happen if the popover overflows out of the viewport?
+  const viewportScrollPosition = {
+    scrollLeft: getViewportScrollLeft(),
+    scrollTop: getViewportScrollTop(),
+  };
+
+  // First layout pass
+
+  popover.style.left = 'var(--paranovel-popover-inset-size)';
+  popover.style.top = 'var(--paranovel-popover-inset-size)';
+  popover.style.boxSizing = 'border-box';
+  popover.style.display = 'block';
+  popover.style.visibility = 'hidden';
+
+  popover.style.inlineSize = 'auto';
+  popover.style.maxInlineSize =
+    'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
+  popover.style.blockSize = 'auto';
+  popover.style.maxBlockSize = '50%';
+
+  const popoverPreferredSize = {
+    width: popover.clientWidth,
+    height: popover.clientHeight,
+  };
+  console.log(`popoverPreferredSize ${JSON.stringify(popoverPreferredSize)}`);
+
+  /** @type {boolean} Debug flag */
+  const doSecondPass = true;
+  if (!doSecondPass) {
+    popover.style.visibility = 'visible';
+    return;
+  }
+
+  // Second layout pass
+
+  // I'm not aware of a safer way to parse this, but we own the code, so I'm
+  // being a bit reckless here.
+  const popoverInsetSize = parseFloat(
+    (
+      getComputedStyle(popover).getPropertyValue(
+        '--paranovel-popover-inset-size',
+      ) || '0px'
+    ).split('px')[0],
+  );
+
+  const {
+    best: { popoverPlacement, arrow: arrowLayout, popover: popoverLayout },
+    sorted,
+  } = calculatePopoverLayout2({
+    boundingClientRect,
+    clientRect,
+    sourceTextWritingMode: writingMode,
+    popoverWritingMode: 'horizontal-tb',
+    popoverPreferredSize,
+    arrowSize: {
+      breadth: 20,
+      length: Math.ceil((13 / 15) * 20),
+    },
+    popoverInsetSize,
+  });
+
+  console.log(
+    `Got best popoverLayout ${JSON.stringify(
+      popoverLayout,
+    )}, given clientRect and other sorted options`,
+    clientRect,
+    sorted,
+  );
+  popover.style.left = `${
+    viewportScrollPosition.scrollLeft + popoverLayout.x
+  }px`;
+  popover.style.top = `${viewportScrollPosition.scrollTop + popoverLayout.y}px`;
+  popover.style.inlineSize = `${popoverLayout.width}px`;
+  popover.style.maxInlineSize = `${popoverLayout.maxWidth}px`;
+  popover.style.blockSize = `${popoverLayout.height}px`;
+  popover.style.maxBlockSize = `${popoverLayout.maxHeight}px`;
+  popover.style.visibility = 'visible';
+  popover.style.position = 'absolute';
+  popover.style.display = display;
+
+  arrow.style.position = 'absolute';
+  arrow.style.left = `${viewportScrollPosition.scrollLeft + arrowLayout.x}px`;
+  arrow.style.top = `${viewportScrollPosition.scrollTop + arrowLayout.y}px`;
+  arrow.style.zIndex = '1';
+  arrow.style.display = display;
+
+  // TODO: If the arrow rendered outside of the viewport while the popover
+  // stayed inside, we could consider just hiding the arrow.
+
+  const arrowColor = 'var(--paranovel-popover-background-color)';
+  switch (popoverPlacement) {
+    case 'below': {
+      // arrow points up
+      arrow.style.borderTop = 'initial';
+      arrow.style.borderLeft = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderRight = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderBottom = `${arrowLayout.height}px solid ${arrowColor}`;
+      break;
+    }
+    case 'above': {
+      // arrow points down
+      arrow.style.borderBottom = 'initial';
+      arrow.style.borderLeft = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderRight = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderTop = `${arrowLayout.height}px solid ${arrowColor}`;
+      break;
+    }
+    case 'on the left': {
+      // arrow points right
+      arrow.style.borderRight = 'initial';
+      arrow.style.borderTop = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderBottom = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderLeft = `${arrowLayout.height}px solid ${arrowColor}`;
+      break;
+    }
+    case 'on the right': {
+      // arrow points left
+      arrow.style.borderLeft = 'initial';
+      arrow.style.borderTop = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderBottom = `${arrowLayout.width / 2}px solid transparent`;
+      arrow.style.borderRight = `${arrowLayout.height}px solid ${arrowColor}`;
+      break;
+    }
+  }
+}
+
+/**
+ *
+ * @param {object} obj
+ * @param {DOMRect} obj.boundingClientRect The bounds of the whole highlighted
+ * range. The popover will avoid this space when laying out.
+ * @param {DOMRect} [obj.clientRect] The area within that range that the arrow
+ * should point at. Mostly relevant for when target text spans across multiple
+ * lines; defaults to boundingClientRect if not provided.
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.sourceTextWritingMode
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.popoverWritingMode
+ * @param {{ width: number; height: number }} obj.popoverPreferredSize
+ * @param {{ breadth: number; length: number }} obj.arrowSize
+ * @param {number} obj.popoverInsetSize
+ */
+function calculatePopoverLayout2({
+  boundingClientRect,
+  clientRect = boundingClientRect,
+  sourceTextWritingMode,
+  popoverWritingMode,
+  popoverPreferredSize,
+  arrowSize,
+  popoverInsetSize,
+}) {
+  console.log('calculatePopoverLayout2', {
+    clientRect,
+    boundingClientRect,
+    popoverPreferredSize,
+  });
+
+  const preferredInlineSize =
+    popoverWritingMode === 'horizontal-tb'
+      ? popoverPreferredSize.width
+      : popoverPreferredSize.height;
+  const preferredBlockSize =
+    popoverWritingMode === 'horizontal-tb'
+      ? popoverPreferredSize.height
+      : popoverPreferredSize.width;
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  /**
+   * The order of preference as to where the popover should be placed relative
+   * to the content to avoid downstream (not yet read) text, if multiple
+   * solutions satisfy.
+   * @type {Array<'above' | 'below' | 'on the left' | 'on the right'>}
+   */
+  const preferenceOrder =
+    sourceTextWritingMode === 'horizontal-tb'
+      ? ['below', 'above', 'on the left', 'on the right']
+      : [
+          ...(sourceTextWritingMode === 'vertical-rl'
+            ? ['on the left', 'on the right']
+            : ['on the right', 'on the left']),
+          'above',
+          'below',
+        ];
+  console.log('preferenceOrder', { preferenceOrder, sourceTextWritingMode });
+
+  //        horizontal-tb ltr               horizontal-tb rtl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃                            ┃   ┃                            ┃
+  // ┃    ┏━━━━━━━┓               ┃   ┃                ┏━━━━━━━┓   ┃
+  // ┃    ┃ abc   ┃               ┃   ┃                ┃   cba ┃   ┃
+  // ┃    ┃ defg  ┃               ┃   ┃                ┃  gfed ┃   ┃
+  // ┃    ┣━━━━━━━┛               ┃   ┃                ┗━━━━━━━┫   ┃
+  // ┃    ⏷                       ┃   ┃                        ⏷   ┃
+  // ┃ abcdefghij                 ┃   ┃                 jihgfedcba ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  //
+  //          vertical-lr                      vertical-rl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ a h                        ┃   ┃                        h a ┃
+  // ┃ b ┏━━━━━━━┓                ┃   ┃                ┏━━━━━━━┓ b ┃
+  // ┃ c ┃ ac    ┃                ┃   ┃                ┃    ca ┃ c ┃
+  // ┃ d ┃ b     ┃                ┃   ┃                ┃     b ┃ d ┃
+  // ┃ e ┣━━━━━━━┛                ┃   ┃                ┗━━━━━━━┫ e ┃
+  // ┃ f ⏷                        ┃   ┃                        ⏷ f ┃
+  // ┃ g n                        ┃   ┃                        n g ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  const above = {
+    popoverPlacement: 'above',
+    // FIXME: would be nice to ensure the arrow stays within popoverInsetSize,
+    //        as otherwise, when the arrow is at the viewport edge, the popover
+    //        can detach from it.
+    arrow: {
+      x: clientRect.left + clientRect.width / 2 - arrowSize.breadth / 2,
+      y: clientRect.top - arrowSize.length,
+      width: arrowSize.breadth,
+      height: arrowSize.length,
+    },
+    popover: {
+      x: popoverInsetSize,
+      y: popoverInsetSize,
+      width: popoverPreferredSize.width,
+      height: popoverPreferredSize.height,
+      maxWidth: viewportWidth - popoverInsetSize * 2,
+      maxHeight: boundingClientRect.top - popoverInsetSize - arrowSize.length,
+    },
+  };
+  const aboveAdjusted = {
+    popoverPlacement: 'above',
+    arrow: above.arrow,
+    popover: alignAndJustify({
+      popoverPlacement: 'above',
+      horizontalAlign: 'right',
+      verticalAlign: 'bottom',
+      constraints: above.popover,
+      arrowRect: above.arrow,
+      arrowOverhang: 20,
+    }),
+  };
+
+  //        horizontal-tb ltr               horizontal-tb rtl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ abcdefghij                 ┃   ┃                 jihgfedcba ┃
+  // ┃    ⏶                       ┃   ┃                        ⏶   ┃
+  // ┃    ┣━━━━━━━┓               ┃   ┃                ┏━━━━━━━┫   ┃
+  // ┃    ┃ abc   ┃               ┃   ┃                ┃   cba ┃   ┃
+  // ┃    ┃ defg  ┃               ┃   ┃                ┃  gfed ┃   ┃
+  // ┃    ┗━━━━━━━┛               ┃   ┃                ┗━━━━━━━┛   ┃
+  // ┃                            ┃   ┃                            ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  //
+  //          vertical-lr                      vertical-rl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ a i                        ┃   ┃                        i a ┃
+  // ┃ b ⏶                        ┃   ┃                        ⏶ b ┃
+  // ┃ c ┣━━━━━━━┓                ┃   ┃                ┏━━━━━━━┫ c ┃
+  // ┃ d ┃ ac    ┃                ┃   ┃                ┃    ca ┃ d ┃
+  // ┃ e ┃ b     ┃                ┃   ┃                ┃     b ┃ e ┃
+  // ┃ f ┗━━━━━━━┛                ┃   ┃                ┗━━━━━━━┛ f ┃
+  // ┃ g o                        ┃   ┃                        o g ┃
+  // ┃ h p                        ┃   ┃                        p h ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  const below = {
+    popoverPlacement: 'below',
+    arrow: {
+      x: above.arrow.x,
+      y: clientRect.bottom,
+      width: arrowSize.breadth,
+      height: arrowSize.length,
+    },
+    popover: {
+      x: popoverInsetSize,
+      y: boundingClientRect.bottom + arrowSize.length,
+      width: popoverPreferredSize.width,
+      height: popoverPreferredSize.height,
+      maxWidth: viewportWidth - popoverInsetSize * 2,
+      maxHeight:
+        viewportHeight -
+        boundingClientRect.bottom -
+        popoverInsetSize -
+        arrowSize.length,
+    },
+  };
+  const belowAdjusted = {
+    popoverPlacement: 'below',
+    arrow: below.arrow,
+    popover: alignAndJustify({
+      popoverPlacement: 'below',
+      horizontalAlign: 'right',
+      verticalAlign: 'top',
+      constraints: below.popover,
+      arrowRect: below.arrow,
+      arrowOverhang: 20,
+    }),
+  };
+
+  //        horizontal-tb ltr               horizontal-tb rtl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+  // ┃              ┏━━━━━━━┳⏵abc ┃   ┃              ┏━━━━━━━┳⏵cba ┃
+  // ┃              ┃ abc   ┃ abc ┃   ┃              ┃   cba ┃ cba ┃
+  // ┃              ┃ defg  ┃ abc ┃   ┃              ┃  gfed ┃ cba ┃
+  // ┃              ┗━━━━━━━┛ abc ┃   ┃              ┗━━━━━━━┛ cba ┃
+  // ┃                            ┃   ┃                            ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  //
+  //          vertical-lr                      vertical-rl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ a a a a a a a a a a a a a  ┃   ┃                          a ┃
+  // ┃ b b b b b b b b b b b b b  ┃   ┃                          b ┃
+  // ┃ c c c c c c c ┏━━━━━━━┳⏵c  ┃   ┃                ┏━━━━━━━┳⏵c ┃
+  // ┃ d d d d d d d ┃ ac    ┃ d  ┃   ┃                ┃    ca ┃ d ┃
+  // ┃ e e e e e e e ┃ b     ┃    ┃   ┃                ┃     b ┃ e ┃
+  // ┃ f f f f f f f ┗━━━━━━━┛    ┃   ┃                ┗━━━━━━━┛ f ┃
+  // ┃ g g g g g g g g g g g g    ┃   ┃                            ┃
+  // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  const toLeft = {
+    popoverPlacement: 'on the left',
+    arrow: {
+      x: clientRect.left - arrowSize.length,
+      y: clientRect.top + clientRect.height / 2 - arrowSize.breadth / 2,
+      width: arrowSize.length,
+      height: arrowSize.breadth,
+    },
+    popover: {
+      x: popoverInsetSize,
+      y: popoverInsetSize,
+      width: popoverPreferredSize.width,
+      height: popoverPreferredSize.height,
+      maxWidth: boundingClientRect.left - popoverInsetSize - arrowSize.length,
+      maxHeight: viewportHeight - popoverInsetSize * 2,
+    },
+  };
+  const toLeftAdjusted = {
+    popoverPlacement: 'on the left',
+    arrow: toLeft.arrow,
+    popover: alignAndJustify({
+      popoverPlacement: 'on the left',
+      horizontalAlign: 'right',
+      verticalAlign: 'bottom',
+      constraints: toLeft.popover,
+      arrowRect: toLeft.arrow,
+      arrowOverhang: 20,
+    }),
+  };
+
+  //        horizontal-tb ltr               horizontal-tb rtl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+  // ┃ abc⏴┳━━━━━━━┓              ┃   ┃ zyx⏴┳━━━━━━━┓ lkjihgfedcba ┃
+  // ┃ abc ┃ abc   ┃              ┃   ┃ zyx ┃ edcba ┃          cba ┃
+  // ┃ abc ┃ defg  ┃              ┃   ┃ zyx ┃    gf ┃              ┃
+  // ┃ abc ┗━━━━━━━┛              ┃   ┃ zyx ┗━━━━━━━┛              ┃
+  // ┃                            ┃   ┃                            ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  //
+  //          vertical-lr                      vertical-rl
+  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  // ┃ a a                        ┃   ┃   a a a a a a  a a a a a a ┃
+  // ┃ b b                        ┃   ┃   b b b b b b  b b b b b b ┃
+  // ┃ c c ⏴┳━━━━━━━┓             ┃   ┃   c ⏴┳━━━━━━━┓ c c c c c c ┃
+  // ┃ d d  ┃ ac    ┃             ┃   ┃   d  ┃    ca ┃ d d d d d d ┃
+  // ┃ e e  ┃ b     ┃             ┃   ┃   e  ┃     b ┃ e e e e e e ┃
+  // ┃ f f  ┗━━━━━━━┛             ┃   ┃      ┗━━━━━━━┛ f f f f f f ┃
+  // ┃ g                          ┃   ┃     g g g g g  g g g g g g ┃
+  // ┃ h                          ┃   ┃     h h h h h  h h h h h h ┃
+  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+  const toRightArrow = {
+    x: clientRect.right,
+    y: toLeft.arrow.y,
+    width: arrowSize.length,
+    height: arrowSize.breadth,
+  };
+  const toRight = {
+    popoverPlacement: 'on the right',
+    arrow: toRightArrow,
+    popover: {
+      // We have an interesting case with vertical-rl when a word flows onto a
+      // new line such that the start of the word is clickable within the
+      // viewport, yet the end of the word extends out of the viewport. We've
+      // generally chosen to point at the end of the word, but in this rare case
+      // it might make more sense to point at the start just to stay within the
+      // viewport. However, it's okay to just do what's easiest.
+      x: Math.max(popoverInsetSize, toRightArrow.x + toRightArrow.width),
+      y: popoverInsetSize,
+      width: popoverPreferredSize.width,
+      height: popoverPreferredSize.height,
+      maxWidth:
+        viewportWidth -
+        boundingClientRect.right -
+        popoverInsetSize -
+        arrowSize.length,
+      maxHeight: viewportHeight - popoverInsetSize * 2,
+    },
+  };
+  const toRightAdjusted = {
+    popoverPlacement: 'on the right',
+    arrow: toRight.arrow,
+    popover: alignAndJustify({
+      popoverPlacement: 'on the right',
+      horizontalAlign: 'left',
+      verticalAlign: 'bottom',
+      constraints: toRight.popover,
+      arrowRect: toRight.arrow,
+      arrowOverhang: 20,
+    }),
+  };
+
+  const sorted = preferenceOrder
+    .map(preference => {
+      switch (preference) {
+        case 'above':
+          return aboveAdjusted;
+        case 'below':
+          return belowAdjusted;
+        case 'on the left':
+          return toLeftAdjusted;
+        case 'on the right':
+          return toRightAdjusted;
+      }
+    })
+    .sort((a, b) => {
+      // If one of the two has an arrow out of bounds, sort the one whose arrow
+      // is in bounds to the front.
+      //
+      // If they both have an arrow out of bounds, continue to the next check.
+      if (a.arrow.x < popoverInsetSize || a.arrow.y < popoverInsetSize) {
+        if (b.arrow.x >= popoverInsetSize || b.arrow.y >= popoverInsetSize) {
+          return 1;
+        } else {
+          // They're both out of bounds. We could sort by the one that's least
+          // out of bounds, or just invest our time improving the layout
+          // algorithm instead.
+        }
+      } else if (b.arrow.x < popoverInsetSize || b.arrow.y < popoverInsetSize) {
+        return -1;
+      }
+
+      const aFits =
+        a.popover.width <= a.popover.maxWidth &&
+        a.popover.height <= a.popover.maxHeight;
+      const bFits =
+        b.popover.width <= b.popover.maxWidth &&
+        b.popover.height <= b.popover.maxHeight;
+
+      return aFits ? (bFits ? 0 : -1) : bFits ? 1 : 0;
+    });
+
+  return {
+    best: sorted[0],
+    sorted,
+    aboveAdjusted: above,
+    belowAdjusted: below,
+    toLeftAdjusted: toLeft,
+    toRightAdjusted: toRight,
+  };
+}
+
+/**
+ * Aligns the popover within its available space based on its preferred size and
+ * orientation, with reference to the arrow element and any desired overhang.
+ *
+ * Expects to be given constraints where:
+ * - x is the left limit of the viewport
+ * - maxWidth is the right limit of the viewport
+ * - y is the top limit of the viewport
+ * - maxHeight is the bottom limit of the viewport
+ * - width is the preferred width of the popover
+ * - height is the preferred height of the popover
+ *
+ * @param {object} obj
+ * @param {"left" | "right"} obj.horizontalAlign
+ * @param {"top" | "bottom"} obj.verticalAlign
+ * @param {{ x: number; y: number; width: number; height: number; }} obj.arrowRect
+ * @param {number} obj.arrowOverhang
+ * @param {{ x: number; y: number; width: number; height: number; maxWidth: number; maxHeight: number; }} obj.constraints
+ * @param {'above' | 'below' | 'on the left' | 'on the right'} popoverPlacement
+ */
+function alignAndJustify({
+  horizontalAlign,
+  verticalAlign,
+  arrowRect,
+  arrowOverhang,
+  constraints,
+  popoverPlacement,
+}) {
+  const rightLimit = constraints.x + constraints.maxWidth;
+  const bottomLimit = constraints.y + constraints.maxHeight;
+  const solution = { ...constraints };
+
+  switch (horizontalAlign) {
+    case 'left': {
+      solution.x = arrowRect.x + arrowRect.width;
+      break;
+    }
+    case 'right': {
+      const idealX = Math.max(constraints.x, arrowRect.x - arrowOverhang);
+      const availableWidthWithIdealX = rightLimit - idealX;
+      solution.x =
+        constraints.width > availableWidthWithIdealX
+          ? Math.max(
+              rightLimit - constraints.width,
+              rightLimit - constraints.maxWidth,
+            )
+          : idealX;
+      break;
+    }
+  }
+
+  switch (verticalAlign) {
+    case 'top': {
+      if (popoverPlacement !== 'below') {
+        console.warn(
+          `[alignAndJustify] verticalAlign: "bottom" only implemented for popoverPlacement "below".`,
+        );
+        break;
+      }
+      solution.y =
+        popoverPlacement === 'below'
+          ? arrowRect.y + arrowRect.height
+          : arrowRect.y + arrowRect.height + arrowOverhang;
+      break;
+    }
+    case 'bottom': {
+      if (popoverPlacement === 'below') {
+        console.warn(
+          `[alignAndJustify] verticalAlign: "bottom" not implemented for popoverPlacement "below".`,
+        );
+        break;
+      }
+      const idealY = Math.max(
+        constraints.y,
+        popoverPlacement === 'above'
+          ? arrowRect.y - constraints.height
+          : arrowRect.y - arrowOverhang,
+      );
+      const availableHeightWithIdealY = bottomLimit - idealY;
+      solution.y =
+        constraints.height > availableHeightWithIdealY
+          ? Math.max(
+              bottomLimit - constraints.height,
+              bottomLimit - constraints.maxHeight,
+            )
+          : idealY;
+      break;
+    }
+  }
+
+  return solution;
+}
+
+/**
  * Wraps any direct bare text node children in a `<ruby>` with `<rb>`:
  *
  * ```diff
@@ -184,7 +879,6 @@ async function onClickDocument(event) {
     offsetOfTargetTokenIntoBlockBaseText,
     offsetOfTargetCharacterIntoBlockBaseText,
   } = response;
-  lookUpTerm(dictionaryForm);
   log(
     `📖 dictionaryForm: "${dictionaryForm}"; tokenOffset: ${offsetOfTargetTokenIntoBlockBaseText}, characterOffset: ${offsetOfTargetCharacterIntoBlockBaseText}; length: ${tokenLength}`,
   );
@@ -233,15 +927,168 @@ async function onClickDocument(event) {
   }
 
   __paranovelState.wordHighlight.add(tokenRange);
+  const boundingClientRect = tokenRange.getBoundingClientRect();
+  const endContainerElement =
+    tokenRange.endContainer instanceof Element
+      ? tokenRange.endContainer
+      : tokenRange.endContainer.parentElement;
+  const clientRects = tokenRange.getClientRects();
+  const idealClientRectForArrow = getIdealClientRectForArrow(tokenRange);
+  console.log('onClickDocument', {
+    boundingClientRect,
+    tokenRange,
+    tokenRangeRect: tokenRange.getBoundingClientRect(),
+    tokenRangeRects: tokenRange.getClientRects(),
+    endContainerElement,
+    endContainerRect: endContainerElement.getBoundingClientRect(),
+    endContainerRects: endContainerElement.getClientRects(),
+    clientRects,
+    idealClientRectForArrow,
+  });
+  window.tokenRange = tokenRange;
+  const writingMode =
+    endContainerElement?.computedStyleMap().get('writing-mode').value ??
+    'horizontal-tb';
+
+  log(
+    `🔎 Looking up term "${dictionaryForm}" with boundingClientRect ${JSON.stringify(
+      boundingClientRect.toJSON(),
+    )} and writingMode "${writingMode}"`,
+  );
+  lookUpTerm({
+    dictionaryForm,
+    boundingClientRect,
+    clientRect: idealClientRectForArrow,
+    writingMode,
+  });
 }
 
-function lookUpTerm(dictionaryForm) {
-  window.ReactNativeWebView.postMessage(
-    JSON.stringify({
-      type: 'lookUpTerm',
-      message: dictionaryForm,
-    }),
+/**
+ * Gets the ideal client rect that the arrow should point at. If the tokenRange
+ * spans multiple lines, this is a rect encompassing both the base/<rb> and the
+ * <rt>. Otherwise, it's just the boundingClientRect for the whole tokenRange.
+ *
+ * @param {Range} tokenRange
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} writingMode
+ */
+function getIdealClientRectForArrow(tokenRange, writingMode) {
+  const clientRects = tokenRange.getClientRects();
+
+  // FIXME: this automatically assumes that the selection spans multiple lines.
+  // Instead of pre-emptively choosing the last one, we should first check
+  // whether penultimateClientRect.x differs from the first clientRect.
+
+  // firstClientRect *should* represent a base/<rb>, assuming it's legal.
+  const firstClientRect = clientRects[0];
+  const lastClientRect = clientRects[clientRects.length - 1];
+  if (!firstClientRect || !lastClientRect) {
+    return tokenRange.getBoundingClientRect();
+  }
+
+  // If the final clientRect doesn't belong to an <rt>, then we can use it as-is
+  // rather than joining it together with its corresponding base text's
+  // clientRect.
+  if (tokenRange.endContainer.nodeName.toUpperCase() !== 'RT') {
+    const isOnSameLine =
+      writingMode === 'horizontal-tb'
+        ? lastClientRect.y === firstClientRect.y
+        : lastClientRect.x === firstClientRect.x;
+
+    return isOnSameLine ? tokenRange.getBoundingClientRect() : lastClientRect;
+  }
+
+  // Otherwise, we must combine the clientRect for the <rt> with that of the
+  // preceding clientRect (which will correspond to either an <rb> or a text
+  // node).
+
+  const penultimateClientRect = clientRects[clientRects.length - 2];
+  if (!penultimateClientRect) {
+    return tokenRange.getBoundingClientRect();
+  }
+
+  const x = Math.min(penultimateClientRect.x, lastClientRect.x);
+  const y = Math.min(penultimateClientRect.y, lastClientRect.y);
+
+  const finalBaseAndRtRect = DOMRect.fromRect({
+    x,
+    y,
+    width: Math.max(penultimateClientRect.right, lastClientRect.right) - x,
+    height: Math.max(penultimateClientRect.bottom, lastClientRect.bottom) - y,
+  });
+
+  const isOnSameLine =
+    writingMode === 'horizontal-tb'
+      ? finalBaseAndRtRect.y === firstClientRect.y
+      : finalBaseAndRtRect.x === firstClientRect.x;
+
+  return isOnSameLine ? tokenRange.getBoundingClientRect() : finalBaseAndRtRect;
+}
+
+function getViewportScrollLeft() {
+  return (
+    document.body.scrollWidth -
+    Math.abs(document.body.scrollLeft) -
+    window.innerWidth
   );
+}
+function getViewportScrollTop() {
+  return (
+    document.body.scrollHeight -
+    Math.abs(document.body.scrollTop) -
+    window.innerHeight
+  );
+}
+
+/**
+ *
+ * @param {object} obj
+ * @param {string} obj.dictionaryForm
+ * @param {DOMRect} obj.boundingClientRect
+ * @param {DOMRect} [obj.clientRect]
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
+ */
+async function lookUpTerm({
+  dictionaryForm,
+  boundingClientRect,
+  clientRect = boundingClientRect,
+  writingMode,
+}) {
+  const id = __paranovelState.tokenizationPromiseCount++;
+
+  /** @type {string} */
+  let response;
+  try {
+    response = await new Promise((resolve, reject) => {
+      __paranovelState.tokenizationPromiseHandlers[id] = { resolve, reject };
+
+      // Promise is settled by onNovelViewMessage calling resolve/reject
+      window.ReactNativeWebView.postMessage(
+        JSON.stringify({
+          type: 'lookUpTerm',
+          term: dictionaryForm,
+          id,
+        }),
+      );
+    });
+  } catch (error) {
+    console.error('lookUpTerm Promise rejected with error', error);
+    log(
+      `❌ lookUpTerm Promise rejected${
+        error instanceof Error ? ` with error: "${error.message}"` : '.'
+      }`,
+    );
+    return;
+  } finally {
+    delete __paranovelState.tokenizationPromiseHandlers[id];
+  }
+
+  updatePopover({
+    boundingClientRect,
+    clientRect,
+    writingMode,
+    results: response,
+    display: 'block',
+  });
 }
 
 function getRangeFromOffsetIntoBlockBaseText({

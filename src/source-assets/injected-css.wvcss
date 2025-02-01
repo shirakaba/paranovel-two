@@ -6,6 +6,10 @@
   --paranovel-block-padding: 24px;
   --paranovel-inline-padding: 24px;
   --paranovel-font-size: 24px;
+
+  --paranovel-popover-inset-size: 8px;
+  --paranovel-max-readable-inline-size: 600px;
+  --paranovel-popover-background-color: #222;
 }
 
 ::highlight(word) {
@@ -64,4 +68,14 @@ svg {
 
   /* Prevent images from dictating the height of the whole page. */
   max-inline-size: 100% !important;
+}
+
+#paranovel-popover {
+  position: fixed;
+  writing-mode: horizontal-tb;
+  padding: 8px;
+  background-color: var(--paranovel-popover-background-color);
+  overflow-y: scroll;
+  /* Put it above our <rt> elements that have isolation: isolate */
+  z-index: 1;
 }

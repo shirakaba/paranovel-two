@@ -31,7 +31,7 @@ export async function lookUpTerm(term: string, db: QuickSQLiteConnection) {
     ).rows?._array as Array<WordForm> | undefined) ?? new Array<WordForm>()
   ).sort((a, b) => b.common - a.common);
 
-  console.log('wordFormsForForm', wordFormsForForm);
+  // console.log('wordFormsForForm', wordFormsForForm);
   if (!wordFormsForForm.length) {
     return [];
   }
@@ -91,14 +91,14 @@ export async function lookUpTerm(term: string, db: QuickSQLiteConnection) {
         [...headwords, 50],
       )
     ).rows?._array as Array<WordForm> | undefined) ?? new Array<WordForm>();
-  console.log('wordFormsForHeadwords', wordFormsForHeadwords);
+  // console.log('wordFormsForHeadwords', wordFormsForHeadwords);
 
   const formPayloads: { [headword: number]: Array<WordFormPayload> } = {};
   for (const { headword, common, kana, form, tags } of wordFormsForHeadwords) {
     formPayloads[headword] ||= [];
     formPayloads[headword].push({ common: !!common, kana: !!kana, form, tags });
   }
-  console.log('formPayloads', formPayloads);
+  // console.log('formPayloads', formPayloads);
 
   const senses: Array<{
     /** The headword referred to by word_forms */
@@ -114,7 +114,7 @@ export async function lookUpTerm(term: string, db: QuickSQLiteConnection) {
         [...headwords, limit],
       )
     ).rows?._array ?? [];
-  console.log('senses', senses);
+  // console.log('senses', senses);
 
   return senses
     .map<LookupResult>(({ id: headword, sense }) => {
