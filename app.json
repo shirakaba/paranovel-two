@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.paranovel"
+      "bundleIdentifier": "uk.co.birchlabs.paranovel"
     },
     "android": {
       "adaptiveIcon": {
