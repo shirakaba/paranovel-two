@@ -20,8 +20,16 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "uk.co.birchlabs.paranovel"
     },
-    "plugins": [["@bacons/link-assets", ["./assets/jmdict.sqlite3"]]]
+    "plugins": [
+      [
+        "@bacons/link-assets",
+        [
+          "./assets/jmdict.sqlite3"
+        ]
+      ]
+    ]
   }
 }
