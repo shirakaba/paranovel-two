@@ -248,16 +248,11 @@ function updatePopover({
     popoverPreferredSize: popoverSizeToFitFirstResult,
   });
 
-  const {
-    best: { popoverPlacement, arrow: arrowLayout, popover: popoverLayout },
-    sorted,
-  } = layoutToFitFirstResult;
   console.log(
     `Got best popoverLayout ${JSON.stringify(
-      popoverLayout,
-    )}, given clientRect and other sorted options`,
+      layoutToFitFirstResult.best.popoverLayout,
+    )}, given clientRect`,
     clientRect,
-    sorted,
   );
 
   /**
@@ -281,6 +276,10 @@ function updatePopover({
     popover.style.display = display;
   };
 
+  // FIXME: Clicking text on the left of a vertical-tb passage when there's more
+  // than an arrow's worth of space to the left of it will often result in
+  // "on the left" being selected despite only having a slither of space
+  // available.
   const bestPopoverPlacementToFitFirstResult =
     layoutToFitFirstResult.best.popoverPlacement;
   setPopoverStyle(layoutToFitFirstResult.best);
@@ -296,6 +295,7 @@ function updatePopover({
     setPopoverStyle(equivalentLayoutToFitAllResults);
   };
 
+  const arrowLayout = layoutToFitFirstResult.best.arrow;
   arrow.style.position = 'absolute';
   arrow.style.left = `${viewportScrollPosition.scrollLeft + arrowLayout.x}px`;
   arrow.style.top = `${viewportScrollPosition.scrollTop + arrowLayout.y}px`;
@@ -306,7 +306,7 @@ function updatePopover({
   // stayed inside, we could consider just hiding the arrow.
 
   const arrowColor = 'var(--paranovel-popover-background-color)';
-  switch (popoverPlacement) {
+  switch (bestPopoverPlacementToFitFirstResult) {
     case 'below': {
       // arrow points up
       arrow.style.borderTop = 'initial';
