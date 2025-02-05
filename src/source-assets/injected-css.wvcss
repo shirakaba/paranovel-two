@@ -7,6 +7,7 @@
   --paranovel-inline-padding: 24px;
   --paranovel-font-size: 24px;
 
+  --paranovel-popover-show-more-button-block-size: 32px;
   --paranovel-popover-inset-size: 8px;
   --paranovel-max-readable-inline-size: 600px;
   --paranovel-popover-background-color: #222;
@@ -144,4 +145,31 @@ svg {
   margin: 0;
   color: white;
   font-size: var(--paranovel-popover-definition-font-size);
+}
+
+.paranovel-show-more-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--paranovel-popover-show-more-button-block-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* TODO: base this on var(--paranovel-popover-background-color) */
+  background-color: #2228;
+}
+
+.paranovel-show-more-button {
+  /* TODO */
+}
+
+#paranovel-popover.with-show-more-button {
+  overflow-y: hidden;
+}
+#paranovel-popover .paranovel-show-more-container {
+  display: none;
+}
+#paranovel-popover.with-show-more-button .paranovel-show-more-container {
+  display: flex;
 }

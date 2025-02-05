@@ -46,6 +46,7 @@ function updatePopover({
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
   popover.id = 'paranovel-popover';
+  popover.classList.remove('with-show-more-button');
 
   if (!popover.isConnected) {
     document.body.prepend(popover);
@@ -123,6 +124,13 @@ function updatePopover({
     resultContainer.appendChild(senseList);
     resultsFragment.appendChild(resultContainer);
   }
+  const showMoreContainer = document.createElement('div');
+  showMoreContainer.classList.add('paranovel-show-more-container');
+  const showMoreButton = document.createElement('button');
+  showMoreButton.classList.add('paranovel-show-more-button');
+  showMoreButton.textContent = 'Show more';
+  showMoreContainer.appendChild(showMoreButton);
+  resultsFragment.appendChild(showMoreContainer);
 
   container.appendChild(resultsFragment);
   popover.replaceChildren(container);
@@ -135,7 +143,10 @@ function updatePopover({
     scrollTop: getViewportScrollTop(),
   };
 
-  // First layout pass
+  // == First layout pass ==
+  // In this pass, we restrict the popover's inline size to something readable,
+  // and let the block size expand as much as it likes in order to display all
+  // its results.
 
   popover.style.left = 'var(--paranovel-popover-inset-size)';
   popover.style.top = 'var(--paranovel-popover-inset-size)';
@@ -147,14 +158,45 @@ function updatePopover({
   popover.style.maxInlineSize =
     'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
   popover.style.blockSize = 'auto';
-  popover.style.maxBlockSize = '50%';
-  // popover.classList.add('size-to-first-result-container');
+  // popover.style.maxBlockSize = '50%';
 
-  const popoverPreferredSize = {
+  const popoverSizeToFitAllResults = {
     width: popover.clientWidth,
     height: popover.clientHeight,
   };
-  console.log(`popoverPreferredSize ${JSON.stringify(popoverPreferredSize)}`);
+
+  const popoverWritingMode = 'horizontal-tb';
+
+  // When there are multiple results to show, we size the popover to fit just
+  // the first result, providing a "show more" button to reveal the rest.
+  let popoverSizeToFitFirstResult = popoverSizeToFitAllResults;
+  // Avoid flushing layout again if there's only a single result container.
+  if (results.length > 1) {
+    popover.classList.add('size-to-first-result-container');
+    popoverSizeToFitFirstResult = {
+      width: popover.clientWidth,
+      height: popover.clientHeight,
+    };
+    const blockSizeForShowMoreButton = parseFloat(
+      (
+        getComputedStyle(popover).getPropertyValue(
+          '--paranovel-popover-show-more-button-block-size',
+        ) || '0px'
+      ).split('px')[0],
+    );
+    if (popoverWritingMode === 'horizontal-tb') {
+      popoverSizeToFitFirstResult.height += blockSizeForShowMoreButton;
+    } else {
+      popoverSizeToFitFirstResult.width += blockSizeForShowMoreButton;
+    }
+
+    popover.classList.remove('size-to-first-result-container');
+    popover.classList.add('with-show-more-button');
+  }
+
+  console.log(
+    `popoverSizeToFitAllResults ${JSON.stringify(popoverSizeToFitAllResults)}`,
+  );
 
   /** @type {boolean} Debug flag */
   const doSecondPass = true;
@@ -163,7 +205,9 @@ function updatePopover({
     return;
   }
 
-  // Second layout pass
+  // == Second layout pass ==
+  // In this pass, we work out the "best" position to place the popup given the
+  // available space around the target in the viewport, then lay it out there.
 
   // I'm not aware of a safer way to parse this, but we own the code, so I'm
   // being a bit reckless here.
@@ -175,21 +219,36 @@ function updatePopover({
     ).split('px')[0],
   );
 
-  const {
-    best: { popoverPlacement, arrow: arrowLayout, popover: popoverLayout },
-    sorted,
-  } = calculatePopoverLayout2({
+  /** @type {Parameters<typeof calculatePopoverLayout>[0]}  */
+  const layoutArgs = {
     boundingClientRect,
     clientRect,
     sourceTextWritingMode: writingMode,
-    popoverWritingMode: 'horizontal-tb',
-    popoverPreferredSize,
+    popoverWritingMode,
     arrowSize: {
       breadth: 20,
       length: Math.ceil((13 / 15) * 20),
     },
     popoverInsetSize,
+  };
+
+  const layoutToFitAllResults = calculatePopoverLayout({
+    ...layoutArgs,
+    popoverPreferredSize: popoverSizeToFitAllResults,
   });
+  const layoutToFitFirstResult = calculatePopoverLayout({
+    ...layoutArgs,
+    popoverPreferredSize: popoverSizeToFitFirstResult,
+  });
+
+  const {
+    best: { popoverPlacement, arrow: arrowLayout, popover: popoverLayout },
+    sorted,
+  } = layoutToFitFirstResult;
+
+  const setPopoverStyle = () => {
+    //
+  };
 
   console.log(
     `Got best popoverLayout ${JSON.stringify(
@@ -209,6 +268,11 @@ function updatePopover({
   popover.style.visibility = 'visible';
   popover.style.position = 'absolute';
   popover.style.display = display;
+
+  showMoreButton.onclick = () => {
+    popover.classList.remove('with-show-more-button');
+    // TODO: resize and reposition using layoutToFitAllResults
+  };
 
   arrow.style.position = 'absolute';
   arrow.style.left = `${viewportScrollPosition.scrollLeft + arrowLayout.x}px`;
@@ -270,7 +334,7 @@ function updatePopover({
  * @param {{ breadth: number; length: number }} obj.arrowSize
  * @param {number} obj.popoverInsetSize
  */
-function calculatePopoverLayout2({
+function calculatePopoverLayout({
   boundingClientRect,
   clientRect = boundingClientRect,
   sourceTextWritingMode,
@@ -279,7 +343,7 @@ function calculatePopoverLayout2({
   arrowSize,
   popoverInsetSize,
 }) {
-  console.log('calculatePopoverLayout2', {
+  console.log('calculatePopoverLayout', {
     clientRect,
     boundingClientRect,
     popoverPreferredSize,
@@ -796,7 +860,17 @@ function log(message) {
  * @param {MouseEvent} event
  */
 async function onClickDocument(event) {
-  const { x, y } = event;
+  const { x, y, target } = event;
+
+  if (
+    document.getElementById('paranovel-popover')?.contains(target) ||
+    document.getElementById('paranovel-prelude')?.contains(target) ||
+    document.getElementById('paranovel-postlude')?.contains(target)
+  ) {
+    // Don't attempt to look up text for any clicks within Paranovel UI
+    // elements.
+    return;
+  }
 
   const caretRange = document.caretRangeFromPoint(x, y);
   if (!caretRange) {
