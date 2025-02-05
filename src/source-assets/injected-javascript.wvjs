@@ -160,9 +160,16 @@ function updatePopover({
   popover.style.blockSize = 'auto';
   // popover.style.maxBlockSize = '50%';
 
+  // FIXME: clientHeight/clientWidth floor the true values, so if you take their
+  // values as written, you may end up underestimating the size needed to fit
+  // content. For the time being, we add an extra pixel to each size to prefer
+  // overestimating.
+  //
+  // There may be other sub-pixel values to track down elsewhere in our
+  // measurements (e.g. scroll position and viewport size).
   const popoverSizeToFitAllResults = {
-    width: popover.clientWidth,
-    height: popover.clientHeight,
+    width: popover.clientWidth + 1,
+    height: popover.clientHeight + 1,
   };
 
   const popoverWritingMode = 'horizontal-tb';
@@ -174,8 +181,8 @@ function updatePopover({
   if (results.length > 1) {
     popover.classList.add('size-to-first-result-container');
     popoverSizeToFitFirstResult = {
-      width: popover.clientWidth,
-      height: popover.clientHeight,
+      width: popover.clientWidth + 1,
+      height: popover.clientHeight + 1,
     };
     const blockSizeForShowMoreButton = parseFloat(
       (
