@@ -78,15 +78,10 @@ function updatePopover({
 
     // <Result>
     const resultContainer = document.createElement('div');
-    resultContainer.style.display = 'flex';
-    resultContainer.style.flexDirection = 'column';
-    resultContainer.style.gap = '8px';
-    resultContainer.style.alignItems = 'flex-start';
+    resultContainer.classList.add('paranovel-result-container');
 
     const headWord = document.createElement('p');
-    headWord.style.color = 'white';
-    headWord.style.fontSize = '22px';
-    headWord.style.margin = '0';
+    headWord.classList.add('paranovel-headword');
     headWord.textContent = forms
       .filter(({ kana }) => !kana)
       .map(({ common, form }) => (common ? form : `（${form}）`))
@@ -94,9 +89,7 @@ function updatePopover({
     resultContainer.appendChild(headWord);
 
     const readingItem = document.createElement('p');
-    readingItem.style.margin = '0';
-    readingItem.style.color = 'white';
-    readingItem.style.fontSize = defaultFontSize;
+    readingItem.classList.add('paranovel-reading-item');
     readingItem.textContent = readings
       // Could represent uncommon using dice
       .map(({ common, form }) => (common ? form : `（${form}）`))
@@ -104,43 +97,23 @@ function updatePopover({
     resultContainer.appendChild(readingItem);
 
     const senseList = document.createElement('div');
-    senseList.style.display = 'flex';
-    senseList.style.flexDirection = 'column';
-    senseList.style.gap = '16px';
+    senseList.classList.add('paranovel-sense-list');
     for (const [i, { pos, gloss }] of senses.entries()) {
       const senseItem = document.createElement('div');
-      senseItem.style.display = 'flex';
-      senseItem.style.flexDirection = 'column';
-      senseItem.style.alignItems = 'flex-start';
-      senseItem.style.gap = '8px';
-      senseItem.style.fontSize = defaultFontSize;
+      senseItem.classList.add('paranovel-sense-item');
 
       const posList = document.createElement('ul');
-      posList.style.display = 'flex';
-      posList.style.flexDirection = 'row';
-      posList.style.gap = '8px';
-      posList.style.margin = '0';
-      posList.style.padding = '0';
-      posList.style.listStyle = 'none';
+      posList.classList.add('paranovel-pos-list');
       for (const textContent of pos) {
         const posItem = document.createElement('li');
-        posItem.style.color = 'white';
-        posItem.style.borderWidth = '1px';
-        posItem.style.borderStyle = 'solid';
-        posItem.style.borderColor = 'grey';
-        posItem.style.borderRadius = '4px';
-        posItem.style.paddingLeft = '4px';
-        posItem.style.paddingRight = '4px';
-        posItem.style.fontSize = defaultFontSize;
+        posItem.classList.add('paranovel-pos-item');
         posItem.textContent = textContent;
         posList.appendChild(posItem);
       }
       senseItem.appendChild(posList);
 
       const glossItem = document.createElement('p');
-      glossItem.style.margin = '0';
-      glossItem.style.color = 'white';
-      glossItem.style.fontSize = defaultFontSize;
+      glossItem.classList.add('paranovel-gloss-item');
       glossItem.textContent = `${i + 1}. ${gloss.join('; ')}`;
       senseItem.appendChild(glossItem);
 
@@ -175,6 +148,7 @@ function updatePopover({
     'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
   popover.style.blockSize = 'auto';
   popover.style.maxBlockSize = '50%';
+  // popover.classList.add('size-to-first-result-container');
 
   const popoverPreferredSize = {
     width: popover.clientWidth,
