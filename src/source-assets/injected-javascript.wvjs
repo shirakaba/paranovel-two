@@ -245,11 +245,6 @@ function updatePopover({
     best: { popoverPlacement, arrow: arrowLayout, popover: popoverLayout },
     sorted,
   } = layoutToFitFirstResult;
-
-  const setPopoverStyle = () => {
-    //
-  };
-
   console.log(
     `Got best popoverLayout ${JSON.stringify(
       popoverLayout,
@@ -257,21 +252,41 @@ function updatePopover({
     clientRect,
     sorted,
   );
-  popover.style.left = `${
-    viewportScrollPosition.scrollLeft + popoverLayout.x
-  }px`;
-  popover.style.top = `${viewportScrollPosition.scrollTop + popoverLayout.y}px`;
-  popover.style.inlineSize = `${popoverLayout.width}px`;
-  popover.style.maxInlineSize = `${popoverLayout.maxWidth}px`;
-  popover.style.blockSize = `${popoverLayout.height}px`;
-  popover.style.maxBlockSize = `${popoverLayout.maxHeight}px`;
-  popover.style.visibility = 'visible';
-  popover.style.position = 'absolute';
-  popover.style.display = display;
+
+  /**
+   * @param {ReturnType<typeof calculatePopoverLayout>["best"]} layout
+   */
+  const setPopoverStyle = layout => {
+    const popoverLayout = layout.popover;
+
+    popover.style.left = `${
+      viewportScrollPosition.scrollLeft + popoverLayout.x
+    }px`;
+    popover.style.top = `${
+      viewportScrollPosition.scrollTop + popoverLayout.y
+    }px`;
+    popover.style.inlineSize = `${popoverLayout.width}px`;
+    popover.style.maxInlineSize = `${popoverLayout.maxWidth}px`;
+    popover.style.blockSize = `${popoverLayout.height}px`;
+    popover.style.maxBlockSize = `${popoverLayout.maxHeight}px`;
+    popover.style.visibility = 'visible';
+    popover.style.position = 'absolute';
+    popover.style.display = display;
+  };
+
+  const bestPopoverPlacementToFitFirstResult =
+    layoutToFitFirstResult.best.popoverPlacement;
+  setPopoverStyle(layoutToFitFirstResult.best);
 
   showMoreButton.onclick = () => {
     popover.classList.remove('with-show-more-button');
-    // TODO: resize and reposition using layoutToFitAllResults
+
+    const equivalentLayoutToFitAllResults = layoutToFitAllResults.sorted.find(
+      ({ popoverPlacement }) =>
+        popoverPlacement === bestPopoverPlacementToFitFirstResult,
+    );
+
+    setPopoverStyle(equivalentLayoutToFitAllResults);
   };
 
   arrow.style.position = 'absolute';
