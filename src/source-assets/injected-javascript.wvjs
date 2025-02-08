@@ -143,6 +143,14 @@ function updatePopover({
     scrollTop: getViewportScrollTop(),
   };
 
+  const popoverMinimumInlineSize = parseFloat(
+    (
+      getComputedStyle(popover).getPropertyValue(
+        '--paranovel-popover-minimum-inline-size',
+      ) || '0px'
+    ).split('px')[0],
+  );
+
   // == First layout pass ==
   // In this pass, we restrict the popover's inline size to something readable,
   // and let the block size expand as much as it likes in order to display all
@@ -155,6 +163,7 @@ function updatePopover({
   popover.style.visibility = 'hidden';
 
   popover.style.inlineSize = 'auto';
+  popover.style.minInlineSize = `${popoverMinimumInlineSize}px`;
   popover.style.maxInlineSize =
     'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
   popover.style.blockSize = 'auto';
@@ -222,13 +231,6 @@ function updatePopover({
     (
       getComputedStyle(popover).getPropertyValue(
         '--paranovel-popover-inset-size',
-      ) || '0px'
-    ).split('px')[0],
-  );
-  const popoverMinimumInlineSize = parseFloat(
-    (
-      getComputedStyle(popover).getPropertyValue(
-        '--paranovel-popover-minimum-inline-size',
       ) || '0px'
     ).split('px')[0],
   );
