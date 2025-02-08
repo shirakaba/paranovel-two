@@ -10,6 +10,8 @@
   --paranovel-popover-show-more-button-block-size: 32px;
   --paranovel-popover-inset-size: 8px;
   --paranovel-max-readable-inline-size: 600px;
+  --paranovel-popover-minimum-inline-size: 200px;
+  --paranovel-popover-minimum-block-size: 100px;
   --paranovel-popover-background-color: #222;
 
   --paranovel-popover-definition-font-size: 14px;

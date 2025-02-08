@@ -225,6 +225,20 @@ function updatePopover({
       ) || '0px'
     ).split('px')[0],
   );
+  const popoverMinimumInlineSize = parseFloat(
+    (
+      getComputedStyle(popover).getPropertyValue(
+        '--paranovel-popover-minimum-inline-size',
+      ) || '0px'
+    ).split('px')[0],
+  );
+  const popoverMinimumBlockSize = parseFloat(
+    (
+      getComputedStyle(popover).getPropertyValue(
+        '--paranovel-popover-minimum-block-size',
+      ) || '0px'
+    ).split('px')[0],
+  );
 
   /** @type {Parameters<typeof calculatePopoverLayout>[0]}  */
   const layoutArgs = {
@@ -237,6 +251,8 @@ function updatePopover({
       length: Math.ceil((13 / 15) * 20),
     },
     popoverInsetSize,
+    popoverMinimumInlineSize,
+    popoverMinimumBlockSize,
   };
 
   const layoutToFitAllResults = calculatePopoverLayout({
@@ -276,10 +292,6 @@ function updatePopover({
     popover.style.display = display;
   };
 
-  // FIXME: Clicking text on the left of a vertical-tb passage when there's more
-  // than an arrow's worth of space to the left of it will often result in
-  // "on the left" being selected despite only having a slither of space
-  // available.
   const bestPopoverPlacementToFitFirstResult =
     layoutToFitFirstResult.best.popoverPlacement;
   setPopoverStyle(layoutToFitFirstResult.best);
@@ -354,6 +366,10 @@ function updatePopover({
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.popoverWritingMode
  * @param {{ width: number; height: number }} obj.popoverPreferredSize
  * @param {{ breadth: number; length: number }} obj.arrowSize
+ * @param {number} obj.popoverMinimumInlineSize The minimum inline size a
+ * suggested solution should have.
+ * @param {number} obj.popoverMinimumBlockSize The minimum block size a
+ * suggested solution should have.
  * @param {number} obj.popoverInsetSize
  */
 function calculatePopoverLayout({
@@ -364,6 +380,8 @@ function calculatePopoverLayout({
   popoverPreferredSize,
   arrowSize,
   popoverInsetSize,
+  popoverMinimumInlineSize,
+  popoverMinimumBlockSize,
 }) {
   console.log('calculatePopoverLayout', {
     clientRect,
@@ -651,6 +669,7 @@ function calculatePopoverLayout({
       // If they both have an arrow out of bounds, continue to the next check.
       if (a.arrow.x < popoverInsetSize || a.arrow.y < popoverInsetSize) {
         if (b.arrow.x >= popoverInsetSize || b.arrow.y >= popoverInsetSize) {
+          console.log('Case 1a: sorting B_BEFORE_A', { a, b });
           return B_BEFORE_A;
         } else {
           // They're both out of bounds. We could sort by the one that's least
@@ -658,23 +677,69 @@ function calculatePopoverLayout({
           // algorithm instead.
         }
       } else if (b.arrow.x < popoverInsetSize || b.arrow.y < popoverInsetSize) {
+        console.log('Case 1b: sorting A_BEFORE_B', { a, b });
         return A_BEFORE_B;
       }
 
-      const aFits =
+      const aFitsAvailableArea =
         a.popover.width <= a.popover.maxWidth &&
         a.popover.height <= a.popover.maxHeight;
-      const bFits =
+      const bFitsAvailableArea =
         b.popover.width <= b.popover.maxWidth &&
         b.popover.height <= b.popover.maxHeight;
 
-      return aFits
-        ? bFits
-          ? NO_CHANGE
-          : A_BEFORE_B
-        : bFits
-        ? B_BEFORE_A
-        : NO_CHANGE;
+      if (aFitsAvailableArea && !bFitsAvailableArea) {
+        console.log('Case 2a: sorting A_BEFORE_B', { a, b });
+        return A_BEFORE_B;
+      }
+
+      if (bFitsAvailableArea && !aFitsAvailableArea) {
+        console.log('Case 2b: sorting B_BEFORE_A', { a, b });
+        return B_BEFORE_A;
+      }
+
+      const aInlineSize =
+        popoverWritingMode === 'horizontal-tb'
+          ? Math.min(a.popover.width, a.popover.maxWidth)
+          : Math.min(a.popover.height, a.popover.maxHeight);
+      const bInlineSize =
+        popoverWritingMode === 'horizontal-tb'
+          ? Math.min(b.popover.width, b.popover.maxWidth)
+          : Math.min(b.popover.height, b.popover.maxHeight);
+      const aBlockSize =
+        popoverWritingMode === 'horizontal-tb'
+          ? Math.min(a.popover.height, a.popover.maxHeight)
+          : Math.min(a.popover.width, a.popover.maxWidth);
+      const bBlockSize =
+        popoverWritingMode === 'horizontal-tb'
+          ? Math.min(b.popover.height, b.popover.maxHeight)
+          : Math.min(b.popover.width, b.popover.maxWidth);
+
+      const aIsAdequatelyLargeInline = aInlineSize >= popoverMinimumInlineSize;
+      const bIsAdequatelyLargeInline = bInlineSize >= popoverMinimumInlineSize;
+
+      if (aIsAdequatelyLargeInline && !bIsAdequatelyLargeInline) {
+        return A_BEFORE_B;
+      }
+
+      if (bIsAdequatelyLargeInline && !aIsAdequatelyLargeInline) {
+        return B_BEFORE_A;
+      }
+
+      const aIsAdequatelyLargeBlock = aBlockSize >= popoverMinimumBlockSize;
+      const bIsAdequatelyLargeBlock = bBlockSize >= popoverMinimumBlockSize;
+
+      if (aIsAdequatelyLargeBlock && !bIsAdequatelyLargeBlock) {
+        return A_BEFORE_B;
+      }
+
+      if (bIsAdequatelyLargeBlock && !aIsAdequatelyLargeBlock) {
+        return B_BEFORE_A;
+      }
+
+      console.log('Case 3: sorting NO_CHANGE', { a, b });
+
+      return NO_CHANGE;
     });
 
   return {
