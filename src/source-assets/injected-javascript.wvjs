@@ -640,20 +640,25 @@ function calculatePopoverLayout({
       }
     })
     .sort((a, b) => {
+      // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
+      const A_BEFORE_B = -1;
+      const NO_CHANGE = 0;
+      const B_BEFORE_A = 1;
+
       // If one of the two has an arrow out of bounds, sort the one whose arrow
       // is in bounds to the front.
       //
       // If they both have an arrow out of bounds, continue to the next check.
       if (a.arrow.x < popoverInsetSize || a.arrow.y < popoverInsetSize) {
         if (b.arrow.x >= popoverInsetSize || b.arrow.y >= popoverInsetSize) {
-          return 1;
+          return B_BEFORE_A;
         } else {
           // They're both out of bounds. We could sort by the one that's least
           // out of bounds, or just invest our time improving the layout
           // algorithm instead.
         }
       } else if (b.arrow.x < popoverInsetSize || b.arrow.y < popoverInsetSize) {
-        return -1;
+        return A_BEFORE_B;
       }
 
       const aFits =
@@ -663,7 +668,13 @@ function calculatePopoverLayout({
         b.popover.width <= b.popover.maxWidth &&
         b.popover.height <= b.popover.maxHeight;
 
-      return aFits ? (bFits ? 0 : -1) : bFits ? 1 : 0;
+      return aFits
+        ? bFits
+          ? NO_CHANGE
+          : A_BEFORE_B
+        : bFits
+        ? B_BEFORE_A
+        : NO_CHANGE;
     });
 
   return {
