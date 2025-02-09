@@ -46,6 +46,7 @@ function updatePopover({
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
   popover.id = 'paranovel-popover';
+  popover.classList.remove('with-show-more-button');
 
   if (!popover.isConnected) {
     document.body.prepend(popover);
@@ -78,15 +79,10 @@ function updatePopover({
 
     // <Result>
     const resultContainer = document.createElement('div');
-    resultContainer.style.display = 'flex';
-    resultContainer.style.flexDirection = 'column';
-    resultContainer.style.gap = '8px';
-    resultContainer.style.alignItems = 'flex-start';
+    resultContainer.classList.add('paranovel-result-container');
 
     const headWord = document.createElement('p');
-    headWord.style.color = 'white';
-    headWord.style.fontSize = '22px';
-    headWord.style.margin = '0';
+    headWord.classList.add('paranovel-headword');
     headWord.textContent = forms
       .filter(({ kana }) => !kana)
       .map(({ common, form }) => (common ? form : `（${form}）`))
@@ -94,9 +90,7 @@ function updatePopover({
     resultContainer.appendChild(headWord);
 
     const readingItem = document.createElement('p');
-    readingItem.style.margin = '0';
-    readingItem.style.color = 'white';
-    readingItem.style.fontSize = defaultFontSize;
+    readingItem.classList.add('paranovel-reading-item');
     readingItem.textContent = readings
       // Could represent uncommon using dice
       .map(({ common, form }) => (common ? form : `（${form}）`))
@@ -104,43 +98,23 @@ function updatePopover({
     resultContainer.appendChild(readingItem);
 
     const senseList = document.createElement('div');
-    senseList.style.display = 'flex';
-    senseList.style.flexDirection = 'column';
-    senseList.style.gap = '16px';
+    senseList.classList.add('paranovel-sense-list');
     for (const [i, { pos, gloss }] of senses.entries()) {
       const senseItem = document.createElement('div');
-      senseItem.style.display = 'flex';
-      senseItem.style.flexDirection = 'column';
-      senseItem.style.alignItems = 'flex-start';
-      senseItem.style.gap = '8px';
-      senseItem.style.fontSize = defaultFontSize;
+      senseItem.classList.add('paranovel-sense-item');
 
       const posList = document.createElement('ul');
-      posList.style.display = 'flex';
-      posList.style.flexDirection = 'row';
-      posList.style.gap = '8px';
-      posList.style.margin = '0';
-      posList.style.padding = '0';
-      posList.style.listStyle = 'none';
+      posList.classList.add('paranovel-pos-list');
       for (const textContent of pos) {
         const posItem = document.createElement('li');
-        posItem.style.color = 'white';
-        posItem.style.borderWidth = '1px';
-        posItem.style.borderStyle = 'solid';
-        posItem.style.borderColor = 'grey';
-        posItem.style.borderRadius = '4px';
-        posItem.style.paddingLeft = '4px';
-        posItem.style.paddingRight = '4px';
-        posItem.style.fontSize = defaultFontSize;
+        posItem.classList.add('paranovel-pos-item');
         posItem.textContent = textContent;
         posList.appendChild(posItem);
       }
       senseItem.appendChild(posList);
 
       const glossItem = document.createElement('p');
-      glossItem.style.margin = '0';
-      glossItem.style.color = 'white';
-      glossItem.style.fontSize = defaultFontSize;
+      glossItem.classList.add('paranovel-gloss-item');
       glossItem.textContent = `${i + 1}. ${gloss.join('; ')}`;
       senseItem.appendChild(glossItem);
 
@@ -150,6 +124,13 @@ function updatePopover({
     resultContainer.appendChild(senseList);
     resultsFragment.appendChild(resultContainer);
   }
+  const showMoreContainer = document.createElement('div');
+  showMoreContainer.classList.add('paranovel-show-more-container');
+  const showMoreButton = document.createElement('button');
+  showMoreButton.classList.add('paranovel-show-more-button');
+  showMoreButton.textContent = 'Show more';
+  showMoreContainer.appendChild(showMoreButton);
+  resultsFragment.appendChild(showMoreContainer);
 
   container.appendChild(resultsFragment);
   popover.replaceChildren(container);
@@ -162,7 +143,10 @@ function updatePopover({
     scrollTop: getViewportScrollTop(),
   };
 
-  // First layout pass
+  // == First layout pass ==
+  // In this pass, we restrict the popover's inline size to something readable,
+  // and let the block size expand as much as it likes in order to display all
+  // its results.
 
   popover.style.left = 'var(--paranovel-popover-inset-size)';
   popover.style.top = 'var(--paranovel-popover-inset-size)';
@@ -174,13 +158,52 @@ function updatePopover({
   popover.style.maxInlineSize =
     'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
   popover.style.blockSize = 'auto';
-  popover.style.maxBlockSize = '50%';
+  // popover.style.maxBlockSize = '50%';
 
-  const popoverPreferredSize = {
-    width: popover.clientWidth,
-    height: popover.clientHeight,
+  // FIXME: clientHeight/clientWidth floor the true values, so if you take their
+  // values as written, you may end up underestimating the size needed to fit
+  // content. For the time being, we add an extra pixel to each size to prefer
+  // overestimating.
+  //
+  // There may be other sub-pixel values to track down elsewhere in our
+  // measurements (e.g. scroll position and viewport size).
+  const popoverSizeToFitAllResults = {
+    width: popover.clientWidth + 1,
+    height: popover.clientHeight + 1,
   };
-  console.log(`popoverPreferredSize ${JSON.stringify(popoverPreferredSize)}`);
+
+  const popoverWritingMode = 'horizontal-tb';
+
+  // When there are multiple results to show, we size the popover to fit just
+  // the first result, providing a "show more" button to reveal the rest.
+  let popoverSizeToFitFirstResult = popoverSizeToFitAllResults;
+  // Avoid flushing layout again if there's only a single result container.
+  if (results.length > 1) {
+    popover.classList.add('size-to-first-result-container');
+    popoverSizeToFitFirstResult = {
+      width: popover.clientWidth + 1,
+      height: popover.clientHeight + 1,
+    };
+    const blockSizeForShowMoreButton = parseFloat(
+      (
+        getComputedStyle(popover).getPropertyValue(
+          '--paranovel-popover-show-more-button-block-size',
+        ) || '0px'
+      ).split('px')[0],
+    );
+    if (popoverWritingMode === 'horizontal-tb') {
+      popoverSizeToFitFirstResult.height += blockSizeForShowMoreButton;
+    } else {
+      popoverSizeToFitFirstResult.width += blockSizeForShowMoreButton;
+    }
+
+    popover.classList.remove('size-to-first-result-container');
+    popover.classList.add('with-show-more-button');
+  }
+
+  console.log(
+    `popoverSizeToFitAllResults ${JSON.stringify(popoverSizeToFitAllResults)}`,
+  );
 
   /** @type {boolean} Debug flag */
   const doSecondPass = true;
@@ -189,7 +212,9 @@ function updatePopover({
     return;
   }
 
-  // Second layout pass
+  // == Second layout pass ==
+  // In this pass, we work out the "best" position to place the popup given the
+  // available space around the target in the viewport, then lay it out there.
 
   // I'm not aware of a safer way to parse this, but we own the code, so I'm
   // being a bit reckless here.
@@ -201,41 +226,76 @@ function updatePopover({
     ).split('px')[0],
   );
 
-  const {
-    best: { popoverPlacement, arrow: arrowLayout, popover: popoverLayout },
-    sorted,
-  } = calculatePopoverLayout2({
+  /** @type {Parameters<typeof calculatePopoverLayout>[0]}  */
+  const layoutArgs = {
     boundingClientRect,
     clientRect,
     sourceTextWritingMode: writingMode,
-    popoverWritingMode: 'horizontal-tb',
-    popoverPreferredSize,
+    popoverWritingMode,
     arrowSize: {
       breadth: 20,
       length: Math.ceil((13 / 15) * 20),
     },
     popoverInsetSize,
+  };
+
+  const layoutToFitAllResults = calculatePopoverLayout({
+    ...layoutArgs,
+    popoverPreferredSize: popoverSizeToFitAllResults,
+  });
+  const layoutToFitFirstResult = calculatePopoverLayout({
+    ...layoutArgs,
+    popoverPreferredSize: popoverSizeToFitFirstResult,
   });
 
   console.log(
     `Got best popoverLayout ${JSON.stringify(
-      popoverLayout,
-    )}, given clientRect and other sorted options`,
+      layoutToFitFirstResult.best.popoverLayout,
+    )}, given clientRect`,
     clientRect,
-    sorted,
   );
-  popover.style.left = `${
-    viewportScrollPosition.scrollLeft + popoverLayout.x
-  }px`;
-  popover.style.top = `${viewportScrollPosition.scrollTop + popoverLayout.y}px`;
-  popover.style.inlineSize = `${popoverLayout.width}px`;
-  popover.style.maxInlineSize = `${popoverLayout.maxWidth}px`;
-  popover.style.blockSize = `${popoverLayout.height}px`;
-  popover.style.maxBlockSize = `${popoverLayout.maxHeight}px`;
-  popover.style.visibility = 'visible';
-  popover.style.position = 'absolute';
-  popover.style.display = display;
 
+  /**
+   * @param {ReturnType<typeof calculatePopoverLayout>["best"]} layout
+   */
+  const setPopoverStyle = layout => {
+    const popoverLayout = layout.popover;
+
+    popover.style.left = `${
+      viewportScrollPosition.scrollLeft + popoverLayout.x
+    }px`;
+    popover.style.top = `${
+      viewportScrollPosition.scrollTop + popoverLayout.y
+    }px`;
+    popover.style.inlineSize = `${popoverLayout.width}px`;
+    popover.style.maxInlineSize = `${popoverLayout.maxWidth}px`;
+    popover.style.blockSize = `${popoverLayout.height}px`;
+    popover.style.maxBlockSize = `${popoverLayout.maxHeight}px`;
+    popover.style.visibility = 'visible';
+    popover.style.position = 'absolute';
+    popover.style.display = display;
+  };
+
+  // FIXME: Clicking text on the left of a vertical-tb passage when there's more
+  // than an arrow's worth of space to the left of it will often result in
+  // "on the left" being selected despite only having a slither of space
+  // available.
+  const bestPopoverPlacementToFitFirstResult =
+    layoutToFitFirstResult.best.popoverPlacement;
+  setPopoverStyle(layoutToFitFirstResult.best);
+
+  showMoreButton.onclick = () => {
+    popover.classList.remove('with-show-more-button');
+
+    const equivalentLayoutToFitAllResults = layoutToFitAllResults.sorted.find(
+      ({ popoverPlacement }) =>
+        popoverPlacement === bestPopoverPlacementToFitFirstResult,
+    );
+
+    setPopoverStyle(equivalentLayoutToFitAllResults);
+  };
+
+  const arrowLayout = layoutToFitFirstResult.best.arrow;
   arrow.style.position = 'absolute';
   arrow.style.left = `${viewportScrollPosition.scrollLeft + arrowLayout.x}px`;
   arrow.style.top = `${viewportScrollPosition.scrollTop + arrowLayout.y}px`;
@@ -246,7 +306,7 @@ function updatePopover({
   // stayed inside, we could consider just hiding the arrow.
 
   const arrowColor = 'var(--paranovel-popover-background-color)';
-  switch (popoverPlacement) {
+  switch (bestPopoverPlacementToFitFirstResult) {
     case 'below': {
       // arrow points up
       arrow.style.borderTop = 'initial';
@@ -296,7 +356,7 @@ function updatePopover({
  * @param {{ breadth: number; length: number }} obj.arrowSize
  * @param {number} obj.popoverInsetSize
  */
-function calculatePopoverLayout2({
+function calculatePopoverLayout({
   boundingClientRect,
   clientRect = boundingClientRect,
   sourceTextWritingMode,
@@ -305,7 +365,7 @@ function calculatePopoverLayout2({
   arrowSize,
   popoverInsetSize,
 }) {
-  console.log('calculatePopoverLayout2', {
+  console.log('calculatePopoverLayout', {
     clientRect,
     boundingClientRect,
     popoverPreferredSize,
@@ -822,7 +882,17 @@ function log(message) {
  * @param {MouseEvent} event
  */
 async function onClickDocument(event) {
-  const { x, y } = event;
+  const { x, y, target } = event;
+
+  if (
+    document.getElementById('paranovel-popover')?.contains(target) ||
+    document.getElementById('paranovel-prelude')?.contains(target) ||
+    document.getElementById('paranovel-postlude')?.contains(target)
+  ) {
+    // Don't attempt to look up text for any clicks within Paranovel UI
+    // elements.
+    return;
+  }
 
   const caretRange = document.caretRangeFromPoint(x, y);
   if (!caretRange) {

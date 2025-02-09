@@ -7,9 +7,12 @@
   --paranovel-inline-padding: 24px;
   --paranovel-font-size: 24px;
 
+  --paranovel-popover-show-more-button-block-size: 32px;
   --paranovel-popover-inset-size: 8px;
   --paranovel-max-readable-inline-size: 600px;
   --paranovel-popover-background-color: #222;
+
+  --paranovel-popover-definition-font-size: 14px;
 }
 
 ::highlight(word) {
@@ -78,4 +81,95 @@ svg {
   overflow-y: scroll;
   /* Put it above our <rt> elements that have isolation: isolate */
   z-index: 1;
+}
+
+#paranovel-popover.size-to-first-result-container
+  > .paranovel-result-container:not(:first-child) {
+  display: none;
+}
+
+.paranovel-result-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.paranovel-headword {
+  color: white;
+  font-size: 22px;
+  margin: 0;
+}
+
+.paranovel-reading-item {
+  margin: 0;
+  color: white;
+  font-size: var(--paranovel-popover-definition-font-size);
+}
+
+.paranovel-sense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.paranovel-sense-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--paranovel-popover-definition-font-size);
+}
+
+.paranovel-pos-list {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paranovel-pos-item {
+  color: white;
+  border-width: 1px;
+  border-style: solid;
+  border-color: grey;
+  border-radius: 4px;
+  padding-left: 4px;
+  padding-right: 4px;
+  font-size: var(--paranovel-popover-definition-font-size);
+}
+
+.paranovel-gloss-item {
+  margin: 0;
+  color: white;
+  font-size: var(--paranovel-popover-definition-font-size);
+}
+
+.paranovel-show-more-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--paranovel-popover-show-more-button-block-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* TODO: base this on var(--paranovel-popover-background-color) */
+  background-color: #2228;
+}
+
+.paranovel-show-more-button {
+  /* TODO */
+}
+
+#paranovel-popover.with-show-more-button {
+  overflow-y: hidden;
+}
+#paranovel-popover .paranovel-show-more-container {
+  display: none;
+}
+#paranovel-popover.with-show-more-button .paranovel-show-more-container {
+  display: flex;
 }
