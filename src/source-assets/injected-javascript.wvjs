@@ -192,20 +192,20 @@ function updatePopover({
     const popoverMaxInlineSize = parseFloat(
       getComputedStyle(popover).maxInlineSize.split('px')[0],
     );
-    console.log('!! popoverMaxInlineSize', {
+    console.log('popoverMaxInlineSize', {
       popoverMaxInlineSize,
       clientWidth: popover.clientWidth,
     });
 
-    // FIXME: clientHeight/clientWidth floor the true values, so if you take
-    // their values as written, you may end up underestimating the size needed
-    // to fit content. We add an extra pixel to each size to prefer
-    // overestimating, and clamp it to the computed maxInlineSize to avoid the
-    // added pixel breaking the original constraints. This is less of a concern
-    // for the block size, where an overestimate does not affect text flow.
+    // clientHeight/clientWidth floor the true values, so if you take their
+    // values as written, you may end up underestimating the size needed to fit
+    // content. We add an extra pixel to each size to prefer overestimating, and
+    // clamp it to the computed maxInlineSize to avoid the added pixel breaking
+    // the original constraints. This is less of a concern for the block size,
+    // where an overestimate does not affect text flow.
     //
     // There may be other sub-pixel values to track down elsewhere in our
-    // measurements (e.g. scroll position and viewport size).
+    // measurements (e.g. scroll position and bounding box).
     const popoverSizeToFitAllResults = {
       width:
         popoverWritingMode === 'horizontal-tb'
@@ -460,15 +460,6 @@ function calculatePopoverLayout(params) {
     popoverPreferredSize,
   });
 
-  // const preferredInlineSize =
-  //   popoverWritingMode === 'horizontal-tb'
-  //     ? popoverPreferredSize.width
-  //     : popoverPreferredSize.height;
-  // const preferredBlockSize =
-  //   popoverWritingMode === 'horizontal-tb'
-  //     ? popoverPreferredSize.height
-  //     : popoverPreferredSize.width;
-
   /**
    * The order of preference as to where the popover should be placed relative
    * to the content to avoid downstream (not yet read) text, if multiple
@@ -644,8 +635,16 @@ function calculatePopoverLayoutForPlacement(params) {
    * There are cases where the popover is able to satisfy its preferred block
    * size just fine, but not its preferred inline size. This can make the block
    * size meaningless, because it referred to a larger inline size and so may
-   * now be too small and need to scroll. See 打ち付ける.
+   * now be too small and need to scroll.
+   *
+   * So here, we perform yet another layout pass if the given popoverPlacement
+   * can't satisfy the desired inline size.
+   *
+   * TODO: these typings are not resolving, probably because they're
+   * self-referential.
+   *
    * @param {ReturnType<typeof calculatePopoverLayoutForPlacement>} provisionalLayout
+   * @returns {{ type: "unchanged" | "updated", layout: ReturnType<typeof calculatePopoverLayoutForPlacement> }}
    */
   const handleInsufficientInlineSpace = provisionalLayout => {
     const { width, height, maxWidth, maxHeight } = provisionalLayout.popover;
@@ -662,10 +661,6 @@ function calculatePopoverLayoutForPlacement(params) {
             ? Math.floor(maxWidth)
             : Math.floor(maxHeight),
       });
-
-      if (popoverPlacement === 'on the right') {
-        console.log('here yo');
-      }
 
       // Avoid infinite loop
       if (
