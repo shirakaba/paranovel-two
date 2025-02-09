@@ -161,6 +161,9 @@ function updatePopover({
    * @param {boolean} params.hasMultipleResults
    * @param {number} params.popoverMinimumInlineSize
    * @param {number} params.blockSizeForShowMoreButton
+   * @param {number} [params.maxInlineSize] The max inline size. Defaults to the
+   * inline viewport size minus the inset size (or the configured max readable
+   * inline size, if that is lower).
    * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} params.popoverWritingMode
    */
   const getPreferredSize = ({
@@ -168,32 +171,51 @@ function updatePopover({
     popoverMinimumInlineSize,
     blockSizeForShowMoreButton,
     popoverWritingMode,
+    maxInlineSize,
   }) => {
     popover.style.left = 'var(--paranovel-popover-inset-size)';
     popover.style.top = 'var(--paranovel-popover-inset-size)';
     popover.style.boxSizing = 'border-box';
     popover.style.display = 'block';
-    popover.style.visibility = 'hidden';
+    // popover.style.visibility = 'hidden';
+    popover.style.visibility = 'visible';
 
     // 'auto' may produce a floating-point number, while clientWidth and
     // clientHeight produce a floored version of that number
     popover.style.inlineSize = 'auto';
     popover.style.minInlineSize = `${popoverMinimumInlineSize}px`;
-    popover.style.maxInlineSize =
-      'round(down, min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size)), 1px)';
+    popover.style.maxInlineSize = maxInlineSize
+      ? `${maxInlineSize}px`
+      : 'round(down, min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size)), 1px)';
     popover.style.blockSize = 'auto';
     // popover.style.maxBlockSize = '50%';
 
+    const popoverMaxInlineSize = parseFloat(
+      getComputedStyle(popover).maxInlineSize.split('px')[0],
+    );
+    console.log('!! popoverMaxInlineSize', {
+      popoverMaxInlineSize,
+      clientWidth: popover.clientWidth,
+    });
+
     // FIXME: clientHeight/clientWidth floor the true values, so if you take
     // their values as written, you may end up underestimating the size needed
-    // to fit content. For the time being, we add an extra pixel to each size to
-    // prefer overestimating.
+    // to fit content. We add an extra pixel to each size to prefer
+    // overestimating, and clamp it to the computed maxInlineSize to avoid the
+    // added pixel breaking the original constraints. This is less of a concern
+    // for the block size, where an overestimate does not affect text flow.
     //
     // There may be other sub-pixel values to track down elsewhere in our
     // measurements (e.g. scroll position and viewport size).
     const popoverSizeToFitAllResults = {
-      width: popover.clientWidth + 1,
-      height: popover.clientHeight + 1,
+      width:
+        popoverWritingMode === 'horizontal-tb'
+          ? Math.min(popover.clientWidth + 1, popoverMaxInlineSize)
+          : popover.clientWidth + 1,
+      height:
+        popoverWritingMode === 'horizontal-tb'
+          ? popover.clientHeight + 1
+          : Math.min(popover.clientHeight + 1, popoverMaxInlineSize),
     };
 
     // When there are multiple results to show, we size the popover to fit just
@@ -203,8 +225,14 @@ function updatePopover({
     if (hasMultipleResults) {
       popover.classList.add('size-to-first-result-container');
       popoverSizeToFitFirstResult = {
-        width: popover.clientWidth + 1,
-        height: popover.clientHeight + 1,
+        width:
+          popoverWritingMode === 'horizontal-tb'
+            ? Math.min(popover.clientWidth + 1, popoverMaxInlineSize)
+            : popover.clientWidth + 1,
+        height:
+          popoverWritingMode === 'horizontal-tb'
+            ? popover.clientHeight + 1
+            : Math.min(popover.clientHeight + 1, popoverMaxInlineSize),
       };
       if (popoverWritingMode === 'horizontal-tb') {
         popoverSizeToFitFirstResult.height += blockSizeForShowMoreButton;
@@ -228,12 +256,19 @@ function updatePopover({
   );
   const popoverWritingMode = 'horizontal-tb';
 
-  const getPopoverPreferredSizes = () =>
+  /**
+   * @param {object} [params]
+   * @param {number} [params.maxInlineSize] The max inline size. Defaults to the
+   * inline viewport size minus the inset size (or the configured max readable
+   * inline size, if that is lower).
+   */
+  const getPopoverPreferredSizes = ({ maxInlineSize } = {}) =>
     getPreferredSize({
       hasMultipleResults: results.length > 1,
       popoverMinimumInlineSize,
       blockSizeForShowMoreButton,
       popoverWritingMode,
+      maxInlineSize,
     });
 
   const { popoverSizeToFitAllResults, popoverSizeToFitFirstResult } =
@@ -289,19 +324,19 @@ function updatePopover({
   const layoutToFitAllResults = calculatePopoverLayout({
     ...layoutArgs,
     popoverPreferredSize: popoverSizeToFitAllResults,
-    getPopoverPreferredSize: () =>
-      getPopoverPreferredSizes().popoverSizeToFitAllResults,
+    getPopoverPreferredSize: params =>
+      getPopoverPreferredSizes(params).popoverSizeToFitAllResults,
   });
   const layoutToFitFirstResult = calculatePopoverLayout({
     ...layoutArgs,
     popoverPreferredSize: popoverSizeToFitFirstResult,
-    getPopoverPreferredSize: () =>
-      getPopoverPreferredSizes().popoverSizeToFitFirstResult,
+    getPopoverPreferredSize: params =>
+      getPopoverPreferredSizes(params).popoverSizeToFitFirstResult,
   });
 
   console.log(
     `Got best popoverLayout ${JSON.stringify(
-      layoutToFitFirstResult.best.popoverLayout,
+      layoutToFitFirstResult.best.popover,
     )}, given clientRect`,
     clientRect,
   );
@@ -406,7 +441,7 @@ function updatePopover({
  * @param {number} params.popoverMinimumBlockSize The minimum block size a
  * suggested solution should have.
  * @param {number} params.popoverInsetSize
- * @param {() => { width: number; height: number; }} params.getPopoverPreferredSize
+ * @param {(params: { maxInlineSize?: number }) => { width: number; height: number; }} params.getPopoverPreferredSize
  */
 function calculatePopoverLayout(params) {
   const {
@@ -606,6 +641,51 @@ function calculatePopoverLayoutForPlacement(params) {
     viewportHeight,
   } = params;
 
+  /**
+   * There are cases where the popover is able to satisfy its preferred block
+   * size just fine, but not its preferred inline size. This can make the block
+   * size meaningless, because it referred to a larger inline size and so may
+   * now be too small and need to scroll. See 打ち付ける.
+   * @param {ReturnType<typeof calculatePopoverLayoutForPlacement>} provisionalLayout
+   */
+  const handleInsufficientInlineSpace = provisionalLayout => {
+    const { width, height, maxWidth, maxHeight } = provisionalLayout.popover;
+
+    if (
+      popoverWritingMode === 'horizontal-tb'
+        ? width > maxWidth
+        : height > maxHeight
+    ) {
+      // Lay out again
+      const popoverPreferredSize = getPopoverPreferredSize({
+        maxInlineSize:
+          popoverWritingMode === 'horizontal-tb'
+            ? Math.floor(maxWidth)
+            : Math.floor(maxHeight),
+      });
+
+      if (popoverPlacement === 'on the right') {
+        console.log('here yo');
+      }
+
+      // Avoid infinite loop
+      if (
+        popoverWritingMode === 'horizontal-tb'
+          ? popoverPreferredSize.width >= width
+          : popoverPreferredSize.height >= height
+      ) {
+        return provisionalLayout;
+      }
+
+      return calculatePopoverLayoutForPlacement({
+        ...params,
+        popoverPreferredSize,
+      });
+    }
+
+    return provisionalLayout;
+  };
+
   switch (popoverPlacement) {
     case 'above': {
       //        horizontal-tb ltr               horizontal-tb rtl
@@ -629,7 +709,7 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ f ⏷                        ┃   ┃                        ⏷ f ┃
       // ┃ g n                        ┃   ┃                        n g ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-      const above = {
+      let above = {
         popoverPlacement: 'above',
         // FIXME: would be nice to ensure the arrow stays within
         //        popoverInsetSize, as otherwise, when the arrow is at the
@@ -651,18 +731,7 @@ function calculatePopoverLayoutForPlacement(params) {
         },
       };
 
-      // FIXME: There are cases where the popover is able to satisfy its
-      // preferred block size just fine, but not its preferred inline size. This
-      // can make the block size meaningless, because it referred to a larger
-      // inline size and so may now be too small and need to scroll. See
-      // 打ち付ける.
-      if (
-        popoverWritingMode === 'horizontal-tb'
-          ? above.popover.width > above.popover.maxWidth
-          : above.popover.height > above.popover.maxHeight
-      ) {
-        // Lay out again
-      }
+      above = handleInsufficientInlineSpace(above);
 
       const aboveAdjusted = {
         popoverPlacement: 'above',
@@ -702,7 +771,7 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ g o                        ┃   ┃                        o g ┃
       // ┃ h p                        ┃   ┃                        p h ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-      const below = {
+      let below = {
         popoverPlacement: 'below',
         arrow: {
           x: clientRect.left + clientRect.width / 2 - arrowSize.breadth / 2,
@@ -723,6 +792,9 @@ function calculatePopoverLayoutForPlacement(params) {
             arrowSize.length,
         },
       };
+
+      below = handleInsufficientInlineSpace(below);
+
       const belowAdjusted = {
         popoverPlacement: 'below',
         arrow: below.arrow,
@@ -761,7 +833,7 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ g g g g g g g g g g g g    ┃   ┃                            ┃
       // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-      const toLeft = {
+      let toLeft = {
         popoverPlacement: 'on the left',
         arrow: {
           x: clientRect.left - arrowSize.length,
@@ -779,6 +851,9 @@ function calculatePopoverLayoutForPlacement(params) {
           maxHeight: viewportHeight - popoverInsetSize * 2,
         },
       };
+
+      toLeft = handleInsufficientInlineSpace(toLeft);
+
       const toLeftAdjusted = {
         popoverPlacement: 'on the left',
         arrow: toLeft.arrow,
@@ -822,7 +897,7 @@ function calculatePopoverLayoutForPlacement(params) {
         width: arrowSize.length,
         height: arrowSize.breadth,
       };
-      const toRight = {
+      let toRight = {
         popoverPlacement: 'on the right',
         arrow: toRightArrow,
         popover: {
@@ -845,6 +920,9 @@ function calculatePopoverLayoutForPlacement(params) {
           maxHeight: viewportHeight - popoverInsetSize * 2,
         },
       };
+
+      toRight = handleInsufficientInlineSpace(toRight);
+
       const toRightAdjusted = {
         popoverPlacement: 'on the right',
         arrow: toRight.arrow,
