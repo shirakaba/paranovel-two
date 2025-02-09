@@ -156,59 +156,83 @@ function updatePopover({
   // and let the block size expand as much as it likes in order to display all
   // its results.
 
-  popover.style.left = 'var(--paranovel-popover-inset-size)';
-  popover.style.top = 'var(--paranovel-popover-inset-size)';
-  popover.style.boxSizing = 'border-box';
-  popover.style.display = 'block';
-  popover.style.visibility = 'hidden';
+  /**
+   * @param {object} params
+   * @param {boolean} params.hasMultipleResults
+   * @param {number} params.popoverMinimumInlineSize
+   * @param {number} params.blockSizeForShowMoreButton
+   * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} params.popoverWritingMode
+   */
+  const getPreferredSize = ({
+    hasMultipleResults,
+    popoverMinimumInlineSize,
+    blockSizeForShowMoreButton,
+    popoverWritingMode,
+  }) => {
+    popover.style.left = 'var(--paranovel-popover-inset-size)';
+    popover.style.top = 'var(--paranovel-popover-inset-size)';
+    popover.style.boxSizing = 'border-box';
+    popover.style.display = 'block';
+    popover.style.visibility = 'hidden';
 
-  popover.style.inlineSize = 'auto';
-  popover.style.minInlineSize = `${popoverMinimumInlineSize}px`;
-  popover.style.maxInlineSize =
-    'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
-  popover.style.blockSize = 'auto';
-  // popover.style.maxBlockSize = '50%';
+    popover.style.inlineSize = 'auto';
+    popover.style.minInlineSize = `${popoverMinimumInlineSize}px`;
+    popover.style.maxInlineSize =
+      'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
+    popover.style.blockSize = 'auto';
+    // popover.style.maxBlockSize = '50%';
 
-  // FIXME: clientHeight/clientWidth floor the true values, so if you take their
-  // values as written, you may end up underestimating the size needed to fit
-  // content. For the time being, we add an extra pixel to each size to prefer
-  // overestimating.
-  //
-  // There may be other sub-pixel values to track down elsewhere in our
-  // measurements (e.g. scroll position and viewport size).
-  const popoverSizeToFitAllResults = {
-    width: popover.clientWidth + 1,
-    height: popover.clientHeight + 1,
-  };
-
-  const popoverWritingMode = 'horizontal-tb';
-
-  // When there are multiple results to show, we size the popover to fit just
-  // the first result, providing a "show more" button to reveal the rest.
-  let popoverSizeToFitFirstResult = popoverSizeToFitAllResults;
-  // Avoid flushing layout again if there's only a single result container.
-  if (results.length > 1) {
-    popover.classList.add('size-to-first-result-container');
-    popoverSizeToFitFirstResult = {
+    // FIXME: clientHeight/clientWidth floor the true values, so if you take
+    // their values as written, you may end up underestimating the size needed
+    // to fit content. For the time being, we add an extra pixel to each size to
+    // prefer overestimating.
+    //
+    // There may be other sub-pixel values to track down elsewhere in our
+    // measurements (e.g. scroll position and viewport size).
+    const popoverSizeToFitAllResults = {
       width: popover.clientWidth + 1,
       height: popover.clientHeight + 1,
     };
-    const blockSizeForShowMoreButton = parseFloat(
-      (
-        getComputedStyle(popover).getPropertyValue(
-          '--paranovel-popover-show-more-button-block-size',
-        ) || '0px'
-      ).split('px')[0],
-    );
-    if (popoverWritingMode === 'horizontal-tb') {
-      popoverSizeToFitFirstResult.height += blockSizeForShowMoreButton;
-    } else {
-      popoverSizeToFitFirstResult.width += blockSizeForShowMoreButton;
+
+    // When there are multiple results to show, we size the popover to fit just
+    // the first result, providing a "show more" button to reveal the rest.
+    let popoverSizeToFitFirstResult = popoverSizeToFitAllResults;
+    // Avoid flushing layout again if there's only a single result container.
+    if (hasMultipleResults) {
+      popover.classList.add('size-to-first-result-container');
+      popoverSizeToFitFirstResult = {
+        width: popover.clientWidth + 1,
+        height: popover.clientHeight + 1,
+      };
+      if (popoverWritingMode === 'horizontal-tb') {
+        popoverSizeToFitFirstResult.height += blockSizeForShowMoreButton;
+      } else {
+        popoverSizeToFitFirstResult.width += blockSizeForShowMoreButton;
+      }
+
+      popover.classList.remove('size-to-first-result-container');
+      popover.classList.add('with-show-more-button');
     }
 
-    popover.classList.remove('size-to-first-result-container');
-    popover.classList.add('with-show-more-button');
-  }
+    return { popoverSizeToFitAllResults, popoverSizeToFitFirstResult };
+  };
+
+  const blockSizeForShowMoreButton = parseFloat(
+    (
+      getComputedStyle(popover).getPropertyValue(
+        '--paranovel-popover-show-more-button-block-size',
+      ) || '0px'
+    ).split('px')[0],
+  );
+  const popoverWritingMode = 'horizontal-tb';
+
+  const { popoverSizeToFitAllResults, popoverSizeToFitFirstResult } =
+    getPreferredSize({
+      hasMultipleResults: results.length > 1,
+      popoverMinimumInlineSize,
+      blockSizeForShowMoreButton,
+      popoverWritingMode,
+    });
 
   console.log(
     `popoverSizeToFitAllResults ${JSON.stringify(popoverSizeToFitAllResults)}`,
@@ -571,6 +595,7 @@ function calculatePopoverLayout(params) {
 function calculatePopoverLayoutForPlacement({
   boundingClientRect,
   clientRect = boundingClientRect,
+  popoverWritingMode,
   popoverPreferredSize,
   arrowSize,
   popoverInsetSize,
@@ -622,6 +647,20 @@ function calculatePopoverLayoutForPlacement({
             boundingClientRect.top - popoverInsetSize - arrowSize.length,
         },
       };
+
+      // FIXME: There are cases where the popover is able to satisfy its
+      // preferred block size just fine, but not its preferred inline size. This
+      // can make the block size meaningless, because it referred to a larger
+      // inline size and so may now be too small and need to scroll. See
+      // 打ち付ける.
+      if (
+        popoverWritingMode === 'horizontal-tb'
+          ? above.popover.width > above.popover.maxWidth
+          : above.popover.height > above.popover.maxHeight
+      ) {
+        // Lay out again
+      }
+
       const aboveAdjusted = {
         popoverPlacement: 'above',
         arrow: above.arrow,
