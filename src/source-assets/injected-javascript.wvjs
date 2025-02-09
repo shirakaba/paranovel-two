@@ -177,8 +177,7 @@ function updatePopover({
     popover.style.top = 'var(--paranovel-popover-inset-size)';
     popover.style.boxSizing = 'border-box';
     popover.style.display = 'block';
-    // popover.style.visibility = 'hidden';
-    popover.style.visibility = 'visible';
+    popover.style.visibility = 'hidden';
 
     // 'auto' may produce a floating-point number, while clientWidth and
     // clientHeight produce a floored version of that number
@@ -674,16 +673,19 @@ function calculatePopoverLayoutForPlacement(params) {
           ? popoverPreferredSize.width >= width
           : popoverPreferredSize.height >= height
       ) {
-        return provisionalLayout;
+        return { type: 'unchanged', layout: provisionalLayout };
       }
 
-      return calculatePopoverLayoutForPlacement({
-        ...params,
-        popoverPreferredSize,
-      });
+      return {
+        type: 'updated',
+        layout: calculatePopoverLayoutForPlacement({
+          ...params,
+          popoverPreferredSize,
+        }),
+      };
     }
 
-    return provisionalLayout;
+    return { type: 'unchanged', layout: provisionalLayout };
   };
 
   switch (popoverPlacement) {
@@ -709,7 +711,7 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ f ⏷                        ┃   ┃                        ⏷ f ┃
       // ┃ g n                        ┃   ┃                        n g ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-      let above = {
+      const above = {
         popoverPlacement: 'above',
         // FIXME: would be nice to ensure the arrow stays within
         //        popoverInsetSize, as otherwise, when the arrow is at the
@@ -731,7 +733,10 @@ function calculatePopoverLayoutForPlacement(params) {
         },
       };
 
-      above = handleInsufficientInlineSpace(above);
+      const result = handleInsufficientInlineSpace(above);
+      if (result.type === 'updated') {
+        return result.layout;
+      }
 
       const aboveAdjusted = {
         popoverPlacement: 'above',
@@ -771,7 +776,7 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ g o                        ┃   ┃                        o g ┃
       // ┃ h p                        ┃   ┃                        p h ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-      let below = {
+      const below = {
         popoverPlacement: 'below',
         arrow: {
           x: clientRect.left + clientRect.width / 2 - arrowSize.breadth / 2,
@@ -793,7 +798,10 @@ function calculatePopoverLayoutForPlacement(params) {
         },
       };
 
-      below = handleInsufficientInlineSpace(below);
+      const result = handleInsufficientInlineSpace(below);
+      if (result.type === 'updated') {
+        return result.layout;
+      }
 
       const belowAdjusted = {
         popoverPlacement: 'below',
@@ -833,7 +841,7 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ g g g g g g g g g g g g    ┃   ┃                            ┃
       // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-      let toLeft = {
+      const toLeft = {
         popoverPlacement: 'on the left',
         arrow: {
           x: clientRect.left - arrowSize.length,
@@ -852,7 +860,10 @@ function calculatePopoverLayoutForPlacement(params) {
         },
       };
 
-      toLeft = handleInsufficientInlineSpace(toLeft);
+      const result = handleInsufficientInlineSpace(toLeft);
+      if (result.type === 'updated') {
+        return result.layout;
+      }
 
       const toLeftAdjusted = {
         popoverPlacement: 'on the left',
@@ -897,7 +908,7 @@ function calculatePopoverLayoutForPlacement(params) {
         width: arrowSize.length,
         height: arrowSize.breadth,
       };
-      let toRight = {
+      const toRight = {
         popoverPlacement: 'on the right',
         arrow: toRightArrow,
         popover: {
@@ -921,7 +932,10 @@ function calculatePopoverLayoutForPlacement(params) {
         },
       };
 
-      toRight = handleInsufficientInlineSpace(toRight);
+      const result = handleInsufficientInlineSpace(toRight);
+      if (result.type === 'updated') {
+        return result.layout;
+      }
 
       const toRightAdjusted = {
         popoverPlacement: 'on the right',
