@@ -358,50 +358,48 @@ function updatePopover({
 
 /**
  *
- * @param {object} obj
- * @param {DOMRect} obj.boundingClientRect The bounds of the whole highlighted
+ * @param {object} params
+ * @param {DOMRect} params.boundingClientRect The bounds of the whole highlighted
  * range. The popover will avoid this space when laying out.
- * @param {DOMRect} [obj.clientRect] The area within that range that the arrow
+ * @param {DOMRect} [params.clientRect] The area within that range that the arrow
  * should point at. Mostly relevant for when target text spans across multiple
  * lines; defaults to boundingClientRect if not provided.
- * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.sourceTextWritingMode
- * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.popoverWritingMode
- * @param {{ width: number; height: number }} obj.popoverPreferredSize
- * @param {{ breadth: number; length: number }} obj.arrowSize
- * @param {number} obj.popoverMinimumInlineSize The minimum inline size a
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} params.sourceTextWritingMode
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} params.popoverWritingMode
+ * @param {{ width: number; height: number }} params.popoverPreferredSize
+ * @param {{ breadth: number; length: number }} params.arrowSize
+ * @param {number} params.popoverMinimumInlineSize The minimum inline size a
  * suggested solution should have.
- * @param {number} obj.popoverMinimumBlockSize The minimum block size a
+ * @param {number} params.popoverMinimumBlockSize The minimum block size a
  * suggested solution should have.
- * @param {number} obj.popoverInsetSize
+ * @param {number} params.popoverInsetSize
  */
-function calculatePopoverLayout({
-  boundingClientRect,
-  clientRect = boundingClientRect,
-  sourceTextWritingMode,
-  popoverWritingMode,
-  popoverPreferredSize,
-  arrowSize,
-  popoverInsetSize,
-  popoverMinimumInlineSize,
-  popoverMinimumBlockSize,
-}) {
+function calculatePopoverLayout(params) {
+  const {
+    boundingClientRect,
+    clientRect = boundingClientRect,
+    sourceTextWritingMode,
+    popoverWritingMode,
+    popoverPreferredSize,
+    popoverInsetSize,
+    popoverMinimumInlineSize,
+    popoverMinimumBlockSize,
+  } = params;
+
   console.log('calculatePopoverLayout', {
     clientRect,
     boundingClientRect,
     popoverPreferredSize,
   });
 
-  const preferredInlineSize =
-    popoverWritingMode === 'horizontal-tb'
-      ? popoverPreferredSize.width
-      : popoverPreferredSize.height;
-  const preferredBlockSize =
-    popoverWritingMode === 'horizontal-tb'
-      ? popoverPreferredSize.height
-      : popoverPreferredSize.width;
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
+  // const preferredInlineSize =
+  //   popoverWritingMode === 'horizontal-tb'
+  //     ? popoverPreferredSize.width
+  //     : popoverPreferredSize.height;
+  // const preferredBlockSize =
+  //   popoverWritingMode === 'horizontal-tb'
+  //     ? popoverPreferredSize.height
+  //     : popoverPreferredSize.width;
 
   /**
    * The order of preference as to where the popover should be placed relative
@@ -421,242 +419,55 @@ function calculatePopoverLayout({
         ];
   console.log('preferenceOrder', { preferenceOrder, sourceTextWritingMode });
 
-  //        horizontal-tb ltr               horizontal-tb rtl
-  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  // ┃                            ┃   ┃                            ┃
-  // ┃    ┏━━━━━━━┓               ┃   ┃                ┏━━━━━━━┓   ┃
-  // ┃    ┃ abc   ┃               ┃   ┃                ┃   cba ┃   ┃
-  // ┃    ┃ defg  ┃               ┃   ┃                ┃  gfed ┃   ┃
-  // ┃    ┣━━━━━━━┛               ┃   ┃                ┗━━━━━━━┫   ┃
-  // ┃    ⏷                       ┃   ┃                        ⏷   ┃
-  // ┃ abcdefghij                 ┃   ┃                 jihgfedcba ┃
-  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  //
-  //          vertical-lr                      vertical-rl
-  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  // ┃ a h                        ┃   ┃                        h a ┃
-  // ┃ b ┏━━━━━━━┓                ┃   ┃                ┏━━━━━━━┓ b ┃
-  // ┃ c ┃ ac    ┃                ┃   ┃                ┃    ca ┃ c ┃
-  // ┃ d ┃ b     ┃                ┃   ┃                ┃     b ┃ d ┃
-  // ┃ e ┣━━━━━━━┛                ┃   ┃                ┗━━━━━━━┫ e ┃
-  // ┃ f ⏷                        ┃   ┃                        ⏷ f ┃
-  // ┃ g n                        ┃   ┃                        n g ┃
-  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  const above = {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  const above = calculatePopoverLayoutForPlacement({
+    ...params,
+    viewportWidth,
+    viewportHeight,
     popoverPlacement: 'above',
-    // FIXME: would be nice to ensure the arrow stays within popoverInsetSize,
-    //        as otherwise, when the arrow is at the viewport edge, the popover
-    //        can detach from it.
-    arrow: {
-      x: clientRect.left + clientRect.width / 2 - arrowSize.breadth / 2,
-      y: clientRect.top - arrowSize.length,
-      width: arrowSize.breadth,
-      height: arrowSize.length,
-    },
-    popover: {
-      x: popoverInsetSize,
-      y: popoverInsetSize,
-      width: popoverPreferredSize.width,
-      height: popoverPreferredSize.height,
-      maxWidth: viewportWidth - popoverInsetSize * 2,
-      maxHeight: boundingClientRect.top - popoverInsetSize - arrowSize.length,
-    },
-  };
-  const aboveAdjusted = {
-    popoverPlacement: 'above',
-    arrow: above.arrow,
-    popover: alignAndJustify({
-      popoverPlacement: 'above',
-      horizontalAlign: 'right',
-      verticalAlign: 'bottom',
-      constraints: above.popover,
-      arrowRect: above.arrow,
-      arrowOverhang: 20,
-    }),
-  };
-
-  //        horizontal-tb ltr               horizontal-tb rtl
-  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  // ┃ abcdefghij                 ┃   ┃                 jihgfedcba ┃
-  // ┃    ⏶                       ┃   ┃                        ⏶   ┃
-  // ┃    ┣━━━━━━━┓               ┃   ┃                ┏━━━━━━━┫   ┃
-  // ┃    ┃ abc   ┃               ┃   ┃                ┃   cba ┃   ┃
-  // ┃    ┃ defg  ┃               ┃   ┃                ┃  gfed ┃   ┃
-  // ┃    ┗━━━━━━━┛               ┃   ┃                ┗━━━━━━━┛   ┃
-  // ┃                            ┃   ┃                            ┃
-  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  //
-  //          vertical-lr                      vertical-rl
-  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  // ┃ a i                        ┃   ┃                        i a ┃
-  // ┃ b ⏶                        ┃   ┃                        ⏶ b ┃
-  // ┃ c ┣━━━━━━━┓                ┃   ┃                ┏━━━━━━━┫ c ┃
-  // ┃ d ┃ ac    ┃                ┃   ┃                ┃    ca ┃ d ┃
-  // ┃ e ┃ b     ┃                ┃   ┃                ┃     b ┃ e ┃
-  // ┃ f ┗━━━━━━━┛                ┃   ┃                ┗━━━━━━━┛ f ┃
-  // ┃ g o                        ┃   ┃                        o g ┃
-  // ┃ h p                        ┃   ┃                        p h ┃
-  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  const below = {
+  });
+  const below = calculatePopoverLayoutForPlacement({
+    ...params,
+    viewportWidth,
+    viewportHeight,
     popoverPlacement: 'below',
-    arrow: {
-      x: above.arrow.x,
-      y: clientRect.bottom,
-      width: arrowSize.breadth,
-      height: arrowSize.length,
-    },
-    popover: {
-      x: popoverInsetSize,
-      y: boundingClientRect.bottom + arrowSize.length,
-      width: popoverPreferredSize.width,
-      height: popoverPreferredSize.height,
-      maxWidth: viewportWidth - popoverInsetSize * 2,
-      maxHeight:
-        viewportHeight -
-        boundingClientRect.bottom -
-        popoverInsetSize -
-        arrowSize.length,
-    },
-  };
-  const belowAdjusted = {
-    popoverPlacement: 'below',
-    arrow: below.arrow,
-    popover: alignAndJustify({
-      popoverPlacement: 'below',
-      horizontalAlign: 'right',
-      verticalAlign: 'top',
-      constraints: below.popover,
-      arrowRect: below.arrow,
-      arrowOverhang: 20,
-    }),
-  };
-
-  //        horizontal-tb ltr               horizontal-tb rtl
-  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
-  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
-  // ┃              ┏━━━━━━━┳⏵abc ┃   ┃              ┏━━━━━━━┳⏵cba ┃
-  // ┃              ┃ abc   ┃ abc ┃   ┃              ┃   cba ┃ cba ┃
-  // ┃              ┃ defg  ┃ abc ┃   ┃              ┃  gfed ┃ cba ┃
-  // ┃              ┗━━━━━━━┛ abc ┃   ┃              ┗━━━━━━━┛ cba ┃
-  // ┃                            ┃   ┃                            ┃
-  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  //
-  //          vertical-lr                      vertical-rl
-  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  // ┃ a a a a a a a a a a a a a  ┃   ┃                          a ┃
-  // ┃ b b b b b b b b b b b b b  ┃   ┃                          b ┃
-  // ┃ c c c c c c c ┏━━━━━━━┳⏵c  ┃   ┃                ┏━━━━━━━┳⏵c ┃
-  // ┃ d d d d d d d ┃ ac    ┃ d  ┃   ┃                ┃    ca ┃ d ┃
-  // ┃ e e e e e e e ┃ b     ┃    ┃   ┃                ┃     b ┃ e ┃
-  // ┃ f f f f f f f ┗━━━━━━━┛    ┃   ┃                ┗━━━━━━━┛ f ┃
-  // ┃ g g g g g g g g g g g g    ┃   ┃                            ┃
-  // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
-  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  const toLeft = {
+  });
+  const toLeft = calculatePopoverLayoutForPlacement({
+    ...params,
+    viewportWidth,
+    viewportHeight,
     popoverPlacement: 'on the left',
-    arrow: {
-      x: clientRect.left - arrowSize.length,
-      y: clientRect.top + clientRect.height / 2 - arrowSize.breadth / 2,
-      width: arrowSize.length,
-      height: arrowSize.breadth,
-    },
-    popover: {
-      x: popoverInsetSize,
-      y: popoverInsetSize,
-      width: popoverPreferredSize.width,
-      height: popoverPreferredSize.height,
-      maxWidth: boundingClientRect.left - popoverInsetSize - arrowSize.length,
-      maxHeight: viewportHeight - popoverInsetSize * 2,
-    },
-  };
-  const toLeftAdjusted = {
-    popoverPlacement: 'on the left',
-    arrow: toLeft.arrow,
-    popover: alignAndJustify({
-      popoverPlacement: 'on the left',
-      horizontalAlign: 'right',
-      verticalAlign: 'bottom',
-      constraints: toLeft.popover,
-      arrowRect: toLeft.arrow,
-      arrowOverhang: 20,
-    }),
-  };
+  });
+  const toRight = calculatePopoverLayoutForPlacement({
+    ...params,
+    viewportWidth,
+    viewportHeight,
+    popoverPlacement: 'on the right',
+  });
 
-  //        horizontal-tb ltr               horizontal-tb rtl
-  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
-  // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
-  // ┃ abc⏴┳━━━━━━━┓              ┃   ┃ zyx⏴┳━━━━━━━┓ lkjihgfedcba ┃
-  // ┃ abc ┃ abc   ┃              ┃   ┃ zyx ┃ edcba ┃          cba ┃
-  // ┃ abc ┃ defg  ┃              ┃   ┃ zyx ┃    gf ┃              ┃
-  // ┃ abc ┗━━━━━━━┛              ┃   ┃ zyx ┗━━━━━━━┛              ┃
-  // ┃                            ┃   ┃                            ┃
-  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  //
-  //          vertical-lr                      vertical-rl
-  // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-  // ┃ a a                        ┃   ┃   a a a a a a  a a a a a a ┃
-  // ┃ b b                        ┃   ┃   b b b b b b  b b b b b b ┃
-  // ┃ c c ⏴┳━━━━━━━┓             ┃   ┃   c ⏴┳━━━━━━━┓ c c c c c c ┃
-  // ┃ d d  ┃ ac    ┃             ┃   ┃   d  ┃    ca ┃ d d d d d d ┃
-  // ┃ e e  ┃ b     ┃             ┃   ┃   e  ┃     b ┃ e e e e e e ┃
-  // ┃ f f  ┗━━━━━━━┛             ┃   ┃      ┗━━━━━━━┛ f f f f f f ┃
-  // ┃ g                          ┃   ┃     g g g g g  g g g g g g ┃
-  // ┃ h                          ┃   ┃     h h h h h  h h h h h h ┃
-  // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-  const toRightArrow = {
-    x: clientRect.right,
-    y: toLeft.arrow.y,
-    width: arrowSize.length,
-    height: arrowSize.breadth,
-  };
-  const toRight = {
-    popoverPlacement: 'on the right',
-    arrow: toRightArrow,
-    popover: {
-      // We have an interesting case with vertical-rl when a word flows onto a
-      // new line such that the start of the word is clickable within the
-      // viewport, yet the end of the word extends out of the viewport. We've
-      // generally chosen to point at the end of the word, but in this rare case
-      // it might make more sense to point at the start just to stay within the
-      // viewport. However, it's okay to just do what's easiest.
-      x: Math.max(popoverInsetSize, toRightArrow.x + toRightArrow.width),
-      y: popoverInsetSize,
-      width: popoverPreferredSize.width,
-      height: popoverPreferredSize.height,
-      maxWidth:
-        viewportWidth -
-        boundingClientRect.right -
-        popoverInsetSize -
-        arrowSize.length,
-      maxHeight: viewportHeight - popoverInsetSize * 2,
-    },
-  };
-  const toRightAdjusted = {
-    popoverPlacement: 'on the right',
-    arrow: toRight.arrow,
-    popover: alignAndJustify({
-      popoverPlacement: 'on the right',
-      horizontalAlign: 'left',
-      verticalAlign: 'bottom',
-      constraints: toRight.popover,
-      arrowRect: toRight.arrow,
-      arrowOverhang: 20,
-    }),
-  };
+  // If preferred inline size was unable to be satisfied, then we need to
+  // remeasure using the available max inline size.
+  if (
+    popoverWritingMode === 'horizontal-tb'
+      ? above.popover.width > above.popover.maxWidth
+      : above.popover.height > above.popover.maxHeight
+  ) {
+    // TODO
+  }
 
   const sorted = preferenceOrder
     .map(preference => {
       switch (preference) {
         case 'above':
-          return aboveAdjusted;
+          return above;
         case 'below':
-          return belowAdjusted;
+          return below;
         case 'on the left':
-          return toLeftAdjusted;
+          return toLeft;
         case 'on the right':
-          return toRightAdjusted;
+          return toRight;
       }
     })
     .sort((a, b) => {
@@ -747,11 +558,266 @@ function calculatePopoverLayout({
   return {
     best: sorted[0],
     sorted,
-    aboveAdjusted: above,
-    belowAdjusted: below,
-    toLeftAdjusted: toLeft,
-    toRightAdjusted: toRight,
+    above,
+    below,
+    toLeft,
+    toRight,
   };
+}
+
+/**
+ * @param {Parameters<typeof calculatePopoverLayout>[0] & { popoverPlacement: 'above' | 'below' | 'on the left' | 'on the right'; viewportWidth: number; viewportHeight: number; }} params
+ */
+function calculatePopoverLayoutForPlacement({
+  boundingClientRect,
+  clientRect = boundingClientRect,
+  popoverPreferredSize,
+  arrowSize,
+  popoverInsetSize,
+  popoverPlacement,
+  viewportWidth,
+  viewportHeight,
+}) {
+  switch (popoverPlacement) {
+    case 'above': {
+      //        horizontal-tb ltr               horizontal-tb rtl
+      // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+      // ┃                            ┃   ┃                            ┃
+      // ┃    ┏━━━━━━━┓               ┃   ┃                ┏━━━━━━━┓   ┃
+      // ┃    ┃ abc   ┃               ┃   ┃                ┃   cba ┃   ┃
+      // ┃    ┃ defg  ┃               ┃   ┃                ┃  gfed ┃   ┃
+      // ┃    ┣━━━━━━━┛               ┃   ┃                ┗━━━━━━━┫   ┃
+      // ┃    ⏷                       ┃   ┃                        ⏷   ┃
+      // ┃ abcdefghij                 ┃   ┃                 jihgfedcba ┃
+      // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      //
+      //          vertical-lr                      vertical-rl
+      // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+      // ┃ a h                        ┃   ┃                        h a ┃
+      // ┃ b ┏━━━━━━━┓                ┃   ┃                ┏━━━━━━━┓ b ┃
+      // ┃ c ┃ ac    ┃                ┃   ┃                ┃    ca ┃ c ┃
+      // ┃ d ┃ b     ┃                ┃   ┃                ┃     b ┃ d ┃
+      // ┃ e ┣━━━━━━━┛                ┃   ┃                ┗━━━━━━━┫ e ┃
+      // ┃ f ⏷                        ┃   ┃                        ⏷ f ┃
+      // ┃ g n                        ┃   ┃                        n g ┃
+      // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      const above = {
+        popoverPlacement: 'above',
+        // FIXME: would be nice to ensure the arrow stays within
+        //        popoverInsetSize, as otherwise, when the arrow is at the
+        //        viewport edge, the popover can detach from it.
+        arrow: {
+          x: clientRect.left + clientRect.width / 2 - arrowSize.breadth / 2,
+          y: clientRect.top - arrowSize.length,
+          width: arrowSize.breadth,
+          height: arrowSize.length,
+        },
+        popover: {
+          x: popoverInsetSize,
+          y: popoverInsetSize,
+          width: popoverPreferredSize.width,
+          height: popoverPreferredSize.height,
+          maxWidth: viewportWidth - popoverInsetSize * 2,
+          maxHeight:
+            boundingClientRect.top - popoverInsetSize - arrowSize.length,
+        },
+      };
+      const aboveAdjusted = {
+        popoverPlacement: 'above',
+        arrow: above.arrow,
+        popover: alignAndJustify({
+          popoverPlacement: 'above',
+          horizontalAlign: 'right',
+          verticalAlign: 'bottom',
+          constraints: above.popover,
+          arrowRect: above.arrow,
+          arrowOverhang: 20,
+        }),
+      };
+
+      return aboveAdjusted;
+    }
+    case 'below': {
+      //        horizontal-tb ltr               horizontal-tb rtl
+      // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+      // ┃ abcdefghij                 ┃   ┃                 jihgfedcba ┃
+      // ┃    ⏶                       ┃   ┃                        ⏶   ┃
+      // ┃    ┣━━━━━━━┓               ┃   ┃                ┏━━━━━━━┫   ┃
+      // ┃    ┃ abc   ┃               ┃   ┃                ┃   cba ┃   ┃
+      // ┃    ┃ defg  ┃               ┃   ┃                ┃  gfed ┃   ┃
+      // ┃    ┗━━━━━━━┛               ┃   ┃                ┗━━━━━━━┛   ┃
+      // ┃                            ┃   ┃                            ┃
+      // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      //
+      //          vertical-lr                      vertical-rl
+      // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+      // ┃ a i                        ┃   ┃                        i a ┃
+      // ┃ b ⏶                        ┃   ┃                        ⏶ b ┃
+      // ┃ c ┣━━━━━━━┓                ┃   ┃                ┏━━━━━━━┫ c ┃
+      // ┃ d ┃ ac    ┃                ┃   ┃                ┃    ca ┃ d ┃
+      // ┃ e ┃ b     ┃                ┃   ┃                ┃     b ┃ e ┃
+      // ┃ f ┗━━━━━━━┛                ┃   ┃                ┗━━━━━━━┛ f ┃
+      // ┃ g o                        ┃   ┃                        o g ┃
+      // ┃ h p                        ┃   ┃                        p h ┃
+      // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      const below = {
+        popoverPlacement: 'below',
+        arrow: {
+          x: clientRect.left + clientRect.width / 2 - arrowSize.breadth / 2,
+          y: clientRect.bottom,
+          width: arrowSize.breadth,
+          height: arrowSize.length,
+        },
+        popover: {
+          x: popoverInsetSize,
+          y: boundingClientRect.bottom + arrowSize.length,
+          width: popoverPreferredSize.width,
+          height: popoverPreferredSize.height,
+          maxWidth: viewportWidth - popoverInsetSize * 2,
+          maxHeight:
+            viewportHeight -
+            boundingClientRect.bottom -
+            popoverInsetSize -
+            arrowSize.length,
+        },
+      };
+      const belowAdjusted = {
+        popoverPlacement: 'below',
+        arrow: below.arrow,
+        popover: alignAndJustify({
+          popoverPlacement: 'below',
+          horizontalAlign: 'right',
+          verticalAlign: 'top',
+          constraints: below.popover,
+          arrowRect: below.arrow,
+          arrowOverhang: 20,
+        }),
+      };
+
+      return belowAdjusted;
+    }
+    case 'on the left': {
+      //        horizontal-tb ltr               horizontal-tb rtl
+      // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+      // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+      // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+      // ┃              ┏━━━━━━━┳⏵abc ┃   ┃              ┏━━━━━━━┳⏵cba ┃
+      // ┃              ┃ abc   ┃ abc ┃   ┃              ┃   cba ┃ cba ┃
+      // ┃              ┃ defg  ┃ abc ┃   ┃              ┃  gfed ┃ cba ┃
+      // ┃              ┗━━━━━━━┛ abc ┃   ┃              ┗━━━━━━━┛ cba ┃
+      // ┃                            ┃   ┃                            ┃
+      // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      //
+      //          vertical-lr                      vertical-rl
+      // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+      // ┃ a a a a a a a a a a a a a  ┃   ┃                          a ┃
+      // ┃ b b b b b b b b b b b b b  ┃   ┃                          b ┃
+      // ┃ c c c c c c c ┏━━━━━━━┳⏵c  ┃   ┃                ┏━━━━━━━┳⏵c ┃
+      // ┃ d d d d d d d ┃ ac    ┃ d  ┃   ┃                ┃    ca ┃ d ┃
+      // ┃ e e e e e e e ┃ b     ┃    ┃   ┃                ┃     b ┃ e ┃
+      // ┃ f f f f f f f ┗━━━━━━━┛    ┃   ┃                ┗━━━━━━━┛ f ┃
+      // ┃ g g g g g g g g g g g g    ┃   ┃                            ┃
+      // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
+      // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      const toLeft = {
+        popoverPlacement: 'on the left',
+        arrow: {
+          x: clientRect.left - arrowSize.length,
+          y: clientRect.top + clientRect.height / 2 - arrowSize.breadth / 2,
+          width: arrowSize.length,
+          height: arrowSize.breadth,
+        },
+        popover: {
+          x: popoverInsetSize,
+          y: popoverInsetSize,
+          width: popoverPreferredSize.width,
+          height: popoverPreferredSize.height,
+          maxWidth:
+            boundingClientRect.left - popoverInsetSize - arrowSize.length,
+          maxHeight: viewportHeight - popoverInsetSize * 2,
+        },
+      };
+      const toLeftAdjusted = {
+        popoverPlacement: 'on the left',
+        arrow: toLeft.arrow,
+        popover: alignAndJustify({
+          popoverPlacement: 'on the left',
+          horizontalAlign: 'right',
+          verticalAlign: 'bottom',
+          constraints: toLeft.popover,
+          arrowRect: toLeft.arrow,
+          arrowOverhang: 20,
+        }),
+      };
+      return toLeftAdjusted;
+    }
+    case 'on the right': {
+      //        horizontal-tb ltr               horizontal-tb rtl
+      // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+      // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+      // ┃ abcdefghijklmnopqrstuvwxyz ┃   ┃ zyxwvutsrqponmlkjihgfedcba ┃
+      // ┃ abc⏴┳━━━━━━━┓              ┃   ┃ zyx⏴┳━━━━━━━┓ lkjihgfedcba ┃
+      // ┃ abc ┃ abc   ┃              ┃   ┃ zyx ┃ edcba ┃          cba ┃
+      // ┃ abc ┃ defg  ┃              ┃   ┃ zyx ┃    gf ┃              ┃
+      // ┃ abc ┗━━━━━━━┛              ┃   ┃ zyx ┗━━━━━━━┛              ┃
+      // ┃                            ┃   ┃                            ┃
+      // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      //
+      //          vertical-lr                      vertical-rl
+      // ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓   ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+      // ┃ a a                        ┃   ┃   a a a a a a  a a a a a a ┃
+      // ┃ b b                        ┃   ┃   b b b b b b  b b b b b b ┃
+      // ┃ c c ⏴┳━━━━━━━┓             ┃   ┃   c ⏴┳━━━━━━━┓ c c c c c c ┃
+      // ┃ d d  ┃ ac    ┃             ┃   ┃   d  ┃    ca ┃ d d d d d d ┃
+      // ┃ e e  ┃ b     ┃             ┃   ┃   e  ┃     b ┃ e e e e e e ┃
+      // ┃ f f  ┗━━━━━━━┛             ┃   ┃      ┗━━━━━━━┛ f f f f f f ┃
+      // ┃ g                          ┃   ┃     g g g g g  g g g g g g ┃
+      // ┃ h                          ┃   ┃     h h h h h  h h h h h h ┃
+      // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      const toRightArrow = {
+        x: clientRect.right,
+        y: clientRect.top + clientRect.height / 2 - arrowSize.breadth / 2,
+        width: arrowSize.length,
+        height: arrowSize.breadth,
+      };
+      const toRight = {
+        popoverPlacement: 'on the right',
+        arrow: toRightArrow,
+        popover: {
+          // We have an interesting case with vertical-rl when a word flows onto
+          // a new line such that the start of the word is clickable within the
+          // viewport, yet the end of the word extends out of the viewport.
+          // We've generally chosen to point at the end of the word, but in this
+          // rare case it might make more sense to point at the start just to
+          // stay within the viewport. However, it's okay to just do what's
+          // easiest.
+          x: Math.max(popoverInsetSize, toRightArrow.x + toRightArrow.width),
+          y: popoverInsetSize,
+          width: popoverPreferredSize.width,
+          height: popoverPreferredSize.height,
+          maxWidth:
+            viewportWidth -
+            boundingClientRect.right -
+            popoverInsetSize -
+            arrowSize.length,
+          maxHeight: viewportHeight - popoverInsetSize * 2,
+        },
+      };
+      const toRightAdjusted = {
+        popoverPlacement: 'on the right',
+        arrow: toRight.arrow,
+        popover: alignAndJustify({
+          popoverPlacement: 'on the right',
+          horizontalAlign: 'left',
+          verticalAlign: 'bottom',
+          constraints: toRight.popover,
+          arrowRect: toRight.arrow,
+          arrowOverhang: 20,
+        }),
+      };
+      return toRightAdjusted;
+    }
+  }
 }
 
 /**
