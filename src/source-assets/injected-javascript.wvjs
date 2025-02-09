@@ -223,15 +223,32 @@ function updatePopover({
     // Avoid flushing layout again if there's only a single result container.
     if (hasMultipleResults) {
       popover.classList.add('size-to-first-result-container');
+      // - Given that there are multiple results, we want to size to the inline
+      //   size needed to display multiple results.
+      // - We want the inline size to fit within the available space.
+      // - But the clientWidth needed to fit one result is a logical size to
+      //   snap to if we can't fit within that available inline size.
       popoverSizeToFitFirstResult = {
         width:
           popoverWritingMode === 'horizontal-tb'
-            ? Math.min(popover.clientWidth + 1, popoverMaxInlineSize)
+            ? Math.min(
+                Math.max(
+                  popover.clientWidth + 1,
+                  popoverSizeToFitAllResults.width,
+                ),
+                popoverMaxInlineSize,
+              )
             : popover.clientWidth + 1,
         height:
           popoverWritingMode === 'horizontal-tb'
             ? popover.clientHeight + 1
-            : Math.min(popover.clientHeight + 1, popoverMaxInlineSize),
+            : Math.min(
+                Math.max(
+                  popover.clientHeight + 1,
+                  popoverSizeToFitAllResults.height,
+                ),
+                popoverMaxInlineSize,
+              ),
       };
       if (popoverWritingMode === 'horizontal-tb') {
         popoverSizeToFitFirstResult.height += blockSizeForShowMoreButton;
