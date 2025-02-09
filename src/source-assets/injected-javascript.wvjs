@@ -228,13 +228,16 @@ function updatePopover({
   );
   const popoverWritingMode = 'horizontal-tb';
 
-  const { popoverSizeToFitAllResults, popoverSizeToFitFirstResult } =
+  const getPopoverPreferredSizes = () =>
     getPreferredSize({
       hasMultipleResults: results.length > 1,
       popoverMinimumInlineSize,
       blockSizeForShowMoreButton,
       popoverWritingMode,
     });
+
+  const { popoverSizeToFitAllResults, popoverSizeToFitFirstResult } =
+    getPopoverPreferredSizes();
 
   console.log(
     `popoverSizeToFitAllResults ${JSON.stringify(popoverSizeToFitAllResults)}`,
@@ -286,10 +289,14 @@ function updatePopover({
   const layoutToFitAllResults = calculatePopoverLayout({
     ...layoutArgs,
     popoverPreferredSize: popoverSizeToFitAllResults,
+    getPopoverPreferredSize: () =>
+      getPopoverPreferredSizes().popoverSizeToFitAllResults,
   });
   const layoutToFitFirstResult = calculatePopoverLayout({
     ...layoutArgs,
     popoverPreferredSize: popoverSizeToFitFirstResult,
+    getPopoverPreferredSize: () =>
+      getPopoverPreferredSizes().popoverSizeToFitFirstResult,
   });
 
   console.log(
@@ -399,6 +406,7 @@ function updatePopover({
  * @param {number} params.popoverMinimumBlockSize The minimum block size a
  * suggested solution should have.
  * @param {number} params.popoverInsetSize
+ * @param {() => { width: number; height: number; }} params.getPopoverPreferredSize
  */
 function calculatePopoverLayout(params) {
   const {
@@ -472,16 +480,6 @@ function calculatePopoverLayout(params) {
     viewportHeight,
     popoverPlacement: 'on the right',
   });
-
-  // If preferred inline size was unable to be satisfied, then we need to
-  // remeasure using the available max inline size.
-  if (
-    popoverWritingMode === 'horizontal-tb'
-      ? above.popover.width > above.popover.maxWidth
-      : above.popover.height > above.popover.maxHeight
-  ) {
-    // TODO
-  }
 
   const sorted = preferenceOrder
     .map(preference => {
@@ -594,17 +592,20 @@ function calculatePopoverLayout(params) {
 /**
  * @param {Parameters<typeof calculatePopoverLayout>[0] & { popoverPlacement: 'above' | 'below' | 'on the left' | 'on the right'; viewportWidth: number; viewportHeight: number; }} params
  */
-function calculatePopoverLayoutForPlacement({
-  boundingClientRect,
-  clientRect = boundingClientRect,
-  popoverWritingMode,
-  popoverPreferredSize,
-  arrowSize,
-  popoverInsetSize,
-  popoverPlacement,
-  viewportWidth,
-  viewportHeight,
-}) {
+function calculatePopoverLayoutForPlacement(params) {
+  const {
+    boundingClientRect,
+    clientRect = boundingClientRect,
+    popoverWritingMode,
+    popoverPreferredSize,
+    getPopoverPreferredSize,
+    arrowSize,
+    popoverInsetSize,
+    popoverPlacement,
+    viewportWidth,
+    viewportHeight,
+  } = params;
+
   switch (popoverPlacement) {
     case 'above': {
       //        horizontal-tb ltr               horizontal-tb rtl
