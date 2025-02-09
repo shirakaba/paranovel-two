@@ -175,10 +175,12 @@ function updatePopover({
     popover.style.display = 'block';
     popover.style.visibility = 'hidden';
 
+    // 'auto' may produce a floating-point number, while clientWidth and
+    // clientHeight produce a floored version of that number
     popover.style.inlineSize = 'auto';
     popover.style.minInlineSize = `${popoverMinimumInlineSize}px`;
     popover.style.maxInlineSize =
-      'min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size))';
+      'round(down, min(calc(100vi - var(--paranovel-popover-inset-size) * 2), var(--paranovel-max-readable-inline-size)), 1px)';
     popover.style.blockSize = 'auto';
     // popover.style.maxBlockSize = '50%';
 
