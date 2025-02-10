@@ -67,8 +67,6 @@ function updatePopover({
     p.style.fontSize = defaultFontSize;
     p.textContent = 'No results.';
     container.appendChild(p);
-    popover.replaceChildren(container);
-    return;
   }
 
   const resultsFragment = document.createDocumentFragment();
