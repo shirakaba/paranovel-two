@@ -361,7 +361,7 @@ function updatePopover({
   );
 
   /**
-   * @param {ReturnType<typeof calculatePopoverLayout>["best"]} layout
+   * @param {import("./injected-javascript").PopoverLayout} layout
    */
   const setPopoverStyle = layout => {
     const popoverLayout = layout.popover;
@@ -1413,6 +1413,8 @@ function getIdealClientRectForArrow(tokenRange, writingMode) {
 }
 
 function getViewportScrollLeft() {
+  // I think this calculation only holds up as long as overflow is hidden on the
+  // viewport.
   return (
     document.body.scrollWidth -
     Math.abs(document.body.scrollLeft) -
@@ -1420,11 +1422,10 @@ function getViewportScrollLeft() {
   );
 }
 function getViewportScrollTop() {
-  return (
-    document.body.scrollHeight -
-    Math.abs(document.body.scrollTop) -
-    window.innerHeight
-  );
+  // I think scrollLeft ended up much more complicated just because we had to
+  // support right-to-left content, but web specs don't have a concept of
+  // bottom-to-top, so we can handle everything as if it's top-to-bottom.
+  return document.body.scrollTop;
 }
 
 /**
