@@ -6,8 +6,8 @@ export interface EdgeInsets {
 }
 
 export interface PopoverLayout {
+  popoverPlacement: PopoverPlacement;
   arrow: {
-    direction: 'up' | 'down' | 'left' | 'right' | 'none';
     x: number;
     y: number;
     width: number;
@@ -18,44 +18,22 @@ export interface PopoverLayout {
     y: number;
     width: number;
     height: number;
-    borderRadii: {
-      borderTopRightRadius: number;
-      borderTopLeftRadius: number;
-      borderBottomLeftRadius: number;
-      borderBottomRightRadius: number;
-    };
+    maxWidth: number;
+    maxHeight: number;
   };
 }
 
-export interface CalculatePopoverLayoutParams {
-  permittedArrowDirections: PopoverArrowDirection[];
-  safeAreaEdgeInsets: EdgeInsets;
-  sourceRect: { x: number; y: number; width: number; height: number };
-  backdropHeight: number;
-  backdropWidth: number;
-  preferredHeight: number;
-  preferredWidth: number;
-  arrowBreadth: number;
-  arrowLength: number;
-  cornerWidth: number;
-  borderRadius: number;
-}
+export type PopoverPlacement =
+  | 'above'
+  | 'below'
+  | 'on the left'
+  | 'on the right';
 
-export interface CalculatePopoverLayoutForArrowDirectionParams {
-  sourceRectClippedMidpoint: { readonly x: number; readonly y: number };
-  backdropWidth: number;
-  safeAreaEdgeInsets: EdgeInsets;
-  sourceRectClipped: {
-    readonly x: number;
-    readonly y: number;
-    readonly width: number;
-    readonly height: number;
-  };
-  backdropHeight: number;
-  preferredHeight: number;
-  preferredWidth: number;
-  arrowBreadth: number;
-  arrowLength: number;
-  cornerWidth: number;
-  borderRadius: number;
+export interface CalculatePopoverLayoutReturnType {
+  best: PopoverLayout;
+  sorted: [PopoverLayout, PopoverLayout, PopoverLayout, PopoverLayout];
+  above: PopoverLayout;
+  below: PopoverLayout;
+  toLeft: PopoverLayout;
+  toRight: PopoverLayout;
 }

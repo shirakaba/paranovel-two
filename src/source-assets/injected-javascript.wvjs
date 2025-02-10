@@ -660,8 +660,8 @@ function calculatePopoverLayoutForPlacement(params) {
    * TODO: these typings are not resolving, probably because they're
    * self-referential.
    *
-   * @param {ReturnType<typeof calculatePopoverLayoutForPlacement>} provisionalLayout
-   * @returns {{ type: "unchanged" | "updated", layout: ReturnType<typeof calculatePopoverLayoutForPlacement> }}
+   * @param {import("./injected-javascript").PopoverLayout} provisionalLayout
+   * @returns {{ type: "unchanged" | "updated", layout: import("./injected-javascript").PopoverLayout }}
    */
   const handleInsufficientInlineSpace = provisionalLayout => {
     const { width, height, maxWidth, maxHeight } = provisionalLayout.popover;
@@ -723,6 +723,7 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ f ⏷                        ┃   ┃                        ⏷ f ┃
       // ┃ g n                        ┃   ┃                        n g ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      /** @type {import("./injected-javascript").PopoverLayout} */
       const above = {
         popoverPlacement: 'above',
         // FIXME: would be nice to ensure the arrow stays within
@@ -750,6 +751,7 @@ function calculatePopoverLayoutForPlacement(params) {
         return result.layout;
       }
 
+      /** @type {import("./injected-javascript").PopoverLayout} */
       const aboveAdjusted = {
         popoverPlacement: 'above',
         arrow: above.arrow,
@@ -788,6 +790,7 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ g o                        ┃   ┃                        o g ┃
       // ┃ h p                        ┃   ┃                        p h ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      /** @type {import("./injected-javascript").PopoverLayout} */
       const below = {
         popoverPlacement: 'below',
         arrow: {
@@ -815,6 +818,7 @@ function calculatePopoverLayoutForPlacement(params) {
         return result.layout;
       }
 
+      /** @type {import("./injected-javascript").PopoverLayout} */
       const belowAdjusted = {
         popoverPlacement: 'below',
         arrow: below.arrow,
@@ -853,6 +857,7 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ g g g g g g g g g g g g    ┃   ┃                            ┃
       // ┃ h h h h h h h h h h h h    ┃   ┃                            ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      /** @type {import("./injected-javascript").PopoverLayout} */
       const toLeft = {
         popoverPlacement: 'on the left',
         arrow: {
@@ -877,6 +882,7 @@ function calculatePopoverLayoutForPlacement(params) {
         return result.layout;
       }
 
+      /** @type {import("./injected-javascript").PopoverLayout} */
       const toLeftAdjusted = {
         popoverPlacement: 'on the left',
         arrow: toLeft.arrow,
@@ -914,12 +920,14 @@ function calculatePopoverLayoutForPlacement(params) {
       // ┃ g                          ┃   ┃     g g g g g  g g g g g g ┃
       // ┃ h                          ┃   ┃     h h h h h  h h h h h h ┃
       // ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛   ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+      /** @type {import("./injected-javascript").PopoverLayout["arrow"]} */
       const toRightArrow = {
         x: clientRect.right,
         y: clientRect.top + clientRect.height / 2 - arrowSize.breadth / 2,
         width: arrowSize.length,
         height: arrowSize.breadth,
       };
+      /** @type {import("./injected-javascript").PopoverLayout} */
       const toRight = {
         popoverPlacement: 'on the right',
         arrow: toRightArrow,
@@ -949,6 +957,7 @@ function calculatePopoverLayoutForPlacement(params) {
         return result.layout;
       }
 
+      /** @type {import("./injected-javascript").PopoverLayout} */
       const toRightAdjusted = {
         popoverPlacement: 'on the right',
         arrow: toRight.arrow,
