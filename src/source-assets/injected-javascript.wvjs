@@ -322,6 +322,7 @@ function updatePopover({
 
   /** @type {Parameters<typeof calculatePopoverLayout>[0]}  */
   const layoutArgs = {
+    forcePlacement: undefined,
     boundingClientRect,
     clientRect,
     sourceTextWritingMode: writingMode,
@@ -441,6 +442,8 @@ function updatePopover({
 /**
  *
  * @param {object} params
+ * @param {import("./injected-javascript").PopoverPlacement} params.forcePlacement
+ * A debug flag to force a specific popoverPlacement to be chosen.
  * @param {DOMRect} params.boundingClientRect The bounds of the whole highlighted
  * range. The popover will avoid this space when laying out.
  * @param {DOMRect} [params.clientRect] The area within that range that the arrow
@@ -459,6 +462,7 @@ function updatePopover({
  */
 function calculatePopoverLayout(params) {
   const {
+    forcePlacement,
     boundingClientRect,
     clientRect = boundingClientRect,
     sourceTextWritingMode,
@@ -479,47 +483,60 @@ function calculatePopoverLayout(params) {
    * The order of preference as to where the popover should be placed relative
    * to the content to avoid downstream (not yet read) text, if multiple
    * solutions satisfy.
-   * @type {Array<'above' | 'below' | 'on the left' | 'on the right'>}
+   * @type {Array<import("./injected-javascript").PopoverPlacement>}
    */
-  const preferenceOrder =
-    sourceTextWritingMode === 'horizontal-tb'
-      ? ['below', 'above', 'on the left', 'on the right']
-      : [
-          ...(sourceTextWritingMode === 'vertical-rl'
-            ? ['on the left', 'on the right']
-            : ['on the right', 'on the left']),
-          'above',
-          'below',
-        ];
+  const preferenceOrder = forcePlacement
+    ? [forcePlacement]
+    : sourceTextWritingMode === 'horizontal-tb'
+    ? ['below', 'above', 'on the left', 'on the right']
+    : [
+        ...(sourceTextWritingMode === 'vertical-rl'
+          ? ['on the left', 'on the right']
+          : ['on the right', 'on the left']),
+        'above',
+        'below',
+      ];
   console.log('preferenceOrder', { preferenceOrder, sourceTextWritingMode });
 
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
 
-  const above = calculatePopoverLayoutForPlacement({
-    ...params,
-    viewportWidth,
-    viewportHeight,
-    popoverPlacement: 'above',
-  });
-  const below = calculatePopoverLayoutForPlacement({
-    ...params,
-    viewportWidth,
-    viewportHeight,
-    popoverPlacement: 'below',
-  });
-  const toLeft = calculatePopoverLayoutForPlacement({
-    ...params,
-    viewportWidth,
-    viewportHeight,
-    popoverPlacement: 'on the left',
-  });
-  const toRight = calculatePopoverLayoutForPlacement({
-    ...params,
-    viewportWidth,
-    viewportHeight,
-    popoverPlacement: 'on the right',
-  });
+  const above =
+    forcePlacement && forcePlacement !== 'above'
+      ? null
+      : calculatePopoverLayoutForPlacement({
+          ...params,
+          viewportWidth,
+          viewportHeight,
+          popoverPlacement: 'above',
+        });
+  const below =
+    forcePlacement && forcePlacement !== 'below'
+      ? null
+      : calculatePopoverLayoutForPlacement({
+          ...params,
+          viewportWidth,
+          viewportHeight,
+          popoverPlacement: 'below',
+        });
+  const toLeft =
+    forcePlacement && forcePlacement !== 'on the left'
+      ? null
+      : calculatePopoverLayoutForPlacement({
+          ...params,
+          viewportWidth,
+          viewportHeight,
+          popoverPlacement: 'on the left',
+        });
+  const toRight =
+    forcePlacement && forcePlacement !== 'on the right'
+      ? null
+      : calculatePopoverLayoutForPlacement({
+          ...params,
+          viewportWidth,
+          viewportHeight,
+          popoverPlacement: 'on the right',
+        });
 
   const sorted = preferenceOrder
     .map(preference => {
