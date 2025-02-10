@@ -270,6 +270,8 @@ function updatePopover({
   );
   const popoverWritingMode = 'horizontal-tb';
 
+  const hasMultipleResults = results.length > 1;
+
   /**
    * @param {object} [params]
    * @param {number} [params.maxInlineSize] The max inline size. Defaults to the
@@ -278,7 +280,7 @@ function updatePopover({
    */
   const getPopoverPreferredSizes = ({ maxInlineSize } = {}) =>
     getPreferredSize({
-      hasMultipleResults: results.length > 1,
+      hasMultipleResults,
       popoverMinimumInlineSize,
       blockSizeForShowMoreButton,
       popoverWritingMode,
@@ -342,12 +344,14 @@ function updatePopover({
     getPopoverPreferredSize: params =>
       getPopoverPreferredSizes(params).popoverSizeToFitAllResults,
   });
-  const layoutToFitFirstResult = calculatePopoverLayout({
-    ...layoutArgs,
-    popoverPreferredSize: popoverSizeToFitFirstResult,
-    getPopoverPreferredSize: params =>
-      getPopoverPreferredSizes(params).popoverSizeToFitFirstResult,
-  });
+  const layoutToFitFirstResult = !hasMultipleResults
+    ? layoutToFitAllResults
+    : calculatePopoverLayout({
+        ...layoutArgs,
+        popoverPreferredSize: popoverSizeToFitFirstResult,
+        getPopoverPreferredSize: params =>
+          getPopoverPreferredSizes(params).popoverSizeToFitFirstResult,
+      });
 
   console.log(
     `Got best popoverLayout ${JSON.stringify(
