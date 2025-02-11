@@ -45,6 +45,16 @@ rt {
   touch-action: pan-x pan-y;
 }
 
+html,
+body {
+  inline-size: 100% !important;
+  /*
+  Not supported, so we'll have to figure out a way to set them conditionally.
+  overflow-inline: hidden;
+  overflow-block: scroll;
+  */
+}
+
 html {
   margin: 0 !important;
   max-inline-size: none !important;
@@ -83,6 +93,11 @@ svg {
   overflow-y: scroll;
   /* Put it above our <rt> elements that have isolation: isolate */
   z-index: 1;
+  /*
+    Should induce a stacking context:
+    https://github.com/scottjehl/Device-Bugs/issues/14#issuecomment-8075213
+  */
+  -webkit-overflow-scrolling: touch;
 }
 
 #paranovel-popover.size-to-first-result-container
