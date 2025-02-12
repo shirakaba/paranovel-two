@@ -38,8 +38,9 @@ function updatePopover({
     document.getElementById('paranovel-arrow') ?? document.createElement('div');
   arrow.id = 'paranovel-arrow';
 
+  const effectiveBody = getEffectiveBody();
   if (!arrow.isConnected) {
-    document.body.prepend(arrow);
+    effectiveBody.prepend(arrow);
   }
 
   const popover =
@@ -49,7 +50,7 @@ function updatePopover({
   popover.classList.remove('with-show-more-button');
 
   if (!popover.isConnected) {
-    document.body.prepend(popover);
+    effectiveBody.prepend(popover);
   }
 
   popover.scrollTop = 0;
@@ -1113,6 +1114,59 @@ function wrapRubyBaseTextsWithRb(root) {
 }
 
 /**
+ * Work around iOS Safari's horrific "can't scroll child elements when the body
+ * is vertical-rl" issue by forcing it to horizontal-tb and nesting everything
+ * another level down instead.
+ * @see https://bsky.app/profile/shirakaba.bsky.social/post/3lhvtwmr7fc2v
+ */
+function workAroundScrollingBug() {
+  let workaroundApplied = false;
+
+  const applyWorkaroundIfNecessary = () => {
+    if (workaroundApplied) {
+      return;
+    }
+
+    const { writingMode } = getComputedStyle(document.body);
+    if (writingMode !== 'vertical-rl') {
+      console.log('!! applyWorkaroundIfNecessary: false');
+      return;
+    }
+
+    const innerBody = document.createElement('div');
+    innerBody.id = 'inner-body';
+    innerBody.style.writingMode = 'vertical-rl';
+    for (const childNode of [...document.body.childNodes]) {
+      console.log('appending', childNode);
+      innerBody.append(childNode);
+    }
+
+    document.body.style.writingMode = 'horizontal-tb';
+    document.body.appendChild(innerBody);
+
+    console.log('!! applyWorkaroundIfNecessary: true');
+
+    workaroundApplied = true;
+  };
+
+  if (document.readyState === 'complete') {
+    applyWorkaroundIfNecessary();
+  } else {
+    document.addEventListener(
+      'readystatechange',
+      () => {
+        if (document.readyState === 'complete') {
+          applyWorkaroundIfNecessary();
+        }
+      },
+      { once: true },
+    );
+  }
+
+  applyWorkaroundIfNecessary();
+}
+
+/**
  * Prepend a prelude and append a postlude into the <body>.
  */
 function insertNavigationButtons(body) {
@@ -1154,7 +1208,7 @@ function insertNavigationButtons(body) {
 
         const end = dom.querySelector('#paranovel-end');
         end.onclick = event => {
-          document.body.scrollIntoView({
+          getEffectiveBody().scrollIntoView({
             block: 'end',
             inline: 'end',
             behavior: 'instant',
@@ -1178,7 +1232,7 @@ function insertNavigationButtons(body) {
 
         const start = dom.querySelector('#paranovel-start');
         start.onclick = event => {
-          document.body.scrollIntoView({
+          getEffectiveBody().scrollIntoView({
             block: 'start',
             inline: 'start',
             behavior: 'instant',
@@ -1746,6 +1800,10 @@ function getBaseTextContent(node) {
   return baseTextContent;
 }
 
+function getEffectiveBody() {
+  return document.getElementById('inner-body') ?? document.body;
+}
+
 const __paranovelState = {
   wordHighlight: new Highlight(),
   tokenizationPromiseCount: 0,
@@ -1754,5 +1812,6 @@ const __paranovelState = {
 
 CSS.highlights.set('word', __paranovelState.wordHighlight);
 
-insertNavigationButtons(document.body);
+workAroundScrollingBug();
+insertNavigationButtons(getEffectiveBody());
 document.addEventListener('click', onClickDocument);
