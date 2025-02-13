@@ -47,16 +47,18 @@ rt {
 
 html,
 body {
+  margin: 0 !important;
   inline-size: 100% !important;
   /*
-  Not supported, so we'll have to figure out a way to set them conditionally.
-  overflow-inline: hidden;
-  overflow-block: scroll;
+    Due to an iOS Safari bug, we have to force the <html> and/or <body> to be
+    horizontal-tb, otherwise when the popover dictionary overflows, it can't be
+    scrolled.
+    @see https://bsky.app/profile/shirakaba.bsky.social/post/3lhvtwmr7fc2v
   */
+  writing-mode: horizontal-tb !important;
 }
 
 html {
-  margin: 0 !important;
   max-inline-size: none !important;
   /* As the WebView bounces={false} prop is broken */
   overscroll-behavior: none;
@@ -67,8 +69,8 @@ body {
   box-sizing: border-box !important;
   padding-block: var(--paranovel-block-padding) !important;
   padding-inline: var(--paranovel-inline-padding) !important;
-  margin: 0 !important;
-  inline-size: 100% !important;
+  /* Would be nice to use overflow-inline once supported. */
+  overflow-x: hidden;
   font-size: var(--paranovel-font-size) !important;
 }
 

@@ -1417,11 +1417,7 @@ function getIdealClientRectForArrow(tokenRange, writingMode) {
 function getViewportScrollLeft() {
   // I think this calculation only holds up as long as overflow is hidden on the
   // viewport.
-  return (
-    document.body.scrollWidth -
-    Math.abs(document.body.scrollLeft) -
-    window.innerWidth
-  );
+  return document.body.scrollLeft;
 }
 function getViewportScrollTop() {
   // I think scrollLeft ended up much more complicated just because we had to
