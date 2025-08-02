@@ -17,17 +17,26 @@ wrapRubyBaseTextsWithRb(document.body);
 /**
  * @param {object} obj
  * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
+ * @param {Range} obj.tokenRange
  */
-function updatePopover({ results }) {
+function updatePopover({ results, tokenRange }) {
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
+  const anchor =
+    document.getElementById('paranovel-anchor') ??
+    document.createElement('span');
   popover.id = 'paranovel-popover';
+  anchor.id = 'paranovel-anchor';
   popover.classList.remove('with-show-more-button');
 
   if (!popover.isConnected) {
     document.body.prepend(popover);
     popover.popover = 'auto';
+  }
+
+  if (anchor.isConnected) {
+    dissolveAnchor(anchor);
   }
 
   popover.scrollTop = 0;
@@ -114,6 +123,36 @@ function updatePopover({ results }) {
   popover.replaceChildren(container);
 
   // TODO: Popover with Anchor Positioning API
+  tokenRange.surroundContents(anchor);
+  popover.showPopover();
+}
+
+/**
+ * @param {HTMLSpanElement} anchor
+ */
+function dissolveAnchor(anchor) {
+  console.log('Dissolving anchor.');
+
+  const { previousSibling, nextSibling } = anchor;
+  if (previousSibling) {
+    const { parentElement } = previousSibling;
+    if (!parentElement) {
+      throw new Error('Expected to have parentElement.');
+    }
+    for (const childNode of anchor.childNodes) {
+      parentElement.insertBefore(childNode, nextSibling);
+    }
+  } else {
+    const { parentElement } = anchor;
+    if (!parentElement) {
+      throw new Error('Expected to have parentElement.');
+    }
+    parentElement.prepend(...anchor.childNodes);
+  }
+
+  anchor.remove();
+
+  // TODO: normalise any denormalised text nodes
 }
 
 /**
@@ -260,8 +299,6 @@ async function onClickDocument(event) {
     targetNode,
   } = surroundingText;
 
-  __paranovelState.wordHighlight.clear();
-
   const id = __paranovelState.tokenizationPromiseCount++;
 
   let response;
@@ -372,7 +409,7 @@ function getViewportScrollTop() {
  * @param {Range} obj.tokenRange
  * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
  */
-async function lookUpTerm({ dictionaryForm }) {
+async function lookUpTerm({ dictionaryForm, tokenRange }) {
   const id = __paranovelState.tokenizationPromiseCount++;
 
   /** @type {string} */
@@ -404,6 +441,7 @@ async function lookUpTerm({ dictionaryForm }) {
 
   updatePopover({
     results: response,
+    tokenRange,
   });
 }
 

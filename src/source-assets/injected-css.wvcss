@@ -87,19 +87,59 @@ svg {
   max-inline-size: 100% !important;
 }
 
+#paranovel-anchor {
+  background-color: yellow;
+  color: black;
+  anchor-name: --word;
+}
+
 #paranovel-popover {
-  position: fixed;
-  writing-mode: horizontal-tb;
-  padding: 8px;
-  background-color: var(--paranovel-popover-background-color);
-  overflow-y: scroll;
-  /* Put it above our <rt> elements that have isolation: isolate */
-  z-index: 1;
+  position-anchor: --word;
+  position-area: block-end span-all;
+  position-try: most-block-size flip-block;
+  /* Note: Not working even in Chrome in the MDN example */
+  position-visibility: anchors-visible;
+
+  background: black;
+  color: white;
+  padding: 0.5rem;
+  font-size: 50px;
+  border: none;
+
   /*
-    Should induce a stacking context:
-    https://github.com/scottjehl/Device-Bugs/issues/14#issuecomment-8075213
-  */
-  -webkit-overflow-scrolling: touch;
+      We must set a value for margin to override 'auto' (which centers the
+      tooltip inside the position-area).
+    */
+  --margin-inline: 1rem;
+  --margin-block-start: 1rem;
+  --margin-block-end: 1rem;
+  margin-inline: var(--margin-inline);
+  margin-block: var(--margin-block-start) var(--margin-block-end);
+
+  border: none;
+  box-sizing: border-box;
+
+  /*
+      Setting to `inset: auto` seems to cause the `position-area` to be retried
+      on scroll. It's nifty, but not necessarily what we want for Paranovel.
+    */
+  inset: 0;
+
+  --preferred-inline-size: 500px;
+  max-block-size: max(
+    calc(100% - var(--margin-block-start) - var(--margin-block-end)),
+    0%
+  );
+  inline-size: var(--preferred-inline-size);
+  max-inline-size: max(
+    min(
+      calc(100% - var(--margin-inline) - var(--margin-inline)),
+      var(--preferred-inline-size)
+    ),
+    0%
+  );
+
+  justify-self: anchor-center;
 }
 
 #paranovel-popover.size-to-first-result-container
