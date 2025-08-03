@@ -226,14 +226,38 @@ function layOutPopover({ anchor, popover, tokenRange }) {
   }
 
   // We'll try both block directions in order.
-  const [firstTry, secondTry] = positionTryOrder;
+  // const [firstTry, secondTry] = positionTryOrder;
 
   // Almost working, but `bottom` is completely ignored (perhaps a WebKit bug
   // with <dialog>?), so we'll have to calculate `height` instead.
-  popover.style.top = `${firstTry === 'bottom' ? anchorRect.bottom : 0}px`;
-  popover.style.bottom = `${firstTry === 'top' ? anchorRect.top : 0}px`;
-  popover.style.left = `${firstTry === 'right' ? anchorRect.right : 0}px`;
-  popover.style.right = `${firstTry === 'left' ? anchorRect.left : 0}px`;
+  const tryDirection = {
+    top: () => {
+      popover.style.top = '0px';
+      popover.style.right = '0px';
+      popover.style.maxHeight = `${anchorRect.top}px`;
+      popover.style.left = '0px';
+    },
+    bottom: () => {
+      popover.style.top = `${anchorRect.bottom}px`;
+      popover.style.right = '0px';
+      popover.style.maxHeight = `${window.innerHeight - anchorRect.bottom}px`;
+      popover.style.left = '0px';
+    },
+    left: () => {
+      popover.style.top = '0px';
+      popover.style.right = `${anchorRect.right}px`;
+      popover.style.maxHeight = `${window.innerHeight}px`;
+      popover.style.left = '0px';
+    },
+    right: () => {
+      popover.style.top = '0px';
+      popover.style.right = '0px';
+      popover.style.maxHeight = `${window.innerHeight}px`;
+      popover.style.left = '0px';
+    },
+  };
+
+  tryDirection.bottom();
 }
 
 /**

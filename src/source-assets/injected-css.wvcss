@@ -104,7 +104,7 @@ svg {
   padding: 0.5rem;
   font-size: 50px;
 
-  border: none;
+  border: 2px solid red;
   box-sizing: border-box;
 
   /* Override user agent custom styles for <dialog> */
@@ -114,6 +114,8 @@ svg {
   inset-block-end: auto;
   margin-inline: auto;
   margin-block: 0;
+  /* It's this, or turning off autofocus  */
+  outline: none;
 }
 /* #paranovel-popover::backdrop {
   pointer-events: none;
