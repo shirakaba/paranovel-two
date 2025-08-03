@@ -20,7 +20,11 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {Range} obj.tokenRange
  */
 function updatePopover({ results, tokenRange }) {
-  /** @type {HTMLDialogElement} */
+  /**
+   * We use <dialog> rather than popover mainly because light dismissal is even
+   * more broken in Safari 18 for popovers than it is for dialogs.
+   * @type {HTMLDialogElement}
+   */
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('dialog');
