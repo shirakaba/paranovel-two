@@ -1,0 +1,216 @@
+/**
+ * @param {Array<DOMRect>} rects
+ */
+function unionRects(rects) {
+  /** @type {DOMRect | undefined} */
+  let union;
+
+  for (const rect of rects) {
+    const { top, left, bottom, right } = rect;
+    if (!union) {
+      union = rect;
+      continue;
+    }
+
+    union.top = Math.min(union.top, top);
+    union.left = Math.min(union.left, left);
+    union.bottom = Math.min(union.bottom, bottom);
+    union.right = Math.min(union.right, right);
+  }
+
+  return union;
+}
+
+/**
+ * @param {Range} range
+ */
+function markAnchors(range) {
+  console.log('markAnchors', range);
+  const { startContainer, startOffset, endContainer, endOffset } = range;
+
+  // Anchor all text inside the startContainer, from the startOffset onwards.
+
+  /** @type {Element} */
+  let startElement;
+  if (isTextNode(startContainer)) {
+    if (startOffset >= startContainer.data.length) {
+      throw new Error(
+        'Expected startOffset not to be on the end of a text node.',
+      );
+    }
+
+    // Splitting the text will cause the endContainer and endOffset to update.
+    if (startContainer === endContainer) {
+      const offsetDifference = endOffset - startOffset;
+      const trailing = startOffset
+        ? startContainer.splitText(startOffset)
+        : startContainer;
+      trailing.splitText(offsetDifference);
+      surroundTextNode(trailing, createAnchor());
+
+      // Each splitText() and surroundTextNode() call may introduce empty text
+      // nodes as next siblings.
+      startContainer.parentElement?.normalize();
+
+      return document.getElementsByClassName('anchor');
+    } else {
+      const trailing = startOffset
+        ? startContainer.splitText(startOffset)
+        : startContainer;
+      const anchor = surroundTextNode(trailing, createAnchor());
+
+      // Each splitText() and surroundTextNode() call may introduce empty text
+      // nodes as next siblings.
+      startContainer.parentElement?.normalize();
+
+      startElement = anchor;
+    }
+  } else if (isElement(startContainer)) {
+    const { parentElement } = startContainer;
+
+    if (!parentElement) {
+      throw new Error('Expected startContainer to have parentElement.');
+    }
+
+    if (!startOffset) {
+      startContainer.classList.add('anchor');
+      startElement = startContainer;
+    } else {
+      const childNode = startContainer.childNodes.item(startOffset - 1);
+
+      let nextSibling = childNode;
+      while (nextSibling && nextSibling !== endContainer) {
+        const currentSibling = nextSibling;
+        nextSibling = currentSibling.nextSibling;
+        markAsAnchor(currentSibling);
+        startElement = currentSibling;
+      }
+    }
+  } else {
+    throw new Error(
+      `Expected Range to consist of either TEXT_NODE or ELEMENT_NODE, but got startContainer.nodeType ${startContainer.nodeType}.`,
+    );
+  }
+
+  if (!startElement) {
+    throw new Error('Expected to identify startElement.');
+  }
+
+  // Anchor all text after the startOffset, up until the endContainer.
+  let nextNode = startElement;
+  while (nextNode && nextNode !== endContainer) {
+    const currentNode = nextNode;
+    debugger;
+    nextNode = traverseFollowingText(
+      currentNode,
+      'next',
+      undefined,
+      false,
+    ).next().value;
+    markAsAnchor(currentNode);
+  }
+
+  // Anchor all text inside the endContainer, up until the endOffset.
+
+  if (isTextNode(endContainer)) {
+    if (!endOffset) {
+      // Nothing to surround.
+    } else if (endOffset >= endContainer.data.length) {
+      surroundTextNode(endContainer, createAnchor());
+      endContainer.parentElement?.normalize();
+    } else {
+      endContainer.splitText(endOffset);
+      surroundTextNode(endContainer, createAnchor());
+      endContainer.parentElement?.normalize();
+    }
+  } else if (isElement(endContainer)) {
+    const { parentElement } = endContainer;
+
+    if (!parentElement) {
+      throw new Error('Expected endContainer to have parentElement.');
+    }
+
+    if (!endOffset) {
+      // If the range sits on the starting edge of the container, we probably
+      // don't want to surround it.
+    } else {
+      let childIndex = 0;
+      let nextSibling = endContainer.firstChild;
+      while (nextSibling && childIndex < endOffset) {
+        const currentSibling = nextSibling;
+        nextSibling = currentSibling.nextSibling;
+        markAsAnchor(currentSibling);
+        childIndex++;
+      }
+    }
+  } else {
+    throw new Error(
+      `Expected Range to consist of either TEXT_NODE or ELEMENT_NODE, but got endContainer.nodeType ${endContainer.nodeType}.`,
+    );
+  }
+
+  return document.getElementsByClassName('anchor');
+}
+
+/**
+ * @param {Node} node
+ */
+function markAsAnchor(node) {
+  if (isTextNode(node)) {
+    surroundTextNode(node, createAnchor());
+    node.parentElement?.normalize();
+  } else if (isElement(node)) {
+    node.classList.add('anchor');
+  } else {
+    throw new Error(
+      `Expected sibling to be either a TEXT_NODE or an ELEMENT_NODE, but got nodeType ${node.nodeType}.`,
+    );
+  }
+}
+
+/**
+ * @param {Text} textNode
+ * @param {Element} newParent
+ */
+function surroundTextNode(textNode, newParent) {
+  const range = new Range();
+  range.setStart(textNode, 0);
+  range.setEnd(textNode, textNode.data.length);
+  range.surroundContents(newParent);
+
+  return newParent;
+}
+
+function createAnchor() {
+  const anchor = document.createElement('span');
+  anchor.className = 'anchor';
+  return anchor;
+}
+
+/**
+ * @param {HTMLSpanElement} anchor
+ */
+function dissolveAnchor(anchor) {
+  console.log('Dissolving anchor.');
+
+  const { previousSibling, nextSibling } = anchor;
+  if (previousSibling) {
+    const { parentElement } = previousSibling;
+    if (!parentElement) {
+      throw new Error('Expected to have parentElement.');
+    }
+    for (const childNode of anchor.childNodes) {
+      parentElement.insertBefore(childNode, nextSibling);
+    }
+  } else {
+    const { parentElement } = anchor;
+    if (!parentElement) {
+      throw new Error('Expected to have parentElement.');
+    }
+    parentElement.prepend(...anchor.childNodes);
+  }
+
+  anchor.remove();
+
+  // TODO: normalise any denormalised text nodes
+}
