@@ -133,13 +133,28 @@ function markAnchors(range, anchor) {
 
   const { startContainer, startOffset, endContainer, endOffset } = range;
 
+  console.log('markAnchors', range);
+  // debugger;
+
   // Anchor all text inside the startContainer, from the startOffset onwards.
 
   /** @type {Element} */
   let startElement;
   if (isTextNode(startContainer)) {
-    const remainder = startContainer.splitText(startOffset);
-    startElement = surroundTextNode(remainder, createAnchor());
+    if (startOffset >= startContainer.data.length) {
+      throw new Error(
+        'Expected startOffset not to be on the end of a text node.',
+      );
+    }
+
+    const trailing = startContainer.splitText(startOffset);
+    const anchor = surroundTextNode(trailing, createAnchor());
+    // It seems we may get left with an empty-data trailing node sometimes.
+    if (trailing && trailing !== anchor.firstChild) {
+      trailing.remove();
+    }
+
+    startElement = anchor.firstChild;
   } else if (isElement(startContainer)) {
     const { parentElement } = startContainer;
 
@@ -157,7 +172,8 @@ function markAnchors(range, anchor) {
       while (nextSibling && nextSibling !== endContainer) {
         const currentSibling = nextSibling;
         nextSibling = currentSibling.nextSibling;
-        startElement = markAsAnchor(currentSibling);
+        markAsAnchor(currentSibling);
+        startElement = currentSibling;
       }
     }
   } else {
@@ -174,19 +190,20 @@ function markAnchors(range, anchor) {
   let nextNode = startElement;
   while (nextNode && nextNode !== endContainer) {
     const currentNode = nextNode;
-    nextNode = traverseFollowingText(currentNode, 'next').next();
+    nextNode = traverseFollowingText(currentNode, 'next').next().value;
     markAsAnchor(currentNode);
   }
 
   // Anchor all text inside the endContainer, up until the endOffset.
 
   if (isTextNode(endContainer)) {
-    const trailing = endContainer.splitText(endOffset);
-    const leading = trailing.previousSibling;
-    if (leading) {
-      surroundTextNode(trailing, createAnchor());
+    if (!endOffset) {
+      // Nothing to surround.
+    } else if (endOffset >= endContainer.data.length) {
+      surroundTextNode(endContainer, createAnchor());
     } else {
-      // endOffset must've been at offset 0, so no nothing to surround.
+      endContainer.splitText(endOffset);
+      surroundTextNode(endContainer, createAnchor());
     }
   } else if (isElement(endContainer)) {
     const { parentElement } = endContainer;
@@ -219,13 +236,12 @@ function markAnchors(range, anchor) {
 
 /**
  * @param {Node} node
- * @returns {Element}
  */
 function markAsAnchor(node) {
   if (isTextNode(node)) {
-    return surroundTextNode(node, createAnchor());
+    surroundTextNode(node, createAnchor());
   } else if (isElement(node)) {
-    return node.classList.add('anchor');
+    node.classList.add('anchor');
   } else {
     throw new Error(
       `Expected sibling to be either a TEXT_NODE or an ELEMENT_NODE, but got nodeType ${node.nodeType}.`,
