@@ -88,9 +88,8 @@ svg {
 }
 
 #paranovel-anchor {
-  background-color: yellow;
-  color: black;
-  anchor-name: --word;
+  position: fixed;
+  outline: 1px solid red;
 }
 
 .anchor {

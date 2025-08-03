@@ -25,7 +25,7 @@ function updatePopover({ results, tokenRange }) {
     document.createElement('div');
   const anchor =
     document.getElementById('paranovel-anchor') ??
-    document.createElement('span');
+    document.createElement('div');
   popover.id = 'paranovel-popover';
   anchor.id = 'paranovel-anchor';
   popover.classList.remove('with-show-more-button');
@@ -33,6 +33,9 @@ function updatePopover({ results, tokenRange }) {
   if (!popover.isConnected) {
     document.body.prepend(popover);
     popover.popover = 'auto';
+  }
+  if (!anchor.isConnected) {
+    document.body.prepend(anchor);
   }
 
   popover.scrollTop = 0;
@@ -118,19 +121,69 @@ function updatePopover({ results, tokenRange }) {
   container.appendChild(resultsFragment);
   popover.replaceChildren(container);
 
-  markAnchors(tokenRange, anchor);
+  const anchors = markAnchors(tokenRange, anchor);
+
+  // Now that we've got these anchors, we know the nodes and elements
+  // encompassed by the selected tokens. From here, we want to anchor the
+  // popover to them. Safari 26 does implement Anchor Positioning, but
+  // `height: 100%` is practically useless, meaning we would have to do manual
+  // layout to bound the popover height properly (and give up on position-try).
+  //
+  // At that rate, about the only benefit Anchor Positioning would give us would
+  // be the ability to align to the centre of the anchor.
+  //
+  // So, if not Anchor Positioning, what are our options? Now that we've got
+  // element "anchors", we can use HTMLElement.prototype.offsetLeft (etc.)
+  // instead of getBoundingClientRect(), so rather than laying out relative to
+  // the viewport (fixed positioning) we can finally draw relative to the
+  // scroll container (absolute positioning), allowing the popover to scroll
+  // along with the page.
+  //
+  // So, we have that option now. But it's tempting to go with fixed positioning
+  // just so that we can call range.getBoundingClientRect() instead of
+  // maintaining this complex element anchors code. With the new Popover API
+  // (supported in iOS 18), we could block body scroll and make the popover
+  // disappear upon clicking on the backdrop, so there'd be no need to mind
+  // about it scrolling along with the page.
+
+  const unionedRect = unionRects(
+    [...anchors].map(anchor => anchor.getBoundingClientRect()),
+  );
+  anchor.style.left = `${unionedRect.left}px`;
+  anchor.style.top = `${unionedRect.top}px`;
+  anchor.style.width = `${unionedRect.width}px`;
+  anchor.style.height = `${unionedRect.height}px`;
+
   // popover.showPopover();
 }
 
 /**
- * @param {Range} range
- * @param {HTMLSpanElement} anchor
+ * @param {Array<DOMRect>} rects
  */
-function markAnchors(range, anchor) {
-  if (anchor.childNodes.length) {
-    throw new Error('Expected anchor to have been dissolved by now.');
+function unionRects(rects) {
+  /** @type {DOMRect | undefined} */
+  let union;
+
+  for (const rect of rects) {
+    const { top, left, bottom, right } = rect;
+    if (!union) {
+      union = rect;
+      continue;
+    }
+
+    union.top = Math.min(union.top, top);
+    union.left = Math.min(union.left, left);
+    union.bottom = Math.min(union.bottom, bottom);
+    union.right = Math.min(union.right, right);
   }
 
+  return union;
+}
+
+/**
+ * @param {Range} range
+ */
+function markAnchors(range) {
   console.log('markAnchors', range);
   const { startContainer, startOffset, endContainer, endOffset } = range;
 
@@ -578,7 +631,6 @@ function getViewportScrollTop() {
  * @param {object} obj
  * @param {string} obj.dictionaryForm
  * @param {Range} obj.tokenRange
- * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr"} obj.writingMode
  */
 async function lookUpTerm({ dictionaryForm, tokenRange }) {
   const id = __paranovelState.tokenizationPromiseCount++;
