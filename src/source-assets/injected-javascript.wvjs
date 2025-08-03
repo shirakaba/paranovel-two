@@ -230,34 +230,28 @@ function layOutPopover({ anchor, popover, tokenRange }) {
 
   // Almost working, but `bottom` is completely ignored (perhaps a WebKit bug
   // with <dialog>?), so we'll have to calculate `height` instead.
-  const tryDirection = {
-    top: () => {
-      popover.style.top = '0px';
-      popover.style.right = '0px';
-      popover.style.maxHeight = `${anchorRect.top}px`;
-      popover.style.left = '0px';
-    },
-    bottom: () => {
-      popover.style.top = `${anchorRect.bottom}px`;
-      popover.style.right = '0px';
-      popover.style.maxHeight = `${window.innerHeight - anchorRect.bottom}px`;
-      popover.style.left = '0px';
-    },
-    left: () => {
-      popover.style.top = '0px';
-      popover.style.right = `${anchorRect.right}px`;
-      popover.style.maxHeight = `${window.innerHeight}px`;
-      popover.style.left = '0px';
-    },
-    right: () => {
-      popover.style.top = '0px';
-      popover.style.right = '0px';
-      popover.style.maxHeight = `${window.innerHeight}px`;
-      popover.style.left = '0px';
-    },
+  const rects = {
+    top: new DOMRect(0, 0, window.innerWidth, anchorRect.top),
+    bottom: new DOMRect(
+      0,
+      anchorRect.bottom,
+      window.innerWidth,
+      window.innerHeight - anchorRect.bottom,
+    ),
+    left: new DOMRect(0, 0, anchorRect.left, window.innerHeight),
+    right: new DOMRect(
+      window.innerWidth,
+      0,
+      window.innerWidth - anchorRect.right,
+      window.innerHeight,
+    ),
   };
 
-  tryDirection.bottom();
+  const { top, left, width, height } = rects.bottom;
+  popover.style.top = `${top}px`;
+  popover.style.left = `${left}px`;
+  popover.style.maxWidth = `${width}px`;
+  popover.style.maxHeight = `${height}px`;
 }
 
 /**
