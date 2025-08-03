@@ -118,25 +118,28 @@ function updatePopover({ results, tokenRange }) {
   container.appendChild(resultsFragment);
   popover.replaceChildren(container);
 
-  surroundContents(tokenRange, anchor);
-  popover.showPopover();
+  markAnchors(tokenRange, anchor);
+  // popover.showPopover();
 }
 
 /**
  * @param {Range} range
  * @param {HTMLSpanElement} anchor
  */
-function surroundContents(range, anchor) {
+function markAnchors(range, anchor) {
   if (anchor.childNodes.length) {
     throw new Error('Expected anchor to have been dissolved by now.');
   }
 
   const { startContainer, startOffset, endContainer, endOffset } = range;
 
+  // Anchor all text inside the startContainer, from the startOffset onwards.
+
+  /** @type {Element} */
+  let startElement;
   if (isTextNode(startContainer)) {
     const remainder = startContainer.splitText(startOffset);
-    startContainer.replaceChild(anchor, remainder);
-    anchor.appendChild(remainder);
+    startElement = surroundTextNode(remainder, createAnchor());
   } else if (isElement(startContainer)) {
     const { parentElement } = startContainer;
 
@@ -145,16 +148,16 @@ function surroundContents(range, anchor) {
     }
 
     if (!startOffset) {
-      parentElement.replaceChild(anchor, startContainer);
-      anchor.appendChild(remainder);
+      startContainer.classList.add('anchor');
+      startElement = startContainer;
     } else {
       const childNode = startContainer.childNodes.item(startOffset - 1);
 
       let nextSibling = childNode;
-      while (nextSibling) {
-        //
-
-        nextSibling = nextSibling.nextSibling;
+      while (nextSibling && nextSibling !== endContainer) {
+        const currentSibling = nextSibling;
+        nextSibling = currentSibling.nextSibling;
+        startElement = markAsAnchor(currentSibling);
       }
     }
   } else {
@@ -162,6 +165,91 @@ function surroundContents(range, anchor) {
       `Expected Range to consist of either TEXT_NODE or ELEMENT_NODE, but got startContainer.nodeType ${startContainer.nodeType}.`,
     );
   }
+
+  if (!startElement) {
+    throw new Error('Expected to identify startElement.');
+  }
+
+  // Anchor all text after the startOffset, up until the endContainer.
+  let nextNode = startElement;
+  while (nextNode && nextNode !== endContainer) {
+    const currentNode = nextNode;
+    nextNode = traverseFollowingText(currentNode, 'next').next();
+    markAsAnchor(currentNode);
+  }
+
+  // Anchor all text inside the endContainer, up until the endOffset.
+
+  if (isTextNode(endContainer)) {
+    const trailing = endContainer.splitText(endOffset);
+    const leading = trailing.previousSibling;
+    if (leading) {
+      surroundTextNode(trailing, createAnchor());
+    } else {
+      // endOffset must've been at offset 0, so no nothing to surround.
+    }
+  } else if (isElement(endContainer)) {
+    const { parentElement } = endContainer;
+
+    if (!parentElement) {
+      throw new Error('Expected endContainer to have parentElement.');
+    }
+
+    if (!endOffset) {
+      // If the range sits on the starting edge of the container, we probably
+      // don't want to surround it.
+    } else {
+      let childIndex = 0;
+      let nextSibling = endContainer.firstChild;
+      while (nextSibling && childIndex < endOffset - 1) {
+        const currentSibling = nextSibling;
+        nextSibling = currentSibling.nextSibling;
+        markAsAnchor(currentSibling);
+        childIndex++;
+      }
+    }
+  } else {
+    throw new Error(
+      `Expected Range to consist of either TEXT_NODE or ELEMENT_NODE, but got endContainer.nodeType ${endContainer.nodeType}.`,
+    );
+  }
+
+  return document.getElementsByClassName('anchor');
+}
+
+/**
+ * @param {Node} node
+ * @returns {Element}
+ */
+function markAsAnchor(node) {
+  if (isTextNode(node)) {
+    return surroundTextNode(node, createAnchor());
+  } else if (isElement(node)) {
+    return node.classList.add('anchor');
+  } else {
+    throw new Error(
+      `Expected sibling to be either a TEXT_NODE or an ELEMENT_NODE, but got nodeType ${node.nodeType}.`,
+    );
+  }
+}
+
+/**
+ * @param {Text} textNode
+ * @param {Element} newParent
+ */
+function surroundTextNode(textNode, newParent) {
+  const range = new Range();
+  range.setStart(textNode, 0);
+  range.setEnd(textNode, textNode.data.length);
+  range.surroundContents(newParent);
+
+  return newParent;
+}
+
+function createAnchor() {
+  const anchor = document.createElement('span');
+  anchor.className = 'anchor';
+  return anchor;
 }
 
 /**
