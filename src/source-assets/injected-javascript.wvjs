@@ -160,7 +160,9 @@ function markAnchors(range, anchor) {
 
       return document.getElementsByClassName('anchor');
     } else {
-      const trailing = startContainer.splitText(startOffset);
+      const trailing = startOffset
+        ? startContainer.splitText(startOffset)
+        : startContainer;
       const anchor = surroundTextNode(trailing, createAnchor());
 
       // Each splitText() and surroundTextNode() call may introduce empty text
@@ -204,7 +206,13 @@ function markAnchors(range, anchor) {
   let nextNode = startElement;
   while (nextNode && nextNode !== endContainer) {
     const currentNode = nextNode;
-    nextNode = traverseFollowingText(currentNode, 'next').next().value;
+    debugger;
+    nextNode = traverseFollowingText(
+      currentNode,
+      'next',
+      undefined,
+      false,
+    ).next().value;
     markAsAnchor(currentNode);
   }
 
@@ -757,31 +765,16 @@ const BlockTraversalStage = {
   trailing: 2,
 };
 
-function getFollowingText(
-  node,
-  direction,
-  untilAncestor,
-  blocklist = element => false,
-) {
+function getFollowingText(node, direction, untilAncestor) {
   let followingText = '';
 
   if (direction === 'next') {
-    for (const node of traverseFollowingText(
-      node,
-      direction,
-      untilAncestor,
-      blocklist,
-    )) {
+    for (const node of traverseFollowingText(node, direction, untilAncestor)) {
       const baseTextContent = getBaseTextContent(node);
       followingText = `${followingText}${baseTextContent}`;
     }
   } else {
-    for (const node of traverseFollowingText(
-      node,
-      direction,
-      untilAncestor,
-      blocklist,
-    )) {
+    for (const node of traverseFollowingText(node, direction, untilAncestor)) {
       const baseTextContent = getBaseTextContent(node);
       followingText = `${baseTextContent}${followingText}`;
     }
@@ -794,16 +787,31 @@ function getFollowingText(
  * @param {Node} node
  * @param {"prev" | "next"} direction
  * @param {Node} [untilAncestor]
- * @param {(element: Element) => boolean} blocklist
+ * @param {boolean} [shallow] If true, climbs up parents but does not dig down
+ * into children. If false, climbs up parents and digs down into children.
  */
 function* traverseFollowingText(
   node,
   direction,
   untilAncestor,
-  blocklist = element => false,
+  shallow = true,
 ) {
-  let parent = node.parentElement;
-  let sibling = direction === 'next' ? node.nextSibling : node.previousSibling;
+  /**
+   * @param {Node} node
+   */
+  const getChildCandidate = node =>
+    !shallow && isElement(node)
+      ? direction === 'next'
+        ? node.firstChild
+        : node.lastChild
+      : null;
+
+  const childCandidate = getChildCandidate(node);
+  let parent = childCandidate ? node : node.parentElement;
+  let sibling =
+    childCandidate ??
+    (direction === 'next' ? node.nextSibling : node.previousSibling);
+
   while (true) {
     // If we've reached the end of the run, climb up to the parent and continue.
     while (!sibling) {
@@ -814,19 +822,17 @@ function* traverseFollowingText(
       sibling =
         direction === 'next' ? parent.nextSibling : parent.previousSibling;
 
-      // If we've walked into a blocklisted sibling, consider it the end of the
-      // line and climb up further.
-      if (blocklist(sibling)) {
-        sibling = null;
-      }
-
       parent = parent.parentElement;
     }
 
     yield sibling;
 
+    const childCandidate = getChildCandidate(sibling);
+    parent = childCandidate ? sibling : parent;
+
     sibling =
-      direction === 'next' ? sibling.nextSibling : sibling.previousSibling;
+      childCandidate ??
+      (direction === 'next' ? sibling.nextSibling : sibling.previousSibling);
   }
 }
 
