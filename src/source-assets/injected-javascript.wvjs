@@ -28,16 +28,21 @@ function updatePopover({ results, tokenRange }) {
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('dialog');
+  const popoverContent =
+    document.getElementById('paranovel-popover-content') ??
+    document.createElement('div');
   const anchor =
     document.getElementById('paranovel-anchor') ??
     document.createElement('div');
   popover.id = 'paranovel-popover';
+  popoverContent.id = 'paranovel-popover-content';
   anchor.id = 'paranovel-anchor';
   popover.classList.remove('with-show-more-button');
 
   if (!popover.isConnected) {
     document.body.prepend(popover);
     popover.popover = 'auto';
+    popover.appendChild(popoverContent);
   }
   if (!anchor.isConnected) {
     document.body.prepend(anchor);
@@ -124,7 +129,7 @@ function updatePopover({ results, tokenRange }) {
   resultsFragment.appendChild(showMoreContainer);
 
   container.appendChild(resultsFragment);
-  popover.replaceChildren(container);
+  popoverContent.replaceChildren(container);
 
   // Now that we've got these anchors, we know the nodes and elements
   // encompassed by the selected tokens. From here, we want to anchor the
@@ -240,19 +245,44 @@ function layOutPopover({ anchor, popover, tokenRange }) {
     ),
     left: new DOMRect(0, 0, anchorRect.left, window.innerHeight),
     right: new DOMRect(
-      window.innerWidth,
+      anchorRect.right,
       0,
       window.innerWidth - anchorRect.right,
       window.innerHeight,
     ),
   };
 
-  const { top, left, width, height } = rects.bottom;
-  popover.style.top = `calc(${top}px + var(--gutter))`;
-  popover.style.left = `calc(${left}px + var(--gutter))`;
-  popover.style.right = `calc(${window.innerWidth - width}px + var(--gutter))`;
-  // popover.style.maxWidth = `calc(${width}px - 2rem)`;
-  popover.style.maxHeight = `calc(${height}px - 2 * var(--gutter))`;
+  /** @type {'top' | 'right' | 'bottom' | 'left'} */
+  const orientation = 'top';
+
+  const { top, left, width, height } = rects[orientation];
+  popover.style.top = `${top}px`;
+  popover.style.left = `${left}px`;
+  popover.style.width = `${width}px`;
+  popover.style.height = `${height}px`;
+
+  switch (orientation) {
+    case 'top': {
+      popover.style.justifyContent = 'center';
+      popover.style.alignItems = 'flex-end';
+      break;
+    }
+    case 'right': {
+      popover.style.justifyContent = 'flex-start';
+      popover.style.alignItems = 'center';
+      break;
+    }
+    case 'bottom': {
+      popover.style.justifyContent = 'center';
+      popover.style.alignItems = 'flex-start';
+      break;
+    }
+    case 'left': {
+      popover.style.justifyContent = 'flex-end';
+      popover.style.alignItems = 'center';
+      break;
+    }
+  }
 }
 
 /**
