@@ -248,10 +248,11 @@ function layOutPopover({ anchor, popover, tokenRange }) {
   };
 
   const { top, left, width, height } = rects.bottom;
-  popover.style.top = `${top}px`;
-  popover.style.left = `${left}px`;
-  popover.style.maxWidth = `${width}px`;
-  popover.style.maxHeight = `${height}px`;
+  popover.style.top = `calc(${top}px + var(--gutter))`;
+  popover.style.left = `calc(${left}px + var(--gutter))`;
+  popover.style.right = `calc(${window.innerWidth - width}px + var(--gutter))`;
+  // popover.style.maxWidth = `calc(${width}px - 2rem)`;
+  popover.style.maxHeight = `calc(${height}px - 2 * var(--gutter))`;
 }
 
 /**

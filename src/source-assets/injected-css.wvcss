@@ -99,6 +99,7 @@ svg {
 }
 
 #paranovel-popover {
+  --gutter: 1rem;
   background: black;
   color: white;
   padding: 0.5rem;
@@ -108,10 +109,10 @@ svg {
   box-sizing: border-box;
 
   /* Override user agent custom styles for <dialog> */
-  max-height: none;
-  max-width: none;
-  inset-block-start: auto;
-  inset-block-end: auto;
+  /* max-height: none; */
+  /* max-width: none; */
+  /* inset-block-start: auto; */
+  /* inset-block-end: auto; */
   margin-inline: auto;
   margin-block: 0;
   /* It's this, or turning off autofocus  */
