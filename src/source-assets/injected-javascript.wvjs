@@ -35,10 +35,6 @@ function updatePopover({ results, tokenRange }) {
     popover.popover = 'auto';
   }
 
-  if (anchor.isConnected) {
-    dissolveAnchor(anchor);
-  }
-
   popover.scrollTop = 0;
 
   // UI ported over from Paranovel v1's `src/screens/novel/DictView.tsx`.
@@ -122,9 +118,50 @@ function updatePopover({ results, tokenRange }) {
   container.appendChild(resultsFragment);
   popover.replaceChildren(container);
 
-  // TODO: Popover with Anchor Positioning API
-  tokenRange.surroundContents(anchor);
+  surroundContents(tokenRange, anchor);
   popover.showPopover();
+}
+
+/**
+ * @param {Range} range
+ * @param {HTMLSpanElement} anchor
+ */
+function surroundContents(range, anchor) {
+  if (anchor.childNodes.length) {
+    throw new Error('Expected anchor to have been dissolved by now.');
+  }
+
+  const { startContainer, startOffset, endContainer, endOffset } = range;
+
+  if (isTextNode(startContainer)) {
+    const remainder = startContainer.splitText(startOffset);
+    startContainer.replaceChild(anchor, remainder);
+    anchor.appendChild(remainder);
+  } else if (isElement(startContainer)) {
+    const { parentElement } = startContainer;
+
+    if (!parentElement) {
+      throw new Error('Expected startContainer to have parentElement.');
+    }
+
+    if (!startOffset) {
+      parentElement.replaceChild(anchor, startContainer);
+      anchor.appendChild(remainder);
+    } else {
+      const childNode = startContainer.childNodes.item(startOffset - 1);
+
+      let nextSibling = childNode;
+      while (nextSibling) {
+        //
+
+        nextSibling = nextSibling.nextSibling;
+      }
+    }
+  } else {
+    throw new Error(
+      `Expected Range to consist of either TEXT_NODE or ELEMENT_NODE, but got startContainer.nodeType ${startContainer.nodeType}.`,
+    );
+  }
 }
 
 /**
@@ -278,6 +315,11 @@ async function onClickDocument(event) {
     // Don't attempt to look up text for any clicks within Paranovel UI
     // elements.
     return;
+  }
+
+  const anchor = document.getElementById('paranovel-anchor');
+  if (anchor?.childNodes.length) {
+    dissolveAnchor(anchor);
   }
 
   const caretRange = document.caretRangeFromPoint(x, y);
@@ -705,6 +747,22 @@ function getBaseTextContent(node) {
     baseTextContent = `${baseTextContent}${textNode.textContent}`;
   }
   return baseTextContent;
+}
+
+/**
+ * @param {Node} node
+ * @returns {node is Text}
+ */
+function isTextNode(node) {
+  return node.nodeType === Node.TEXT_NODE;
+}
+
+/**
+ * @param {Node} node
+ * @returns {node is Element}
+ */
+function isElement(node) {
+  return node.nodeType === Node.ELEMENT_NODE;
 }
 
 const __paranovelState = {

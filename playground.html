@@ -57,6 +57,8 @@
         >の形をした</p
       >
 
+      <button id="surround">Surround</button>
+
       <table>
         <thead>
           <tr style="text-align: center">
@@ -133,12 +135,18 @@ updateLog();
 
     <script>
       const rubyHighlight = new Highlight();
+      const anchor = document.createElement('span');
+      anchor.id = 'anchor';
+      anchor.style.backgroundColor = 'cyan';
 
       const testARange = new Range();
       const testAruby1 = document.querySelector('#test-a ruby');
       testARange.setStart(testAruby1, 0);
       testARange.setEnd(testAruby1, testAruby1.childNodes.length);
       rubyHighlight.add(testARange);
+      document.getElementById('surround').addEventListener('click', () => {
+        testARange.surroundContents(anchor);
+      });
 
       const testBRange = new Range();
       const testBruby1 = document.querySelector('#test-b ruby');
