@@ -134,8 +134,6 @@ function markAnchors(range, anchor) {
   console.log('markAnchors', range);
   const { startContainer, startOffset, endContainer, endOffset } = range;
 
-  // debugger;
-
   // Anchor all text inside the startContainer, from the startOffset onwards.
 
   /** @type {Element} */
@@ -154,24 +152,22 @@ function markAnchors(range, anchor) {
         ? startContainer.splitText(startOffset)
         : startContainer;
       trailing.splitText(offsetDifference);
-      const anchor = surroundTextNode(trailing, createAnchor());
+      surroundTextNode(trailing, createAnchor());
 
-      // It seems we may get left with an empty-data trailing node sometimes.
-      if (isTextNode(anchor.nextSibling) && !anchor.nextSibling.data) {
-        anchor.nextSibling.remove();
-      }
+      // Each splitText() and surroundTextNode() call may introduce empty text
+      // nodes as next siblings.
+      startContainer.parentElement?.normalize();
 
       return document.getElementsByClassName('anchor');
     } else {
       const trailing = startContainer.splitText(startOffset);
       const anchor = surroundTextNode(trailing, createAnchor());
 
-      // It seems we may get left with an empty-data trailing node sometimes.
-      if (isTextNode(anchor.nextSibling) && !anchor.nextSibling.data) {
-        anchor.nextSibling.remove();
-      }
+      // Each splitText() and surroundTextNode() call may introduce empty text
+      // nodes as next siblings.
+      startContainer.parentElement?.normalize();
 
-      startElement = anchor.firstChild;
+      startElement = anchor;
     }
   } else if (isElement(startContainer)) {
     const { parentElement } = startContainer;
@@ -219,9 +215,11 @@ function markAnchors(range, anchor) {
       // Nothing to surround.
     } else if (endOffset >= endContainer.data.length) {
       surroundTextNode(endContainer, createAnchor());
+      endContainer.parentElement?.normalize();
     } else {
       endContainer.splitText(endOffset);
       surroundTextNode(endContainer, createAnchor());
+      endContainer.parentElement?.normalize();
     }
   } else if (isElement(endContainer)) {
     const { parentElement } = endContainer;
@@ -236,7 +234,7 @@ function markAnchors(range, anchor) {
     } else {
       let childIndex = 0;
       let nextSibling = endContainer.firstChild;
-      while (nextSibling && childIndex < endOffset - 1) {
+      while (nextSibling && childIndex < endOffset) {
         const currentSibling = nextSibling;
         nextSibling = currentSibling.nextSibling;
         markAsAnchor(currentSibling);
@@ -258,6 +256,7 @@ function markAnchors(range, anchor) {
 function markAsAnchor(node) {
   if (isTextNode(node)) {
     surroundTextNode(node, createAnchor());
+    node.parentElement?.normalize();
   } else if (isElement(node)) {
     node.classList.add('anchor');
   } else {
