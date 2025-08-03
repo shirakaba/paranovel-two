@@ -131,9 +131,9 @@ function markAnchors(range, anchor) {
     throw new Error('Expected anchor to have been dissolved by now.');
   }
 
+  console.log('markAnchors', range);
   const { startContainer, startOffset, endContainer, endOffset } = range;
 
-  console.log('markAnchors', range);
   // debugger;
 
   // Anchor all text inside the startContainer, from the startOffset onwards.
@@ -147,14 +147,32 @@ function markAnchors(range, anchor) {
       );
     }
 
-    const trailing = startContainer.splitText(startOffset);
-    const anchor = surroundTextNode(trailing, createAnchor());
-    // It seems we may get left with an empty-data trailing node sometimes.
-    if (trailing && trailing !== anchor.firstChild) {
-      trailing.remove();
-    }
+    // Splitting the text will cause the endContainer and endOffset to update.
+    if (startContainer === endContainer) {
+      const offsetDifference = endOffset - startOffset;
+      const trailing = startOffset
+        ? startContainer.splitText(startOffset)
+        : startContainer;
+      trailing.splitText(offsetDifference);
+      const anchor = surroundTextNode(trailing, createAnchor());
 
-    startElement = anchor.firstChild;
+      // It seems we may get left with an empty-data trailing node sometimes.
+      if (isTextNode(anchor.nextSibling) && !anchor.nextSibling.data) {
+        anchor.nextSibling.remove();
+      }
+
+      return document.getElementsByClassName('anchor');
+    } else {
+      const trailing = startContainer.splitText(startOffset);
+      const anchor = surroundTextNode(trailing, createAnchor());
+
+      // It seems we may get left with an empty-data trailing node sometimes.
+      if (isTextNode(anchor.nextSibling) && !anchor.nextSibling.data) {
+        anchor.nextSibling.remove();
+      }
+
+      startElement = anchor.firstChild;
+    }
   } else if (isElement(startContainer)) {
     const { parentElement } = startContainer;
 

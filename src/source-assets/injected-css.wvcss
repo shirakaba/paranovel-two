@@ -93,6 +93,10 @@ svg {
   anchor-name: --word;
 }
 
+.anchor {
+  background-color: aqua;
+}
+
 #paranovel-popover {
   position-anchor: --word;
   position-area: block-end span-all;
