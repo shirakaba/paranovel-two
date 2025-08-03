@@ -88,6 +88,8 @@ svg {
 }
 
 #paranovel-anchor {
+  /* Avoid this interfering with click-to-define */
+  pointer-events: none;
   position: fixed;
   outline: 1px solid red;
 }
@@ -97,12 +99,6 @@ svg {
 }
 
 #paranovel-popover {
-  position-anchor: --word;
-  position-area: block-end span-all;
-  position-try: most-block-size flip-block;
-  /* Note: Not working even in Chrome in the MDN example */
-  position-visibility: anchors-visible;
-
   background: black;
   color: white;
   padding: 0.5rem;
@@ -143,6 +139,15 @@ svg {
   );
 
   justify-self: anchor-center;
+}
+/* #paranovel-popover::backdrop {
+  pointer-events: none;
+} */
+body:has(:popover-open) {
+  overflow: hidden;
+}
+body:has(dialog[open]) {
+  overflow: hidden;
 }
 
 #paranovel-popover.size-to-first-result-container

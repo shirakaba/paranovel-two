@@ -20,9 +20,10 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {Range} obj.tokenRange
  */
 function updatePopover({ results, tokenRange }) {
+  /** @type {HTMLDialogElement} */
   const popover =
     document.getElementById('paranovel-popover') ??
-    document.createElement('div');
+    document.createElement('dialog');
   const anchor =
     document.getElementById('paranovel-anchor') ??
     document.createElement('div');
@@ -150,7 +151,21 @@ function updatePopover({ results, tokenRange }) {
   anchor.style.width = `${rect.width}px`;
   anchor.style.height = `${rect.height}px`;
 
-  // popover.showPopover();
+  popover.showModal();
+
+  // This whole thing is a Safari workaround. Just by calling showModal(), we
+  // should be getting "click on backdrop to dismiss" behaviour for free, but
+  // Safari 18.3 seems to miss that.
+  popover.addEventListener('mousedown', event => {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    // Again, another workaround. We have to wrap this in a RAF otherwise it
+    // leads to another dictionary lookup. stopPropagation(), preventDefault(),
+    // and listening in capture phase don't help.
+    requestAnimationFrame(() => popover.close());
+  });
 }
 
 /**
