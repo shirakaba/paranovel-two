@@ -149,11 +149,7 @@ function updatePopover({ results, tokenRange }) {
   // disappear upon clicking on the backdrop, so there'd be no need to mind
   // about it scrolling along with the page.
 
-  const rect = tokenRange.getBoundingClientRect();
-  anchor.style.left = `${rect.left}px`;
-  anchor.style.top = `${rect.top}px`;
-  anchor.style.width = `${rect.width}px`;
-  anchor.style.height = `${rect.height}px`;
+  layOutPopover({ anchor, popover, tokenRange });
 
   popover.showModal();
 
@@ -170,6 +166,74 @@ function updatePopover({ results, tokenRange }) {
     // and listening in capture phase don't help.
     requestAnimationFrame(() => popover.close());
   });
+}
+
+/**
+ * @param {object} obj
+ * @param {HTMLDivElement} obj.anchor
+ * @param {HTMLDialogElement} obj.popover
+ * @param {Range} obj.tokenRange
+ */
+function layOutPopover({ anchor, popover, tokenRange }) {
+  const anchorRect = tokenRange.getBoundingClientRect();
+  anchor.style.left = `${anchorRect.left}px`;
+  anchor.style.top = `${anchorRect.top}px`;
+  anchor.style.width = `${anchorRect.width}px`;
+  anchor.style.height = `${anchorRect.height}px`;
+
+  const endContainerElement =
+    tokenRange.endContainer instanceof Element
+      ? tokenRange.endContainer
+      : tokenRange.endContainer.parentElement;
+  /** @type {"horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-lr" | "sideways-rl"} */
+  const writingMode =
+    endContainerElement?.computedStyleMap().get('writing-mode').value ??
+    'horizontal-tb';
+
+  /**
+   * A tactic to emulate the following CSS:
+   *
+   * ```css
+   * position-area: block-end span-all;
+   * position-try: most-block-size flip-block;
+   * ```
+   *
+   * @type {["bottom", "top"] | ["right", "left"] | ["left", "right"]}
+   */
+  let positionTryOrder;
+  switch (writingMode) {
+    case 'lr':
+    case 'lr-tb':
+    case 'rl':
+    case 'horizontal-tb': {
+      positionTryOrder = ['bottom', 'top'];
+      break;
+    }
+    case 'tb-lr':
+    case 'tb-rl':
+    case 'sideways-rl':
+    case 'vertical-rl':
+    case 'sideways-lr':
+    case 'vertical-lr': {
+      positionTryOrder = writingMode.endsWith('rl')
+        ? ['left', 'right']
+        : ['right', 'left'];
+      break;
+    }
+    default: {
+      throw new Error(`Unexpected writing mode, ${writingMode}`);
+    }
+  }
+
+  // We'll try both block directions in order.
+  const [firstTry, secondTry] = positionTryOrder;
+
+  // Almost working, but `bottom` is completely ignored (perhaps a WebKit bug
+  // with <dialog>?), so we'll have to calculate `height` instead.
+  popover.style.top = `${firstTry === 'bottom' ? anchorRect.bottom : 0}px`;
+  popover.style.bottom = `${firstTry === 'top' ? anchorRect.top : 0}px`;
+  popover.style.left = `${firstTry === 'right' ? anchorRect.right : 0}px`;
+  popover.style.right = `${firstTry === 'left' ? anchorRect.left : 0}px`;
 }
 
 /**
