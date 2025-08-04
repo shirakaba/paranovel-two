@@ -255,6 +255,10 @@ function layOutPopover({ anchor, popover, tokenRange }) {
   /** @type {'top' | 'right' | 'bottom' | 'left'} */
   const orientation = 'top';
 
+  // FIXME: Still unable to meet all requirements. At this point I want to give
+  // up on popover/dialog and try a regular `position: fixed` <div> just to get
+  // `bottom` and `margin-bottom` working again.
+
   const { top, left, width, height } = rects[orientation];
   popover.style.top = `${top}px`;
   popover.style.left = `${left}px`;
