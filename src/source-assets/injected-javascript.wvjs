@@ -234,7 +234,7 @@ function layOutPopover({ anchor, popoverContent, tokenRange }) {
   // number of pixels down from the top; it's equivalent to `top` + `height`).
 
   /** @type {'top' | 'right' | 'bottom' | 'left'} */
-  const orientation = 'top';
+  const orientation = 'bottom';
 
   // const { top, left, bottom, right } = rects[orientation];
   const { top, left, bottom, right } = anchorRect;
@@ -258,7 +258,10 @@ function layOutPopover({ anchor, popoverContent, tokenRange }) {
       break;
     }
     case 'bottom': {
-      // TODO
+      popoverContent.style.top = `${bottom}px`;
+      popoverContent.style.right = `${0}px`;
+      popoverContent.style.bottom = `${0}px`;
+      popoverContent.style.left = `${0}px`;
       break;
     }
     case 'left': {
