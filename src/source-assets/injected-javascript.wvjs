@@ -243,8 +243,19 @@ function layOutPopover({ anchor, popoverContent, tokenRange }) {
   popoverContent.style.bottom = `${window.innerHeight - top}px`;
   popoverContent.style.left = `${0}px`;
 
-  // TODO: we're enjoying absolute layout (for easy margins and sizing), so find
-  // a way to replace these flex styles
+  // TODO: Absolute layout has been great for expressing the position-area about
+  // the anchor. We can get tantalisingly far with margins, but I think we're
+  // going to have to introduce another wrapper div realistically.
+  //
+  // So:
+  // - #paranovel-popover: The fullscreen backdrop.
+  // - Child: The absolute-positioned "stage" (poor man's `position-area`) with
+  //          `display: flex`.
+  // - Grandchild 1: The flex-positioned panel.
+  // - Grandchild 2: We *could* introduce an arrow if we wanted.
+  // one div provides the 1rem margins, and another provides the flexbox
+  // layout.
+
   switch (orientation) {
     case 'top': {
       popoverContent.style.top = `${0}px`;

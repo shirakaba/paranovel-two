@@ -133,6 +133,9 @@ svg {
   /*
     Problem: We can't express max(auto, 1rem) or calc(auto - 1rem) to ensure
     that there is always at least 1rem of border. We may need yet another box.
+
+    Unless Flexbox can express this. But absolute positioning has been handy for
+    establishing the (kinda) position-area.
   */
   margin-block-start: auto;
   margin-block-end: 1rem;
