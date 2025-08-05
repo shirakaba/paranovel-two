@@ -99,25 +99,19 @@ svg {
 }
 
 #paranovel-popover {
-  display: block;
-  position: fixed;
-  background-color: cyan;
+  /*
+    Resets many polluting styles, likely from the ebook, that are somehow not
+    visible in the WebKit inspector.
+  */
+  all: initial;
 
-  border: none;
-  /* Override user agent custom styles for <dialog> */
-  max-height: none;
-  max-width: none;
-  margin: 0;
-  padding: 0;
-  /* It's this, or turning off autofocus  */
-  outline: none;
-}
-#paranovel-popover-content::after {
-  content: '';
   position: fixed;
   inset: 0;
-  background-color: rgba(255, 0, 255, 0.5);
-  z-index: -1;
+  background-color: rgba(0, 0, 0, 0.1);
+  /* padding: 1rem; */
+  touch-action: none;
+  box-sizing: border-box;
+  display: block;
 }
 #paranovel-popover:not([data-open]) {
   display: none;
@@ -125,15 +119,20 @@ svg {
 
 #paranovel-popover-content {
   --gutter: 1rem;
+
+  position: absolute;
   background: black;
   color: white;
   padding: 0.5rem;
   font-size: 50px;
 
   border: 2px solid red;
-  /* box-sizing: border-box; */
+  box-sizing: border-box;
+  overflow: auto;
+  margin: 1rem;
 
   max-inline-size: 300px;
+  max-block-size: fit-content;
 }
 /* #paranovel-popover::backdrop {
   pointer-events: none;

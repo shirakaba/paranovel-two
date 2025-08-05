@@ -168,18 +168,17 @@ function updatePopover({ results, tokenRange }) {
   // disappear upon clicking on the backdrop, so there'd be no need to mind
   // about it scrolling along with the page.
 
-  layOutPopover({ anchor, popover, tokenRange });
-
   popover.dataset.open = '';
+  layOutPopover({ anchor, popoverContent, tokenRange });
 }
 
 /**
  * @param {object} obj
  * @param {HTMLDivElement} obj.anchor
- * @param {HTMLDialogElement} obj.popover
+ * @param {HTMLElement} obj.popoverContent
  * @param {Range} obj.tokenRange
  */
-function layOutPopover({ anchor, popover, tokenRange }) {
+function layOutPopover({ anchor, popoverContent, tokenRange }) {
   const anchorRect = tokenRange.getBoundingClientRect();
   anchor.style.left = `${anchorRect.left}px`;
   anchor.style.top = `${anchorRect.top}px`;
@@ -212,6 +211,7 @@ function layOutPopover({ anchor, popover, tokenRange }) {
     case 'rl':
     case 'horizontal-tb': {
       positionTryOrder = ['bottom', 'top'];
+      popoverContent.style.overflow = '';
       break;
     }
     case 'tb-lr':
@@ -229,6 +229,9 @@ function layOutPopover({ anchor, popover, tokenRange }) {
       throw new Error(`Unexpected writing mode, ${writingMode}`);
     }
   }
+
+  // `anchorRect` is measured entirely from the top-left (i.e. `bottom` is the
+  // number of pixels down from the top; it's equivalent to `top` + `height`).
 
   // We'll try both block directions in order.
   // const [firstTry, secondTry] = positionTryOrder;
@@ -252,38 +255,39 @@ function layOutPopover({ anchor, popover, tokenRange }) {
     ),
   };
 
+  console.log('rects', rects);
+
   /** @type {'top' | 'right' | 'bottom' | 'left'} */
   const orientation = 'top';
 
-  // FIXME: Still unable to meet all requirements. At this point I want to give
-  // up on popover/dialog and try a regular `position: fixed` <div> just to get
-  // `bottom` and `margin-bottom` working again.
+  // const { top, left, bottom, right } = rects[orientation];
+  const { top, left, bottom, right } = anchorRect;
+  popoverContent.style.top = `${0}px`;
+  popoverContent.style.right = `${0}px`;
+  popoverContent.style.bottom = `${window.innerHeight - top}px`;
+  popoverContent.style.left = `${0}px`;
 
-  const { top, left, width, height } = rects[orientation];
-  popover.style.top = `${top}px`;
-  popover.style.left = `${left}px`;
-  popover.style.width = `${width}px`;
-  popover.style.height = `${height}px`;
-
+  // TODO: we're enjoying absolute layout (for easy margins and sizing), so find
+  // a way to replace these flex styles
   switch (orientation) {
     case 'top': {
-      popover.style.justifyContent = 'center';
-      popover.style.alignItems = 'flex-end';
+      popoverContent.style.justifySelf = 'center';
+      popoverContent.style.alignSelf = 'flex-end';
       break;
     }
     case 'right': {
-      popover.style.justifyContent = 'flex-start';
-      popover.style.alignItems = 'center';
+      popoverContent.style.justifySelf = 'flex-start';
+      popoverContent.style.alignSelf = 'center';
       break;
     }
     case 'bottom': {
-      popover.style.justifyContent = 'center';
-      popover.style.alignItems = 'flex-start';
+      popoverContent.style.justifySelf = 'center';
+      popoverContent.style.alignSelf = 'flex-start';
       break;
     }
     case 'left': {
-      popover.style.justifyContent = 'flex-end';
-      popover.style.alignItems = 'center';
+      popoverContent.style.justifySelf = 'flex-end';
+      popoverContent.style.alignSelf = 'center';
       break;
     }
   }
