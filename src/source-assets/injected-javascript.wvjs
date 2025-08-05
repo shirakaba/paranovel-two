@@ -27,7 +27,7 @@ function updatePopover({ results, tokenRange }) {
    */
   const popover =
     document.getElementById('paranovel-popover') ??
-    document.createElement('dialog');
+    document.createElement('div');
   const popoverContent =
     document.getElementById('paranovel-popover-content') ??
     document.createElement('div');
@@ -42,6 +42,20 @@ function updatePopover({ results, tokenRange }) {
   if (!popover.isConnected) {
     document.body.prepend(popover);
     popover.popover = 'auto';
+
+    popover.addEventListener('click', event => {
+      if (popoverContent.contains(event.target)) {
+        console.log('contained', event.currentTarget);
+        return;
+      }
+      console.log('out!');
+
+      delete popover.dataset.open;
+
+      // Stop this click propagating to the document-level click handler.
+      event.stopPropagation();
+    });
+
     popover.appendChild(popoverContent);
   }
   if (!anchor.isConnected) {
@@ -156,21 +170,7 @@ function updatePopover({ results, tokenRange }) {
 
   layOutPopover({ anchor, popover, tokenRange });
 
-  popover.showModal();
-
-  // This whole thing is a Safari workaround. Just by calling showModal(), we
-  // should be getting "click on backdrop to dismiss" behaviour for free, but
-  // Safari 18.3 seems to miss that.
-  popover.addEventListener('mousedown', event => {
-    if (event.target !== event.currentTarget) {
-      return;
-    }
-
-    // Again, another workaround. We have to wrap this in a RAF otherwise it
-    // leads to another dictionary lookup. stopPropagation(), preventDefault(),
-    // and listening in capture phase don't help.
-    requestAnimationFrame(() => popover.close());
-  });
+  popover.dataset.open = '';
 }
 
 /**
