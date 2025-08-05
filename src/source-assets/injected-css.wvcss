@@ -129,14 +129,13 @@ svg {
   border: 2px solid red;
   box-sizing: border-box;
   overflow: auto;
-  margin: 1rem;
+  margin-block-start: auto;
+  margin-block-end: 1rem;
+  margin-inline: auto;
 
-  max-inline-size: 300px;
+  max-inline-size: calc(100% - 2rem);
   max-block-size: fit-content;
 }
-/* #paranovel-popover::backdrop {
-  pointer-events: none;
-} */
 body:has(:popover-open) {
   overflow: hidden;
 }
