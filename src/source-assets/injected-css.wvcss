@@ -25,7 +25,7 @@
 /* Workaround for WebKit bug. See comments in injected-javascript.wvjs. */
 rt {
   /* The workaround is opt-out, rather than opt-in. */
-  isolation: isolate;
+  /* isolation: isolate; */
 }
 
 * {

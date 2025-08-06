@@ -43,9 +43,9 @@ function updatePopover({ results, tokenRange }) {
   anchor.id = 'paranovel-anchor';
   popover.classList.remove('with-show-more-button');
 
-  const rtsInRange = [...document.querySelectorAll('rt')].filter(
-    rt => !tokenRange.intersectsNode(rt),
-  );
+  // const rtsInRange = [...document.querySelectorAll('rt')].filter(rt =>
+  //   tokenRange.intersectsNode(rt),
+  // );
 
   /**
    * Workaround for a horrible WebKit-only bug, affecting both macOS Safari 17.6
@@ -61,14 +61,14 @@ function updatePopover({ results, tokenRange }) {
     // It would be more intuitive to opt in to isolation rather than opt out,
     // but opting in leads to a visible flash on the anchor <rt>.
     apply: () => {
-      rtsInRange.forEach(rt => {
-        rt.style.setProperty('isolation', 'auto');
-      });
+      // rtsInRange.forEach(rt => {
+      //   rt.style.setProperty('isolation', 'auto');
+      // });
     },
     remove: () => {
-      rtsInRange.forEach(rt => {
-        rt.style.removeProperty('isolation');
-      });
+      // rtsInRange.forEach(rt => {
+      //   rt.style.removeProperty('isolation');
+      // });
     },
   };
 
@@ -86,7 +86,7 @@ function updatePopover({ results, tokenRange }) {
 
       delete popover.dataset.open;
       __paranovelState.wordHighlight.clear();
-      rtIsolationHack.remove();
+      // rtIsolationHack.remove();
 
       // Stop this click propagating to the document-level click handler.
       event.stopPropagation();
@@ -200,7 +200,7 @@ function updatePopover({ results, tokenRange }) {
   // disappear upon clicking on the backdrop, so there'd be no need to mind
   // about it scrolling along with the page.
 
-  rtIsolationHack.apply();
+  // rtIsolationHack.apply();
   popover.dataset.open = '';
   layOutPopover({ anchor, popoverStage, popoverContent, tokenRange });
   popoverContent.scrollTop = 0;
@@ -549,9 +549,16 @@ async function onClickDocument(event) {
     }
   }
 
-  console.log('onClickDocument', { tokenRange });
+  const subranges = getSubrangesWithoutRts(tokenRange);
+  console.log('onClickDocument', {
+    tokenRange,
+    subranges,
+  });
   window.tokenRange = tokenRange;
-  __paranovelState.wordHighlight.add(tokenRange);
+  window.subranges = subranges;
+  for (const subrange of subranges) {
+    __paranovelState.wordHighlight.add(subrange);
+  }
 
   log(`🔎 Looking up term "${dictionaryForm}"`);
   lookUpTerm({
@@ -779,6 +786,98 @@ function getFollowingText(node, direction, untilAncestor) {
   }
 
   return followingText;
+}
+
+/**
+ * @param {Range} range
+ */
+function getSubrangesWithoutRts(range) {
+  /** @type {Array<Range>} */
+  const ranges = [];
+
+  const { startContainer, startOffset, endContainer, endOffset } = range;
+
+  if (isTextNode(startContainer)) {
+    if (!startContainer.parentElement?.closest('rt')) {
+      const range = new Range();
+      range.setStart(startContainer, startOffset);
+      if (startContainer === endContainer) {
+        range.setEnd(startContainer, endOffset);
+        ranges.push(range);
+        return ranges;
+      } else {
+        range.setEnd(startContainer, startContainer.data.length);
+        ranges.push(range);
+      }
+    }
+  } else if (isElement(startContainer)) {
+    if (!startContainer.parentElement?.closest('rt')) {
+      const range = new Range();
+      range.setStart(startContainer, startOffset);
+      ranges.push(range);
+    }
+  } else {
+    throw new Error('Expected startContainer to be text node or element.');
+  }
+
+  for (const node of traverseFollowingText(
+    range.startContainer,
+    'next',
+    undefined,
+    false,
+  )) {
+    if (isTextNode(node)) {
+      if (node.parentElement?.closest('rt')) {
+        continue;
+      }
+
+      const range = new Range();
+      range.setStart(node, startOffset);
+      if (node === endContainer) {
+        range.setEnd(startContainer, endOffset);
+        ranges.push(range);
+        return ranges;
+      } else {
+        range.setEnd(node, node.data.length);
+        ranges.push(range);
+      }
+      continue;
+    }
+
+    if (node === endContainer) {
+      console.log(`range ended on`, endContainer);
+
+      if (node.nodeName.toLowerCase() === 'rt') {
+        // const range = new Range();
+        // range.setStart(node, 0);
+        // range.setEnd(node, node.childNodes.length);
+        // ranges.push(range);
+
+        const { firstChild } = node;
+        if (isTextNode(firstChild)) {
+          const range = new Range();
+          range.setStart(firstChild, 0);
+          range.setEnd(firstChild, firstChild.data.length);
+          ranges.push(range);
+        }
+      }
+      break;
+    }
+
+    // if (!isElement(node)) {
+    //   throw new Error('Expected node to be text node or element.');
+    // }
+
+    // if (node.parentElement?.closest('rt')) {
+    //   continue;
+    // }
+
+    // const range = new Range();
+    // range.setStart(node, startOffset);
+    // ranges.push(range);
+  }
+
+  return ranges;
 }
 
 /**
