@@ -299,7 +299,11 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
     }
     case 'right': {
       popoverStage.style.flexDirection = 'row';
-      // TODO
+      popoverStage.style.justifyContent = 'flex-start';
+      popoverStage.style.top = `${0}px`;
+      popoverStage.style.right = `${0}px`;
+      popoverStage.style.bottom = `${0}px`;
+      popoverStage.style.left = `${right}px`;
       break;
     }
     case 'bottom': {
@@ -313,7 +317,11 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
     }
     case 'left': {
       popoverStage.style.flexDirection = 'row';
-      // TODO
+      popoverStage.style.justifyContent = 'flex-end';
+      popoverStage.style.top = `${0}px`;
+      popoverStage.style.right = `${window.innerWidth - left}px`;
+      popoverStage.style.bottom = `${0}px`;
+      popoverStage.style.left = `${0}px`;
       break;
     }
   }
