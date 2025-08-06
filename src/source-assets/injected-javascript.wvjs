@@ -820,6 +820,9 @@ function getSubrangesWithoutRts(range) {
     throw new Error('Expected startContainer to be text node or element.');
   }
 
+  /** @type {Set<HTMLElement>} */
+  const visitedRubies = new Set();
+
   for (const node of traverseFollowingText(
     range.startContainer,
     'next',
@@ -864,13 +867,20 @@ function getSubrangesWithoutRts(range) {
       break;
     }
 
-    // if (!isElement(node)) {
-    //   throw new Error('Expected node to be text node or element.');
-    // }
+    if (!isElement(node)) {
+      throw new Error('Expected node to be text node or element.');
+    }
 
-    // if (node.parentElement?.closest('rt')) {
-    //   continue;
-    // }
+    const ruby = node.parentElement?.closest('ruby');
+    if (!ruby || visitedRubies.has(ruby)) {
+      continue;
+    }
+    visitedRubies.add(ruby);
+
+    const range = new Range();
+    range.setStart(ruby, 0);
+    range.setEnd(ruby, ruby.childNodes.length);
+    ranges.push(range);
 
     // const range = new Range();
     // range.setStart(node, startOffset);
