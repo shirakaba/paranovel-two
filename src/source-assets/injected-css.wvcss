@@ -133,7 +133,7 @@ body:has(#paranovel-popover[data-open]) {
   overflow: auto;
   overscroll-behavior: contain;
 
-  max-inline-size: 500px;
+  max-inline-size: min(100%, 500px);
   block-size: fit-content;
   max-block-size: 100%;
 }
