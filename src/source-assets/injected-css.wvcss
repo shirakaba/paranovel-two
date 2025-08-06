@@ -110,10 +110,11 @@ svg {
 #paranovel-popover:not([data-open]) {
   display: none;
 }
-body:has(#paranovel-popover[data-open]) {
+body.modal {
   /* Prevents pan gestures on the popover from scrolling the document. */
   overflow: hidden;
 }
+
 #paranovel-popover-stage {
   position: absolute;
   display: flex;

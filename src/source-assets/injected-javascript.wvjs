@@ -187,6 +187,7 @@ function updatePopover({ results, tokenRange }) {
   // disappear upon clicking on the backdrop, so there'd be no need to mind
   // about it scrolling along with the page.
 
+  document.body.classList.add('modal');
   rtIsolationHack.apply();
   popover.dataset.open = '';
   layOutPopover({ anchor, popoverStage, popoverContent, tokenRange });
@@ -206,6 +207,8 @@ function updatePopover({ results, tokenRange }) {
 
     // Stop this click propagating to the document-level click handler.
     event.stopPropagation();
+
+    document.body.classList.remove('modal');
   }
 }
 
