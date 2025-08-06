@@ -22,6 +22,12 @@
   background-color: yellow;
 }
 
+/* Workaround for WebKit bug. See comments in injected-javascript.wvjs. */
+rt {
+  /* The workaround is opt-out, rather than opt-in. */
+  isolation: isolate;
+}
+
 * {
   /*
     Prevent double-tap from zooming and centring on the element (e.g. <button>

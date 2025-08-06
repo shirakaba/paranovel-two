@@ -43,8 +43,8 @@ function updatePopover({ results, tokenRange }) {
   anchor.id = 'paranovel-anchor';
   popover.classList.remove('with-show-more-button');
 
-  const rtsInRange = [...document.querySelectorAll('rt')].filter(rt =>
-    tokenRange.intersectsNode(rt),
+  const rtsInRange = [...document.querySelectorAll('rt')].filter(
+    rt => !tokenRange.intersectsNode(rt),
   );
 
   /**
@@ -58,9 +58,11 @@ function updatePopover({ results, tokenRange }) {
    * @see https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Understanding_z-index/Stacking_context
    */
   const rtIsolationHack = {
+    // It would be more intuitive to opt in to isolation rather than opt out,
+    // but opting in leads to a visible flash on the anchor <rt>.
     apply: () => {
       rtsInRange.forEach(rt => {
-        rt.style.isolation = 'isolate';
+        rt.style.setProperty('isolation', 'auto');
       });
     },
     remove: () => {
