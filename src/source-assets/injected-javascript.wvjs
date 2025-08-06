@@ -77,20 +77,7 @@ function updatePopover({ results, tokenRange }) {
     popover.appendChild(popoverStage);
     popoverStage.appendChild(popoverContent);
 
-    popover.addEventListener('click', event => {
-      if (popoverContent.contains(event.target)) {
-        console.log('contained', event.currentTarget);
-        return;
-      }
-      console.log('out!');
-
-      delete popover.dataset.open;
-      __paranovelState.wordHighlight.clear();
-      rtIsolationHack.remove();
-
-      // Stop this click propagating to the document-level click handler.
-      event.stopPropagation();
-    });
+    popover.addEventListener('click', onClose);
   }
   if (!anchor.isConnected) {
     document.body.prepend(anchor);
@@ -204,6 +191,22 @@ function updatePopover({ results, tokenRange }) {
   popover.dataset.open = '';
   layOutPopover({ anchor, popoverStage, popoverContent, tokenRange });
   popoverContent.scrollTop = 0;
+
+  /** @param {MouseEvent} event */
+  function onClose(event) {
+    if (popoverContent.contains(event.target)) {
+      console.log('contained', event.currentTarget);
+      return;
+    }
+    console.log('out!');
+
+    delete popover.dataset.open;
+    __paranovelState.wordHighlight.clear();
+    rtIsolationHack.remove();
+
+    // Stop this click propagating to the document-level click handler.
+    event.stopPropagation();
+  }
 }
 
 /**
