@@ -190,7 +190,15 @@ function updatePopover({ results, tokenRange }) {
   document.body.classList.add('modal');
   rtIsolationHack.apply();
   popover.dataset.open = '';
-  layOutPopover({ anchor, popoverStage, popoverContent, tokenRange });
+  const orientation = layOutPopover({
+    anchor,
+    popoverStage,
+    popoverContent,
+    tokenRange,
+  });
+  if (!orientation) {
+    onClose();
+  }
   popoverContent.scrollTop = 0;
 
   /** @param {MouseEvent} event */
@@ -277,12 +285,19 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   let lastTried;
   for (const orientation of positionTryOrder) {
     lastTried = orientation;
-    const overflow = tryOrientation({
+    const { blockOverflow: overflow, isOverflowingViewport } = tryOrientation({
       popoverStage,
       popoverContent,
       anchorRect,
       orientation,
     });
+
+    if (isOverflowingViewport) {
+      console.log(
+        `Discarding orientation "${orientation}" as it's overflowing the viewport.`,
+      );
+      continue;
+    }
 
     overflows.push({ orientation, overflow });
 
@@ -292,28 +307,35 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   }
 
   const sortedOverflows = overflows.sort((a, b) => a.overflow - b.overflow);
-  const leastOverflow = sortedOverflows[0].orientation;
+  const leastOverflow = sortedOverflows.at(0).orientation;
+
+  if (!leastOverflow) {
+    return;
+  }
 
   if (leastOverflow === lastTried) {
     console.log(
       `Given overflows ${JSON.stringify(
-        leastOverflow,
+        sortedOverflows,
       )}, picking ${leastOverflow} (last tried)`,
     );
-  } else {
-    console.log(
-      `Given overflows ${JSON.stringify(
-        leastOverflow,
-      )}, picking ${leastOverflow} (redoing layout)`,
-    );
-
-    tryOrientation({
-      popoverStage,
-      popoverContent,
-      anchorRect,
-      orientation: leastOverflow,
-    });
+    return leastOverflow;
   }
+
+  console.log(
+    `Given overflows ${JSON.stringify(
+      sortedOverflows,
+    )}, picking ${leastOverflow} (redoing layout)`,
+  );
+
+  tryOrientation({
+    popoverStage,
+    popoverContent,
+    anchorRect,
+    orientation: leastOverflow,
+  });
+
+  return leastOverflow;
 }
 
 /** @typedef {'top' | 'right' | 'bottom' | 'left'} Orientation */
@@ -348,33 +370,47 @@ function tryOrientation({
       popoverStage.style.flexDirection = 'column';
       popoverStage.style.justifyContent = 'flex-end';
       popoverStage.style.bottom = `${window.innerHeight - top}px`;
-      // blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
+      blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
       break;
     }
     case 'right': {
       popoverStage.style.flexDirection = 'row';
       popoverStage.style.justifyContent = 'flex-start';
       popoverStage.style.left = `${right}px`;
-      // blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
       break;
     }
     case 'bottom': {
       popoverStage.style.flexDirection = 'column';
       popoverStage.style.justifyContent = 'flex-start';
       popoverStage.style.top = `${bottom}px`;
-      // blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
+      blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
       break;
     }
     case 'left': {
       popoverStage.style.flexDirection = 'row';
       popoverStage.style.justifyContent = 'flex-end';
       popoverStage.style.right = `${window.innerWidth - left}px`;
-      // blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
       break;
     }
   }
 
-  return blockOverflow;
+  const stageRect = popoverContent.getBoundingClientRect();
+
+  // Although the anchor may be fully onscreen, some orientations around it may
+  // cause the popover to fall offscreen.
+  let isOverflowingViewport = false;
+  if (
+    stageRect.top < 0 ||
+    stageRect.left < 0 ||
+    stageRect.bottom > window.innerHeight ||
+    stageRect.right > window.innerWidth
+  ) {
+    isOverflowingViewport = true;
+  }
+
+  return { blockOverflow, isOverflowingViewport };
 }
 
 /**

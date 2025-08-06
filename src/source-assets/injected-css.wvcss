@@ -33,6 +33,8 @@ rt {
     Prevent double-tap from zooming and centring on the element (e.g. <button>
     elements). The zoom cancellation is redundant with the "user-scalable=no"
     option specified in our <meta> tag, but the centring cancellation isn't.
+
+    In practice, this doesn't seem to work in some (if not all) cases.
   */
   touch-action: pan-x pan-y;
 }
