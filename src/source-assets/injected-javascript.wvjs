@@ -190,6 +190,7 @@ function updatePopover({ results, tokenRange }) {
   document.body.classList.add('modal');
   rtIsolationHack.apply();
   popover.dataset.open = '';
+  popover.style.setProperty('visibility', 'hidden');
   const orientation = layOutPopover({
     anchor,
     popoverStage,
@@ -198,8 +199,10 @@ function updatePopover({ results, tokenRange }) {
   });
   if (!orientation) {
     onClose();
+    return;
   }
   popoverContent.scrollTop = 0;
+  popover.style.setProperty('visibility', 'visible');
 
   /** @param {MouseEvent} event */
   function onClose(event) {
@@ -319,21 +322,20 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
         sortedOverflows,
       )}, picking ${leastOverflow} (last tried)`,
     );
-    return leastOverflow;
+  } else {
+    console.log(
+      `Given overflows ${JSON.stringify(
+        sortedOverflows,
+      )}, picking ${leastOverflow} (redoing layout)`,
+    );
+
+    tryOrientation({
+      popoverStage,
+      popoverContent,
+      anchorRect,
+      orientation: leastOverflow,
+    });
   }
-
-  console.log(
-    `Given overflows ${JSON.stringify(
-      sortedOverflows,
-    )}, picking ${leastOverflow} (redoing layout)`,
-  );
-
-  tryOrientation({
-    popoverStage,
-    popoverContent,
-    anchorRect,
-    orientation: leastOverflow,
-  });
 
   return leastOverflow;
 }
