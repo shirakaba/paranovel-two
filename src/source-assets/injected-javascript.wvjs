@@ -288,7 +288,11 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   let lastTried;
   for (const orientation of positionTryOrder) {
     lastTried = orientation;
-    const { blockOverflow: overflow, isOverflowingViewport } = tryOrientation({
+    const {
+      blockOverflow: overflow,
+      isOverflowingViewport,
+      stageRect,
+    } = tryOrientation({
       popoverStage,
       popoverContent,
       anchorRect,
@@ -298,6 +302,7 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
     if (isOverflowingViewport) {
       console.log(
         `Discarding orientation "${orientation}" as it's overflowing the viewport.`,
+        stageRect,
       );
       continue;
     }
@@ -310,7 +315,7 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   }
 
   const sortedOverflows = overflows.sort((a, b) => a.overflow - b.overflow);
-  const leastOverflow = sortedOverflows.at(0).orientation;
+  const leastOverflow = sortedOverflows.at(0)?.orientation;
 
   if (!leastOverflow) {
     return;
@@ -412,7 +417,7 @@ function tryOrientation({
     isOverflowingViewport = true;
   }
 
-  return { blockOverflow, isOverflowingViewport };
+  return { blockOverflow, isOverflowingViewport, stageRect };
 }
 
 /**
