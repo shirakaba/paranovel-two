@@ -65,8 +65,6 @@ function updatePopover({ results, tokenRange }) {
     document.body.prepend(anchor);
   }
 
-  popover.scrollTop = 0;
-
   // UI ported over from Paranovel v1's `src/screens/novel/DictView.tsx`.
   // The container here maps to DictView's `ScrollView`, but we hoist its styles
   // up to #paranovel-popover's CSS declaration instead.
@@ -173,6 +171,7 @@ function updatePopover({ results, tokenRange }) {
 
   popover.dataset.open = '';
   layOutPopover({ anchor, popoverStage, popoverContent, tokenRange });
+  popoverContent.scrollTop = 0;
 }
 
 /**
