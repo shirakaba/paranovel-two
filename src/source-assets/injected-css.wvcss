@@ -49,7 +49,7 @@ body {
     scrolled.
     @see https://bsky.app/profile/shirakaba.bsky.social/post/3lhvtwmr7fc2v
   */
-  writing-mode: horizontal-tb !important;
+  /* writing-mode: horizontal-tb !important; */
 }
 
 html {
