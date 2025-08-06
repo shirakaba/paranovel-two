@@ -43,6 +43,33 @@ function updatePopover({ results, tokenRange }) {
   anchor.id = 'paranovel-anchor';
   popover.classList.remove('with-show-more-button');
 
+  const rtsInRange = [...document.querySelectorAll('rt')].filter(rt =>
+    tokenRange.intersectsNode(rt),
+  );
+
+  /**
+   * Workaround for a horrible WebKit-only bug, affecting both macOS Safari 17.6
+   * and the Safari shipped with iOS 18.1 (both WebKit 605.1.15), whereby an
+   * opaque highlight is composited over the <rt>, completely obscuring it.
+   *
+   * By using isolation: isolate, we force a new stacking context. This is a
+   * vital alternative to z-index, which was not working - though opacity 0.999
+   * would have equally worked:
+   * @see https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Understanding_z-index/Stacking_context
+   */
+  const rtIsolationHack = {
+    apply: () => {
+      rtsInRange.forEach(rt => {
+        rt.style.isolation = 'isolate';
+      });
+    },
+    remove: () => {
+      rtsInRange.forEach(rt => {
+        rt.style.removeProperty('isolation');
+      });
+    },
+  };
+
   if (!popover.isConnected) {
     document.body.prepend(popover);
     popover.appendChild(popoverStage);
@@ -56,6 +83,8 @@ function updatePopover({ results, tokenRange }) {
       console.log('out!');
 
       delete popover.dataset.open;
+      __paranovelState.wordHighlight.clear();
+      rtIsolationHack.remove();
 
       // Stop this click propagating to the document-level click handler.
       event.stopPropagation();
@@ -169,6 +198,7 @@ function updatePopover({ results, tokenRange }) {
   // disappear upon clicking on the backdrop, so there'd be no need to mind
   // about it scrolling along with the page.
 
+  rtIsolationHack.apply();
   popover.dataset.open = '';
   layOutPopover({ anchor, popoverStage, popoverContent, tokenRange });
   popoverContent.scrollTop = 0;
@@ -237,7 +267,7 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   // number of pixels down from the top; it's equivalent to `top` + `height`).
 
   /** @type {'top' | 'right' | 'bottom' | 'left'} */
-  const orientation = 'top';
+  const orientation = 'bottom';
 
   // const { top, left, bottom, right } = rects[orientation];
   const { top, left, bottom, right } = anchorRect;
@@ -519,6 +549,7 @@ async function onClickDocument(event) {
 
   console.log('onClickDocument', { tokenRange });
   window.tokenRange = tokenRange;
+  __paranovelState.wordHighlight.add(tokenRange);
 
   log(`🔎 Looking up term "${dictionaryForm}"`);
   lookUpTerm({
