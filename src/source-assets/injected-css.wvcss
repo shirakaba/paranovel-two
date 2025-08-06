@@ -83,7 +83,7 @@ svg {
   /* Avoid this interfering with click-to-define */
   pointer-events: none;
   position: fixed;
-  outline: 1px solid red;
+  /* outline: 1px solid red; */
 }
 
 .anchor {
@@ -99,7 +99,7 @@ svg {
 
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.1);
+  /* background-color: rgba(0, 0, 0, 0.1); */
   /* padding: 1rem; */
   touch-action: none;
   box-sizing: border-box;
@@ -128,7 +128,7 @@ body:has(#paranovel-popover[data-open]) {
   padding: 0.5rem;
   font-size: 50px;
 
-  border: 2px solid red;
+  /* border: 2px solid red; */
   box-sizing: border-box;
   overflow: auto;
   overscroll-behavior: contain;
