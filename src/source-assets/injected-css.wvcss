@@ -116,11 +116,15 @@ svg {
 #paranovel-popover:not([data-open]) {
   display: none;
 }
+#paranovel-popover-stage {
+  position: absolute;
+  display: flex;
+  inset: 0;
+  padding: 1rem;
+  align-items: center;
+}
 
 #paranovel-popover-content {
-  --gutter: 1rem;
-
-  position: absolute;
   background: black;
   color: white;
   padding: 0.5rem;
@@ -130,18 +134,7 @@ svg {
   box-sizing: border-box;
   overflow: auto;
 
-  /*
-    Problem: We can't express max(auto, 1rem) or calc(auto - 1rem) to ensure
-    that there is always at least 1rem of border. We may need yet another box.
-
-    Unless Flexbox can express this. But absolute positioning has been handy for
-    establishing the (kinda) position-area.
-  */
-  margin-block-start: auto;
-  margin-block-end: 1rem;
-  margin-inline: auto;
-
-  max-inline-size: calc(100% - 2rem);
+  max-inline-size: 500px;
   max-block-size: fit-content;
 }
 body:has(:popover-open) {

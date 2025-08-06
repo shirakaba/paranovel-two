@@ -28,6 +28,9 @@ function updatePopover({ results, tokenRange }) {
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
+  const popoverStage =
+    document.getElementById('paranovel-popover-stage') ??
+    document.createElement('div');
   const popoverContent =
     document.getElementById('paranovel-popover-content') ??
     document.createElement('div');
@@ -35,13 +38,15 @@ function updatePopover({ results, tokenRange }) {
     document.getElementById('paranovel-anchor') ??
     document.createElement('div');
   popover.id = 'paranovel-popover';
+  popoverStage.id = 'paranovel-popover-stage';
   popoverContent.id = 'paranovel-popover-content';
   anchor.id = 'paranovel-anchor';
   popover.classList.remove('with-show-more-button');
 
   if (!popover.isConnected) {
     document.body.prepend(popover);
-    popover.popover = 'auto';
+    popover.appendChild(popoverStage);
+    popoverStage.appendChild(popoverContent);
 
     popover.addEventListener('click', event => {
       if (popoverContent.contains(event.target)) {
@@ -55,8 +60,6 @@ function updatePopover({ results, tokenRange }) {
       // Stop this click propagating to the document-level click handler.
       event.stopPropagation();
     });
-
-    popover.appendChild(popoverContent);
   }
   if (!anchor.isConnected) {
     document.body.prepend(anchor);
@@ -169,16 +172,17 @@ function updatePopover({ results, tokenRange }) {
   // about it scrolling along with the page.
 
   popover.dataset.open = '';
-  layOutPopover({ anchor, popoverContent, tokenRange });
+  layOutPopover({ anchor, popoverStage, popoverContent, tokenRange });
 }
 
 /**
  * @param {object} obj
  * @param {HTMLDivElement} obj.anchor
+ * @param {HTMLElement} obj.popoverStage
  * @param {HTMLElement} obj.popoverContent
  * @param {Range} obj.tokenRange
  */
-function layOutPopover({ anchor, popoverContent, tokenRange }) {
+function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   const anchorRect = tokenRange.getBoundingClientRect();
   anchor.style.left = `${anchorRect.left}px`;
   anchor.style.top = `${anchorRect.top}px`;
@@ -211,7 +215,7 @@ function layOutPopover({ anchor, popoverContent, tokenRange }) {
     case 'rl':
     case 'horizontal-tb': {
       positionTryOrder = ['bottom', 'top'];
-      popoverContent.style.overflow = '';
+      popoverStage.style.overflow = '';
       break;
     }
     case 'tb-lr':
@@ -234,14 +238,10 @@ function layOutPopover({ anchor, popoverContent, tokenRange }) {
   // number of pixels down from the top; it's equivalent to `top` + `height`).
 
   /** @type {'top' | 'right' | 'bottom' | 'left'} */
-  const orientation = 'bottom';
+  const orientation = 'top';
 
   // const { top, left, bottom, right } = rects[orientation];
   const { top, left, bottom, right } = anchorRect;
-  popoverContent.style.top = `${0}px`;
-  popoverContent.style.right = `${0}px`;
-  popoverContent.style.bottom = `${window.innerHeight - top}px`;
-  popoverContent.style.left = `${0}px`;
 
   // TODO: Absolute layout has been great for expressing the position-area about
   // the anchor. We can get tantalisingly far with margins, but I think we're
@@ -258,24 +258,30 @@ function layOutPopover({ anchor, popoverContent, tokenRange }) {
 
   switch (orientation) {
     case 'top': {
-      popoverContent.style.top = `${0}px`;
-      popoverContent.style.right = `${0}px`;
-      popoverContent.style.bottom = `${window.innerHeight - top}px`;
-      popoverContent.style.left = `${0}px`;
+      popoverStage.style.flexDirection = 'column';
+      popoverStage.style.justifyContent = 'flex-end';
+      popoverStage.style.top = `${0}px`;
+      popoverStage.style.right = `${0}px`;
+      popoverStage.style.bottom = `${window.innerHeight - top}px`;
+      popoverStage.style.left = `${0}px`;
       break;
     }
     case 'right': {
+      popoverStage.style.flexDirection = 'row';
       // TODO
       break;
     }
     case 'bottom': {
-      popoverContent.style.top = `${bottom}px`;
-      popoverContent.style.right = `${0}px`;
-      popoverContent.style.bottom = `${0}px`;
-      popoverContent.style.left = `${0}px`;
+      popoverStage.style.flexDirection = 'column';
+      popoverStage.style.justifyContent = 'flex-start';
+      popoverStage.style.top = `${bottom}px`;
+      popoverStage.style.right = `${0}px`;
+      popoverStage.style.bottom = `${0}px`;
+      popoverStage.style.left = `${0}px`;
       break;
     }
     case 'left': {
+      popoverStage.style.flexDirection = 'row';
       // TODO
       break;
     }
