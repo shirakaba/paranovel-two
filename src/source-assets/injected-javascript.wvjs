@@ -265,9 +265,66 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
     }
   }
 
-  /** @type {'top' | 'right' | 'bottom' | 'left'} */
-  const orientation = 'bottom';
+  /** @type {Array<{ orientation: Orientation, overflow: number }>} */
+  const overflows = [];
+  /** @type {Orientation} */
+  let lastTried;
+  for (const orientation of positionTryOrder) {
+    lastTried = orientation;
+    const overflow = tryOrientation({
+      popoverStage,
+      popoverContent,
+      anchorRect,
+      orientation,
+    });
 
+    overflows.push({ orientation, overflow });
+
+    if (!overflow) {
+      break;
+    }
+  }
+
+  const sortedOverflows = overflows.sort((a, b) => a.overflow - b.overflow);
+  const leastOverflow = sortedOverflows[0].orientation;
+
+  if (leastOverflow === lastTried) {
+    console.log(
+      `Given overflows ${JSON.stringify(
+        leastOverflow,
+      )}, picking ${leastOverflow} (last tried)`,
+    );
+  } else {
+    console.log(
+      `Given overflows ${JSON.stringify(
+        leastOverflow,
+      )}, picking ${leastOverflow} (redoing layout)`,
+    );
+
+    tryOrientation({
+      popoverStage,
+      popoverContent,
+      anchorRect,
+      orientation: leastOverflow,
+    });
+  }
+}
+
+/** @typedef {'top' | 'right' | 'bottom' | 'left'} Orientation */
+
+/**
+ * @param {object} args
+ * @param {HTMLElement} args.popoverStage
+ * @param {HTMLElement} args.popoverContent
+ * @param {DOMRect} args.anchorRect
+ * @param {Orientation} args.orientation
+ */
+function tryOrientation({
+  popoverStage,
+  popoverContent,
+  anchorRect,
+  orientation,
+}) {
   // `anchorRect` is measured entirely from the top-left (i.e. `bottom` is the
   // number of pixels down from the top; it's equivalent to `top` + `height`).
   const { top, left, bottom, right } = anchorRect;
@@ -277,32 +334,41 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   popoverStage.style.removeProperty('bottom');
   popoverStage.style.removeProperty('left');
 
+  /** @type {number} */
+  let blockOverflow = 0;
+
   switch (orientation) {
     case 'top': {
       popoverStage.style.flexDirection = 'column';
       popoverStage.style.justifyContent = 'flex-end';
       popoverStage.style.bottom = `${window.innerHeight - top}px`;
+      // blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
       break;
     }
     case 'right': {
       popoverStage.style.flexDirection = 'row';
       popoverStage.style.justifyContent = 'flex-start';
       popoverStage.style.left = `${right}px`;
+      // blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
       break;
     }
     case 'bottom': {
       popoverStage.style.flexDirection = 'column';
       popoverStage.style.justifyContent = 'flex-start';
       popoverStage.style.top = `${bottom}px`;
+      // blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
       break;
     }
     case 'left': {
       popoverStage.style.flexDirection = 'row';
       popoverStage.style.justifyContent = 'flex-end';
       popoverStage.style.right = `${window.innerWidth - left}px`;
+      // blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
       break;
     }
   }
+
+  return blockOverflow;
 }
 
 /**
