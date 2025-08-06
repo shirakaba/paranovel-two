@@ -112,9 +112,15 @@ svg {
   touch-action: none;
   box-sizing: border-box;
   display: block;
+
+  touch-action: none;
 }
 #paranovel-popover:not([data-open]) {
   display: none;
+}
+body:has(#paranovel-popover[data-open]) {
+  /* Prevents pan gestures on the popover from scrolling the document. */
+  overflow: hidden;
 }
 #paranovel-popover-stage {
   position: absolute;
@@ -133,6 +139,7 @@ svg {
   border: 2px solid red;
   box-sizing: border-box;
   overflow: auto;
+  overscroll-behavior: contain;
 
   max-inline-size: 500px;
   max-block-size: fit-content;
