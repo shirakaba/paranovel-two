@@ -550,6 +550,11 @@ async function onClickDocument(event) {
     dissolveAnchor(anchor);
   }
 
+  // This rounds to the nearest glyph. That is to say, given the text "abc",
+  // your click will be funnelled into "b" if it is:
+  // 1. in the last 50% (in the inline direction) of a;
+  // 2. within b itself;
+  // 3. in the first 50% (in the inline direction) of b.
   const caretRange = document.caretRangeFromPoint(x, y);
   if (!caretRange) {
     log('❌ no caret range');
