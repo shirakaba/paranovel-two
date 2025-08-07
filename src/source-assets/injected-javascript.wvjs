@@ -561,6 +561,13 @@ async function onClickDocument(event) {
     return;
   }
 
+  const compensated = compensateForHitslop(caretRange);
+  console.log(`document.caretRangeFromPoint(${x}, ${y})`, {
+    rangeItself: compensated.target,
+    leading: compensated.leading.getBoundingClientRect(),
+    target: compensated.target.getBoundingClientRect(),
+  });
+
   const surroundingText = getSurroundingText(caretRange);
   if (!surroundingText) {
     log('❌ no surrounding text');
@@ -664,6 +671,68 @@ async function onClickDocument(event) {
     tokenRange,
     dictionaryForm,
   });
+}
+
+/**
+ * @param {Range} target
+ */
+function compensateForHitslop(target) {
+  /** @type {Range | undefined} */
+  let leading;
+  if (isTextNode(target.startContainer)) {
+    if (target.startOffset) {
+      const range = new Range();
+      range.setStart(target.startContainer, target.startOffset - 1);
+      range.setEnd(target.startContainer, target.startOffset);
+      leading = range;
+    } else {
+      for (const node of traverseFollowingText(
+        target.startContainer,
+        'prev',
+        document.body,
+        false,
+      )) {
+        if (!isTextNode(node) || !node.data.length) {
+          continue;
+        }
+        const range = new Range();
+        range.setStart(node, node.data.length - 1);
+        range.setEnd(node, node.data.length);
+        leading = range;
+        break;
+      }
+    }
+  } else if (isElement(target.startContainer)) {
+    /** @type {Node} */
+    let boundaryPoint;
+    if (target.startOffset) {
+      boundaryPoint =
+        target.startContainer.childNodes.item(target.startOffset - 1) ??
+        target.startContainer;
+    } else {
+      boundaryPoint = target.startContainer;
+    }
+
+    for (const node of traverseFollowingText(
+      boundaryPoint,
+      'prev',
+      document.body,
+      false,
+    )) {
+      if (!isTextNode(node) || !node.data.length) {
+        continue;
+      }
+      const range = new Range();
+      range.setStart(node, node.data.length - 1);
+      range.setEnd(node, node.data.length);
+      leading = range;
+      break;
+    }
+  }
+
+  // TODO: trailing
+
+  return { leading, target, trailing: undefined };
 }
 
 function getViewportScrollLeft() {
