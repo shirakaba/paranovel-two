@@ -561,10 +561,10 @@ async function onClickDocument(event) {
     return;
   }
 
-  compensateForHitslop(caretRange);
-  // console.log(`document.caretRangeFromPoint(${x}, ${y})`);
+  console.log(`document.caretRangeFromPoint(${x}, ${y})`);
+  const adjustedRange = compensateForHitSlop({ caretRange, x, y });
 
-  const surroundingText = getSurroundingText(caretRange);
+  const surroundingText = getSurroundingText(adjustedRange);
   if (!surroundingText) {
     log('❌ no surrounding text');
     return;
@@ -670,22 +670,71 @@ async function onClickDocument(event) {
 }
 
 /**
- * @param {Range} target
+ * @param {object} args
+ * @param {Range} args.caretRange
+ * @param {number} args.x
+ * @param {number} args.y
  */
-function compensateForHitslop(target) {
-  console.log(`  [MIDDLE]\n${debugRange(target)}`);
+function compensateForHitSlop({ caretRange, x, y }) {
+  const surroundingRanges = getCaretSurroundingRanges(caretRange);
+  if (!surroundingRanges) {
+    return caretRange;
+  }
 
+  const { leading, trailing } = surroundingRanges;
+  const leadingRect = leading.getBoundingClientRect();
+  const trailingRect = trailing.getBoundingClientRect();
+
+  console.log(`  [MIDDLE]\n${debugRange(caretRange)}`);
+  console.log(
+    ` [LEADING] "${leading.toString()}"\n${debugRange(
+      leading,
+    )}\n${JSON.stringify(leadingRect.toJSON())}`,
+  );
+  console.log(
+    `[TRAILING] "${trailing.toString()}"\n${debugRange(
+      trailing,
+    )}\n${JSON.stringify(trailingRect.toJSON())}`,
+  );
+
+  if (isPointInRect({ rect: leadingRect, x, y })) {
+    console.log(`Picking leading range: "${leading.toString()}"`);
+    return leading;
+  }
+
+  if (isPointInRect({ rect: trailingRect, x, y })) {
+    console.log(`Picking trailing range: "${trailing.toString()}"`);
+    return trailing;
+  }
+
+  return caretRange;
+}
+
+/**
+ * @param {object} args
+ * @param {DOMRect} args.rect
+ * @param {number} args.x
+ * @param {number} args.y
+ */
+function isPointInRect({ rect, x, y }) {
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+/**
+ * @param {Range} caret
+ */
+function getCaretSurroundingRanges(caret) {
   /** @type {Range | undefined} */
   let leading;
-  if (isTextNode(target.startContainer)) {
-    if (target.startOffset) {
+  if (isTextNode(caret.startContainer)) {
+    if (caret.startOffset) {
       const range = new Range();
-      range.setStart(target.startContainer, target.startOffset - 1);
-      range.setEnd(target.startContainer, target.startOffset);
+      range.setStart(caret.startContainer, caret.startOffset - 1);
+      range.setEnd(caret.startContainer, caret.startOffset);
       leading = range;
     } else {
       for (const node of traverseFollowingText(
-        target.startContainer,
+        caret.startContainer,
         'prev',
         document.body,
         false,
@@ -700,15 +749,15 @@ function compensateForHitslop(target) {
         break;
       }
     }
-  } else if (isElement(target.startContainer)) {
+  } else if (isElement(caret.startContainer)) {
     /** @type {Node} */
     let boundaryPoint;
-    if (target.startOffset) {
+    if (caret.startOffset) {
       boundaryPoint =
-        target.startContainer.childNodes.item(target.startOffset - 1) ??
-        target.startContainer;
+        caret.startContainer.childNodes.item(caret.startOffset - 1) ??
+        caret.startContainer;
     } else {
-      boundaryPoint = target.startContainer;
+      boundaryPoint = caret.startContainer;
     }
 
     for (const node of traverseFollowingText(
@@ -728,19 +777,21 @@ function compensateForHitslop(target) {
     }
   }
 
-  console.log(` [LEADING] "${leading.toString()}"\n${debugRange(leading)}`);
+  if (!leading) {
+    return;
+  }
 
   /** @type {Range | undefined} */
   let trailing;
-  if (isTextNode(target.endContainer)) {
-    if (target.endOffset < target.endContainer.data.length) {
+  if (isTextNode(caret.endContainer)) {
+    if (caret.endOffset < caret.endContainer.data.length) {
       const range = new Range();
-      range.setStart(target.endContainer, target.endOffset);
-      range.setEnd(target.endContainer, target.endOffset + 1);
+      range.setStart(caret.endContainer, caret.endOffset);
+      range.setEnd(caret.endContainer, caret.endOffset + 1);
       trailing = range;
     } else {
       for (const node of traverseFollowingText(
-        target.endContainer,
+        caret.endContainer,
         'next',
         document.body,
         false,
@@ -755,15 +806,15 @@ function compensateForHitslop(target) {
         break;
       }
     }
-  } else if (isElement(target.endContainer)) {
+  } else if (isElement(caret.endContainer)) {
     /** @type {Node} */
     let boundaryPoint;
-    if (target.endOffset) {
+    if (caret.endOffset) {
       boundaryPoint =
-        target.endContainer.childNodes.item(target.startOffset - 1) ??
-        target.endContainer;
+        caret.endContainer.childNodes.item(caret.startOffset - 1) ??
+        caret.endContainer;
     } else {
-      boundaryPoint = target.endContainer;
+      boundaryPoint = caret.endContainer;
     }
 
     for (const node of traverseFollowingText(
@@ -783,9 +834,11 @@ function compensateForHitslop(target) {
     }
   }
 
-  console.log(`[TRAILING] "${trailing.toString()}"\n${debugRange(trailing)}`);
+  if (!trailing) {
+    return;
+  }
 
-  return { leading, target, trailing };
+  return { leading, trailing };
 }
 
 /** @param {Range} range  */
