@@ -231,7 +231,12 @@ function updatePopover({ results, tokenRange }) {
  * @param {Range} obj.tokenRange
  */
 function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
-  const anchorRect = tokenRange.getBoundingClientRect();
+  const anchorRect = getEffectiveBoundingClientRect(tokenRange);
+  console.log(
+    `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
+      [...tokenRange.getClientRects()],
+    )}`,
+  );
   anchor.style.left = `${anchorRect.left}px`;
   anchor.style.top = `${anchorRect.top}px`;
   anchor.style.width = `${anchorRect.width}px`;
@@ -343,6 +348,49 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   }
 
   return leastOverflow;
+}
+
+/**
+ * When a range begins with a character that follows straight after a soft line
+ * wrap, the bounding client rect may span two lines despite the only visible
+ * character(s) being in the trailing client rect.
+ *
+ * This function gets the "effective" bounding client rect by removing any
+ * client rects with zero width or zero height, and unioning the rest.
+ *
+ * @param {Range} range
+ */
+function getEffectiveBoundingClientRect(range) {
+  /** @type {DOMRect | undefined} */
+  let current;
+  for (const rect of range.getClientRects()) {
+    const { x, y, top, right, bottom, left, width, height } = rect;
+
+    if (!width || !height) {
+      continue;
+    }
+
+    if (!current) {
+      current = new DOMRect(x, y, width, height);
+      continue;
+    }
+
+    const leftmost = Math.min(left, current.left);
+    const topmost = Math.min(top, current.top);
+    const rightmost = Math.max(right, current.right);
+    const bottommost = Math.max(bottom, current.bottom);
+
+    // While x, y, width, and height are mutable, the more convenient cardinal
+    // directions are not.
+    current = new DOMRect(
+      leftmost,
+      topmost,
+      rightmost - leftmost,
+      bottommost - topmost,
+    );
+  }
+
+  return current ?? range.getBoundingClientRect();
 }
 
 /** @typedef {'top' | 'right' | 'bottom' | 'left'} Orientation */
