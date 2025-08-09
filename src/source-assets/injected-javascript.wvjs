@@ -603,6 +603,25 @@ function insertNavigationButtons(body) {
   }
 }
 
+/**
+ * @param {HTMLElement} container
+ */
+function insertProgressBar(container) {
+  const progress = document.createElement('progress');
+  progress.id = 'paranovel-progress';
+  container.appendChild(progress);
+  progress.max = 100;
+  progress.value = 0;
+
+  progress.style.position = 'fixed';
+  progress.style.top = '1rem';
+  progress.style.left = '0';
+  progress.style.right = '0';
+  progress.style.writingMode = 'horizontal-tb';
+  progress.style.width = 'calc(100% - 2rem)';
+  progress.style.marginInline = 'auto';
+}
+
 function log(message) {
   window.ReactNativeWebView.postMessage(
     JSON.stringify({ type: 'log', message }),
@@ -1285,51 +1304,6 @@ insertNavigationButtons(document.body);
 insertProgressBar(document.body);
 document.addEventListener('click', onClickDocument);
 
-const observer = new IntersectionObserver(entries => {
-  console.log('Observer called!', entries);
-  for (const { target, isIntersecting } of entries) {
-    const index = paragraphs.indexOf(target);
-
-    if (isIntersecting) {
-      /** @type {HTMLProgressElement} */
-      const progress = document.getElementById('paranovel-progress');
-      if (!progress) {
-        return;
-      }
-
-      progress.value = ((index + 1) / paragraphs.length) * 100;
-      console.log(`✅`, target);
-    } else {
-      console.log(`❌`, target);
-    }
-  }
-}, {});
-document.addEventListener(
-  'scroll',
-  () => {
-    /** @type {HTMLProgressElement} */
-    const progress = document.getElementById('paranovel-progress');
-    if (!progress) {
-      return;
-    }
-
-    // FIXME: Not quite sure why the progress bar starts at a non-zero value.
-
-    progress.value =
-      (document.scrollingElement.scrollLeft /
-        (document.scrollingElement.scrollWidth - window.innerWidth)) *
-      -100;
-  },
-  { passive: true },
-);
-
-const paragraphs = [...document.querySelectorAll('p')];
-paragraphs.forEach(paragraph => {
-  // TODO: Exclude any <p> that are descendants of known Paranovel elements
-  // (e.g. the navigation buttons).
-  observer.observe(paragraph);
-});
-
 document.addEventListener('dblclick', () => {
   // This no-op event listener is needed to prevent WebKit's "double-tap to
   // scroll" functionality, which is an anti-feature as far as our tap-driven
@@ -1349,21 +1323,23 @@ document.addEventListener('dblclick', () => {
   // unexplained codepath in WebKit that abrogates the scrolling.
 });
 
-/**
- * @param {HTMLElement} container
- */
-function insertProgressBar(container) {
-  const progress = document.createElement('progress');
-  progress.id = 'paranovel-progress';
-  container.appendChild(progress);
-  progress.max = 100;
-  progress.value = 0;
+// Track reading progress within the current page.
+//
+// I wanted to use IntersectionObserver, but it doesn't fire callbacks (upon
+// elements scrolling into the viewport) for vertical-rl text on WebKit.
+document.addEventListener(
+  'scroll',
+  () => {
+    /** @type {HTMLProgressElement} */
+    const progress = document.getElementById('paranovel-progress');
+    if (!progress) {
+      return;
+    }
 
-  progress.style.position = 'fixed';
-  progress.style.top = '1rem';
-  progress.style.left = '0';
-  progress.style.right = '0';
-  progress.style.writingMode = 'horizontal-tb';
-  progress.style.width = 'calc(100% - 2rem)';
-  progress.style.marginInline = 'auto';
-}
+    progress.value =
+      (document.scrollingElement.scrollLeft /
+        (document.scrollingElement.scrollWidth - window.innerWidth)) *
+      -100;
+  },
+  { passive: true },
+);
