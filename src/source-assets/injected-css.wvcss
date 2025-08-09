@@ -49,10 +49,13 @@ body {
     scrolled.
     @see https://bsky.app/profile/shirakaba.bsky.social/post/3lhvtwmr7fc2v
 
-    Update: Even worse, `position: fixed` simply doesn't display on vertical-rl.
-    And even using the Popover API doesn't circumvent that.
+    Update 1: Even worse, `position: fixed` simply doesn't display on
+    vertical-rl. And even using the Popover API doesn't circumvent that.
+
+    Update 2: It seems Safari 18 is less buggy with vertical text than Safari
+    26.
   */
-  writing-mode: horizontal-tb !important;
+  /* writing-mode: horizontal-tb !important; */
 }
 
 html {

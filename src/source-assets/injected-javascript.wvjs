@@ -293,16 +293,13 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   let lastTried;
   for (const orientation of positionTryOrder) {
     lastTried = orientation;
-    const {
-      blockOverflow: overflow,
-      isOverflowingViewport,
-      stageRect,
-    } = tryOrientation({
-      popoverStage,
-      popoverContent,
-      anchorRect,
-      orientation,
-    });
+    const { blockOverflow, inlineOverflow, isOverflowingViewport, stageRect } =
+      tryOrientation({
+        popoverStage,
+        popoverContent,
+        anchorRect,
+        orientation,
+      });
 
     if (isOverflowingViewport) {
       console.log(
@@ -311,10 +308,17 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
       );
       continue;
     }
+    if (inlineOverflow) {
+      console.log(
+        `Discarding orientation "${orientation}" as it's overflowing in the inline orientation.`,
+        stageRect,
+      );
+      continue;
+    }
 
-    overflows.push({ orientation, overflow });
+    overflows.push({ orientation, overflow: blockOverflow });
 
-    if (!overflow) {
+    if (!blockOverflow) {
       break;
     }
   }
@@ -417,8 +421,16 @@ function tryOrientation({
   popoverStage.style.removeProperty('bottom');
   popoverStage.style.removeProperty('left');
 
+  /**
+   * For now, the popover is always formatted as horizontal-lr, even if the
+   * ebook is vertical-rl. This is, in chief, because I'm starting with a
+   * Japanese-English dictionary, and vertical-rl does not suit English text.
+   */
+  const popoverWritingDirectionMatchesBodyText = false;
+
   /** @type {number} */
   let blockOverflow = 0;
+  let inlineOverflow = 0;
 
   switch (orientation) {
     case 'top': {
@@ -426,13 +438,23 @@ function tryOrientation({
       popoverStage.style.justifyContent = 'flex-end';
       popoverStage.style.bottom = `${window.innerHeight - top}px`;
       blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
+      inlineOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
       break;
     }
     case 'right': {
       popoverStage.style.flexDirection = 'row';
       popoverStage.style.justifyContent = 'flex-start';
       popoverStage.style.left = `${right}px`;
-      blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      if (popoverWritingDirectionMatchesBodyText) {
+        blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+        inlineOverflow =
+          popoverContent.scrollHeight - popoverContent.clientHeight;
+      } else {
+        blockOverflow =
+          popoverContent.scrollHeight - popoverContent.clientHeight;
+        inlineOverflow =
+          popoverContent.scrollWidth - popoverContent.clientWidth;
+      }
       break;
     }
     case 'bottom': {
@@ -440,13 +462,23 @@ function tryOrientation({
       popoverStage.style.justifyContent = 'flex-start';
       popoverStage.style.top = `${bottom}px`;
       blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
+      inlineOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
       break;
     }
     case 'left': {
       popoverStage.style.flexDirection = 'row';
       popoverStage.style.justifyContent = 'flex-end';
       popoverStage.style.right = `${window.innerWidth - left}px`;
-      blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      if (popoverWritingDirectionMatchesBodyText) {
+        blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+        inlineOverflow =
+          popoverContent.scrollHeight - popoverContent.clientHeight;
+      } else {
+        blockOverflow =
+          popoverContent.scrollHeight - popoverContent.clientHeight;
+        inlineOverflow =
+          popoverContent.scrollWidth - popoverContent.clientWidth;
+      }
       break;
     }
   }
@@ -465,7 +497,7 @@ function tryOrientation({
     isOverflowingViewport = true;
   }
 
-  return { blockOverflow, isOverflowingViewport, stageRect };
+  return { blockOverflow, inlineOverflow, isOverflowingViewport, stageRect };
 }
 
 /**
