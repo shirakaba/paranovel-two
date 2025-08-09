@@ -42,6 +42,7 @@ rt {
 html,
 body {
   margin: 0 !important;
+  padding: 0 !important;
   inline-size: 100% !important;
   /*
     Due to an iOS Safari bug, we have to force the <html> and/or <body> to be
