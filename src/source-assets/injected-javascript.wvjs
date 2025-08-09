@@ -1283,3 +1283,22 @@ CSS.highlights.set('word', __paranovelState.wordHighlight);
 
 insertNavigationButtons(document.body);
 document.addEventListener('click', onClickDocument);
+
+document.addEventListener('dblclick', () => {
+  // This no-op event listener is needed to prevent WebKit's "double-tap to
+  // scroll" functionality, which is an anti-feature as far as our tap-driven
+  // ebook reader app is concerned.
+  //
+  // The WebKit team told us in 2015 that we can opt out of it by either:
+  // 1) adding `user-scalable=no` to the viewport <meta> tag, or;
+  // 2) setting `touch-action: pan-x pan-y` in CSS.
+  // https://webkit.org/blog/5610/more-responsive-tapping-on-ios/
+  //
+  // … But in practice in 2025, iOS Safari just ignores both of these. So here
+  // we are, handling it in JavaScript like a chump.
+  //
+  // Why is this event handler empty, though? Surely we need to do something
+  // like call event.preventDefault() in here, you cry. Well, no, actually. The
+  // mere *presence* of a dblclick listener on the document triggers some
+  // unexplained codepath in WebKit that abrogates the scrolling.
+});
