@@ -1285,6 +1285,33 @@ insertNavigationButtons(document.body);
 insertProgressBar(document.body);
 document.addEventListener('click', onClickDocument);
 
+const observer = new IntersectionObserver(entries => {
+  console.log('Observer called!', entries);
+  for (const { target, isIntersecting } of entries) {
+    const index = paragraphs.indexOf(target);
+
+    if (isIntersecting) {
+      /** @type {HTMLProgressElement} */
+      const progress = document.getElementById('paranovel-progress');
+      if (!progress) {
+        return;
+      }
+
+      progress.value = ((index + 1) / paragraphs.length) * 100;
+      console.log(`✅`, target);
+    } else {
+      console.log(`❌`, target);
+    }
+  }
+}, {});
+
+const paragraphs = [...document.querySelectorAll('p')];
+paragraphs.forEach(paragraph => {
+  // TODO: Exclude any <p> that are descendants of known Paranovel elements
+  // (e.g. the navigation buttons).
+  observer.observe(paragraph);
+});
+
 document.addEventListener('dblclick', () => {
   // This no-op event listener is needed to prevent WebKit's "double-tap to
   // scroll" functionality, which is an anti-feature as far as our tap-driven
