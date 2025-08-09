@@ -1304,6 +1304,24 @@ const observer = new IntersectionObserver(entries => {
     }
   }
 }, {});
+document.addEventListener(
+  'scroll',
+  () => {
+    /** @type {HTMLProgressElement} */
+    const progress = document.getElementById('paranovel-progress');
+    if (!progress) {
+      return;
+    }
+
+    // FIXME: Not quite sure why the progress bar starts at a non-zero value.
+
+    progress.value =
+      (document.scrollingElement.scrollLeft /
+        (document.scrollingElement.scrollWidth - window.innerWidth)) *
+      -100;
+  },
+  { passive: true },
+);
 
 const paragraphs = [...document.querySelectorAll('p')];
 paragraphs.forEach(paragraph => {
@@ -1339,7 +1357,7 @@ function insertProgressBar(container) {
   progress.id = 'paranovel-progress';
   container.appendChild(progress);
   progress.max = 100;
-  progress.value = 50;
+  progress.value = 0;
 
   progress.style.position = 'fixed';
   progress.style.top = '1rem';
