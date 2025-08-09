@@ -1282,6 +1282,7 @@ const __paranovelState = {
 CSS.highlights.set('word', __paranovelState.wordHighlight);
 
 insertNavigationButtons(document.body);
+insertProgressBar(document.body);
 document.addEventListener('click', onClickDocument);
 
 document.addEventListener('dblclick', () => {
@@ -1302,3 +1303,22 @@ document.addEventListener('dblclick', () => {
   // mere *presence* of a dblclick listener on the document triggers some
   // unexplained codepath in WebKit that abrogates the scrolling.
 });
+
+/**
+ * @param {HTMLElement} container
+ */
+function insertProgressBar(container) {
+  const progress = document.createElement('progress');
+  progress.id = 'paranovel-progress';
+  container.appendChild(progress);
+  progress.max = 100;
+  progress.value = 50;
+
+  progress.style.position = 'fixed';
+  progress.style.top = '1rem';
+  progress.style.left = '0';
+  progress.style.right = '0';
+  progress.style.writingMode = 'horizontal-tb';
+  progress.style.width = 'calc(100% - 2rem)';
+  progress.style.marginInline = 'auto';
+}
