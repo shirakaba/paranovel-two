@@ -1336,10 +1336,20 @@ document.addEventListener(
       return;
     }
 
-    progress.value =
+    const blockScrollFraction =
+      -1 *
       (document.scrollingElement.scrollLeft /
-        (document.scrollingElement.scrollWidth - window.innerWidth)) *
-      -100;
+        (document.scrollingElement.scrollWidth - window.innerWidth));
+
+    progress.value = blockScrollFraction * 100;
+
+    window.ReactNativeWebView.postMessage(
+      JSON.stringify({
+        type: 'progress-update',
+        subtype: 'scroll',
+        blockScrollFraction,
+      }),
+    );
   },
   { passive: true },
 );

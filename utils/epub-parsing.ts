@@ -11,11 +11,15 @@ export function getMainFeaturesFromOpf(
 ): MainFeaturesFromOPF | undefined {
   const {
     package: {
-      metadata: { titles, metas },
+      metadata: { titles, metas, identifiers },
       manifest: { items },
       spine: { itemrefs, toc },
     },
   } = opf;
+
+  const uuid = identifiers.findLast(
+    ({ opfScheme }) => opfScheme === 'uuid',
+  )?.textContent;
 
   // It's okay for this to be optional, as consumers downstream can fall
   // back to the folderName.
@@ -75,6 +79,7 @@ export function getMainFeaturesFromOpf(
   }
 
   return {
+    uuid,
     title,
     coverImage: coverItem?.href,
     nav: navItem?.href,

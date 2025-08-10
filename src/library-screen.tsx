@@ -17,6 +17,7 @@ import { makeBookmark } from '@/modules/bookmarks';
 import type { Book } from '@/types/book.types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './navigation.types';
+import { BookState } from './persistence/book-state';
 
 export default function LibraryScreen({
   navigation,
@@ -69,6 +70,14 @@ export default function LibraryScreen({
     }
   }, [libraryStatus]);
 
+  const isMountedRef = React.useRef(false);
+  React.useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   return (
     <SafeAreaView
       style={[
@@ -92,10 +101,37 @@ export default function LibraryScreen({
           return (
             <File
               key={book.title}
-              onPress={() => {
+              onPress={async () => {
+                const { uuid } = book;
+
+                let scroll = 0;
+                let startingHref = book.startingHref;
+                if (uuid) {
+                  const bookStateStore = (await BookState.get()) ?? {};
+
+                  // User navigated away during the Promise, so abort.
+                  if (!isMountedRef.current) {
+                    return;
+                  }
+
+                  const bookState = bookStateStore[uuid];
+                  // FIXME: It's no good storing the scroll fraction if we don't
+                  // store the ensure that it corresponds to the startingHref.
+                  //
+                  // FIXME: It's also no good to store the startingHref if it
+                  // maps to a container directory that no longer exists.
+                  //
+                  // So ideally we should track the last page, rather than the
+                  // last href.
+                  if (bookState) {
+                    startingHref = bookState.startingHref;
+                    scroll = bookState.blockScrollFractionOnLastViewedPage;
+                  }
+                }
+
                 navigation.push('Book', {
                   ...book,
-                  href: `${book.opsUri}/${book.startingHref}`,
+                  href: `${book.opsUri}/${startingHref}?scroll=${scroll}`,
                   navigationTimestamp: `${Date.now()}`,
                 });
               }}

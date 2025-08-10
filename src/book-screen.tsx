@@ -30,6 +30,7 @@ import { lookUpTerm } from '@/utils/look-up-term';
 import type { RootStackParamList } from './navigation.types';
 import injectedCss from './source-assets/injected-css.wvcss';
 import mainScript from './source-assets/injected-javascript.wvjs';
+import { BookState } from './persistence/book-state';
 
 export default function BookScreen({
   navigation,
@@ -203,11 +204,18 @@ export default function BookScreen({
         value: string;
         currentHref: string;
       }
+      interface ProgressPayload {
+        type: 'progress-update';
+        /** We may support visible element-based updates in future. */
+        subtype: 'scroll';
+        blockScrollFraction: number;
+      }
       type Payload =
         | LogPayload
         | LookUpPayload
         | TokenizePayload
-        | NavigationRequestPayload;
+        | NavigationRequestPayload
+        | ProgressPayload;
 
       let parsed: Payload;
       try {
@@ -386,6 +394,30 @@ export default function BookScreen({
           }
 
           return reject('"Didn\'t find token"', id);
+        }
+        case 'progress-update': {
+          const { blockScrollFraction } = parsed;
+
+          const uuid = params.uuid;
+          if (!uuid) {
+            return;
+          }
+
+          BookState.get()
+            .then(store => {
+              const definiteStore = store ?? {};
+              return BookState.set({
+                ...definiteStore,
+                [uuid]: {
+                  ...definiteStore[uuid],
+                  blockScrollFractionOnLastViewedPage: blockScrollFraction,
+                },
+              });
+            })
+            .catch(error => {
+              console.error('Failed to update persisted book state.', error);
+            });
+          break;
         }
       }
     },

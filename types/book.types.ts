@@ -1,5 +1,10 @@
 export type MainFeaturesFromOPF = {
   /**
+   * The UUID from the opf:scheme="uuid" identifier.
+   */
+  uuid?: string;
+
+  /**
    * The title extracted from the OPF file.
    *
    * Use this when displaying the library of books to the user.
