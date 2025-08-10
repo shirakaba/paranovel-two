@@ -11,22 +11,26 @@ export function getMainFeaturesFromOpf(
 ): MainFeaturesFromOPF | undefined {
   const {
     package: {
+      uniqueIdentifier: uniqueIdentifierRef,
       metadata: { titles, metas, identifiers },
       manifest: { items },
       spine: { itemrefs, toc },
     },
   } = opf;
 
-  const uuid = identifiers.findLast(
-    ({ opfScheme }) => opfScheme === 'uuid',
+  const uniqueIdentifier = identifiers.find(
+    ({ id }) => id === uniqueIdentifierRef,
   )?.textContent;
+  if (!uniqueIdentifier) {
+    return;
+  }
 
   // It's okay for this to be optional, as consumers downstream can fall
   // back to the folderName.
-  const title = titles[0]?.textContent;
+  const title = titles.at(0)?.textContent;
 
-  const idref = itemrefs[0]?.idref;
-  if (!idref) {
+  const idRefOfFirstItemRefInSpine = itemrefs.at(0)?.idref;
+  if (!idRefOfFirstItemRefInSpine) {
     return;
   }
 
@@ -73,17 +77,16 @@ export function getMainFeaturesFromOpf(
     ncxFileHref = ncxFile?.href;
   }
 
-  const item = items.find(({ id }) => id === idref);
+  const item = items.find(({ id }) => id === idRefOfFirstItemRefInSpine);
   if (!item) {
     return;
   }
 
   return {
-    uuid,
+    uniqueIdentifier,
     title,
     coverImage: coverItem?.href,
     nav: navItem?.href,
-    startingHref: item.href,
     ncxFileHref,
   };
 }

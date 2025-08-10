@@ -1,8 +1,8 @@
 export type MainFeaturesFromOPF = {
   /**
-   * The UUID from the opf:scheme="uuid" identifier.
+   * The unique identifier (often, but not necessarily, a UUID). Mandatory.
    */
-  uuid?: string;
+  uniqueIdentifier: string;
 
   /**
    * The title extracted from the OPF file.
@@ -28,16 +28,6 @@ export type MainFeaturesFromOPF = {
    * @example "xhtml/目次.xhtml"
    */
   nav?: string;
-
-  /**
-   * The href the ebook should open at.
-   *
-   * Get the full URI for the starting page via `${opsUri}/${startingHref}`.
-   *
-   * @example "titlepage.xhtml"
-   * @example "xhtml/表紙.xhtml"
-   */
-  startingHref: string;
 
   /**
    * The "href" to the NCX-formatted Table of Contents file, if specified.

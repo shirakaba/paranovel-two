@@ -11,8 +11,10 @@ export default function TableOfContents({
   const { items, backParams } = params;
 
   useEffect(() => {
-    navigation.setOptions({ headerTitle: params.headerTitle });
-  }, [params.headerTitle]);
+    navigation.setOptions({
+      headerTitle: params.pageType === 'spine' ? 'Spine' : 'Table of Contents',
+    });
+  }, [params.pageType]);
 
   return (
     <ScrollView>
@@ -25,7 +27,11 @@ export default function TableOfContents({
               onPress={() => {
                 navigation.popTo('Book', {
                   ...backParams,
-                  href: `${backParams.opsUri}/${href}`,
+                  pageDetails: {
+                    pageType: params.pageType,
+                    href,
+                    label,
+                  },
                   navigationTimestamp: `${Date.now()}`,
                 });
               }}

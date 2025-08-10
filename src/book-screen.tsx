@@ -1,12 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { readAsStringAsync } from 'expo-file-system';
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Button,
   SafeAreaView,
@@ -18,7 +12,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useLibrary } from '@/hooks/useLibrary';
 import { tokenize } from '@/modules/mecab';
-import type { OPF, NCX } from '@/types/epub.types';
+import { useQuery } from '@tanstack/react-query';
 import { useDatabase } from '@/utils/DatabaseProvider';
 import {
   getSpineFromOpf,
@@ -31,14 +25,111 @@ import type { RootStackParamList } from './navigation.types';
 import injectedCss from './source-assets/injected-css.wvcss';
 import mainScript from './source-assets/injected-javascript.wvjs';
 import { BookState } from './persistence/book-state';
+import { PageDetails } from './book-screen.types';
 
 export default function BookScreen({
   navigation,
   route,
 }: NativeStackScreenProps<RootStackParamList, 'Book'>) {
   const params = route.params;
+  const library = useLibrary();
 
-  const [webViewUri, setWebViewUri] = useState(params.href);
+  const ncxQuery = useQuery({
+    queryKey: ['ncx', params.opsUri, params.ncxFileHref] as const,
+    queryFn: async ({ queryKey: [, opsUri, ncxFileHref] }) => {
+      if (!ncxFileHref) {
+        return;
+      }
+
+      const absoluteUriToNcx = `${opsUri}/${ncxFileHref}`;
+      let ncxText: string;
+      try {
+        ncxText = await readAsStringAsync(absoluteUriToNcx);
+      } catch (cause) {
+        throw new Error(`Failed to read NCX at ${absoluteUriToNcx}`, { cause });
+      }
+
+      const ncx = parseNCX(ncxText);
+      if (!ncx) {
+        return;
+      }
+
+      const toc = getTocFromNCX({ ncx, ncxFileHref });
+      return { toc, ncx };
+    },
+  });
+  const toc = ncxQuery.data?.toc;
+
+  const opfQuery = useQuery({
+    queryKey: ['opf', params.opsUri, params.relativePathToOpfFromOps] as const,
+    queryFn: async ({ queryKey: [, opsUri, relativePathToOpfFromOps] }) => {
+      const absoluteUriToOpf = `${opsUri}/${relativePathToOpfFromOps}`;
+      let opfText: string;
+      try {
+        opfText = await readAsStringAsync(absoluteUriToOpf);
+      } catch (cause) {
+        throw new Error(`Failed to read OPF at ${absoluteUriToOpf}`, { cause });
+      }
+
+      const opf = parseOPF(opfText);
+      const spine = getSpineFromOpf({ opf, nav: params.nav });
+
+      return { opf, spine };
+    },
+  });
+  const spine = opfQuery.data?.spine;
+
+  const pageDetailsQuery = useQuery({
+    queryKey: [
+      'pageDetails',
+      opfQuery.data?.opf,
+      params.uniqueIdentifier,
+      params.pageDetails,
+    ] as const,
+    queryFn: async ({ queryKey: [, opf] }) => {
+      if (!opf) {
+        throw new Error('required opf to be populated');
+      }
+
+      if (params.pageDetails.pageType !== 'auto') {
+        return params.pageDetails;
+      }
+
+      const bookStateStore = (await BookState.get()) ?? {};
+      const bookState = bookStateStore[params.uniqueIdentifier];
+      if (bookState) {
+        return bookState.pageDetails;
+      }
+
+      // If no persisted state, pick the first item in the spine.
+      const {
+        package: {
+          manifest: { items },
+          spine: { itemrefs },
+        },
+      } = opf;
+
+      const idRefOfFirstItemRefInSpine = itemrefs.at(0)?.idref;
+      if (!idRefOfFirstItemRefInSpine) {
+        throw new Error('Spine contained no itemrefs.');
+      }
+
+      const item = items.find(({ id }) => id === idRefOfFirstItemRefInSpine);
+      if (!item) {
+        throw new Error(
+          'Spine contained no item matching the ID of the first itemref.',
+        );
+      }
+
+      return { pageType: 'spine', href: item.href } satisfies PageDetails;
+    },
+    enabled: !!opfQuery.data,
+  });
+
+  const href = pageDetailsQuery.data
+    ? `${params.opsUri}/${pageDetailsQuery.data.href}`
+    : 'about:blank';
+  const [webViewUri, setWebViewUri] = useState(href);
   const webViewRef = useRef<WebView>(null);
 
   const dbRef = useDatabase();
@@ -47,83 +138,8 @@ export default function BookScreen({
   // webViewUri not updating when a sub-screen (e.g. ToC) unwinds back to this
   // screen, passing the same params.href as it the screen began with.
   useEffect(() => {
-    setWebViewUri(params.href);
-  }, [params.href, params.navigationTimestamp]);
-
-  const library = useLibrary();
-
-  const [opf, setOPF] = useState<OPF>();
-  const absoluteUriToOpf = `${params.opsUri}/${params.relativePathToOpfFromOps}`;
-  const absoluteUriToOpfRef = useRef(absoluteUriToOpf);
-  useEffect(() => {
-    // Track whether the absoluteUri gets updated while we're mid-read so that
-    // we can avoid updating if so.
-    const initialAbsoluteUriToOpf = absoluteUriToOpf;
-    absoluteUriToOpfRef.current = absoluteUriToOpf;
-
-    // Stop rendering the OPF from a previous book.
-    setOPF(undefined);
-
-    readAsStringAsync(initialAbsoluteUriToOpf)
-      .then(opfText => {
-        const opf = parseOPF(opfText);
-        if (opf && initialAbsoluteUriToOpf === absoluteUriToOpfRef.current) {
-          setOPF(opf);
-        }
-      })
-      .catch(error => {
-        console.error(
-          `Failed to read OPF at ${initialAbsoluteUriToOpf}`,
-          error,
-        );
-      });
-  }, [absoluteUriToOpf]);
-
-  const [ncx, setNCX] = useState<NCX>();
-  const absoluteUriToNcx = params.ncxFileHref
-    ? `${params.opsUri}/${params.ncxFileHref}`
-    : '';
-  const absoluteUriToNcxRef = useRef(absoluteUriToNcx);
-  useEffect(() => {
-    // Track whether the absoluteUri gets updated while we're mid-read so that
-    // we can avoid updating if so.
-    const initialAbsoluteUriToNcx = absoluteUriToNcx;
-    absoluteUriToNcxRef.current = absoluteUriToNcx;
-
-    // Stop rendering the NCX from a previous book.
-    setNCX(undefined);
-
-    if (!initialAbsoluteUriToNcx) {
-      return;
-    }
-
-    readAsStringAsync(initialAbsoluteUriToNcx)
-      .then(ncxText => {
-        const ncx = parseNCX(ncxText);
-        if (ncx && initialAbsoluteUriToNcx === absoluteUriToNcxRef.current) {
-          setNCX(ncx);
-        }
-      })
-      .catch(error => {
-        console.error(
-          `Failed to read NCX at ${initialAbsoluteUriToNcx}`,
-          error,
-        );
-      });
-  }, [absoluteUriToNcx]);
-
-  const spine = useMemo(
-    () => (opf ? getSpineFromOpf({ opf, nav: params.nav }) : undefined),
-    [opf, params.nav],
-  );
-
-  const toc = useMemo(
-    () =>
-      params.ncxFileHref && ncx
-        ? getTocFromNCX({ ncx, ncxFileHref: params.ncxFileHref })
-        : undefined,
-    [ncx, params.ncxFileHref],
-  );
+    setWebViewUri(href);
+  }, [href, params.navigationTimestamp]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -157,7 +173,7 @@ export default function BookScreen({
                     onPress: () =>
                       navigation.navigate('ToC', {
                         backParams: params,
-                        headerTitle: 'Spine',
+                        pageType: 'spine',
                         items: spine,
                       }),
                   }
@@ -170,7 +186,7 @@ export default function BookScreen({
                     onPress: () =>
                       navigation.navigate('ToC', {
                         backParams: params,
-                        headerTitle: 'Table of Contents',
+                        pageType: 'toc',
                         items: toc,
                       }),
                   }
@@ -398,8 +414,8 @@ export default function BookScreen({
         case 'progress-update': {
           const { blockScrollFraction } = parsed;
 
-          const uuid = params.uuid;
-          if (!uuid) {
+          const uniqueIdentifier = params.uniqueIdentifier;
+          if (!uniqueIdentifier) {
             return;
           }
 
@@ -408,9 +424,9 @@ export default function BookScreen({
               const definiteStore = store ?? {};
               return BookState.set({
                 ...definiteStore,
-                [uuid]: {
-                  ...definiteStore[uuid],
-                  blockScrollFractionOnLastViewedPage: blockScrollFraction,
+                [uniqueIdentifier]: {
+                  ...definiteStore[uniqueIdentifier],
+                  pageBlockScroll: blockScrollFraction,
                 },
               });
             })

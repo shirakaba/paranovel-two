@@ -1,3 +1,4 @@
+import { PageDetails } from './../book-screen.types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StorageBase } from './storage-base';
 
@@ -53,14 +54,8 @@ type BookStateV1 = {
   schemaVersion: 1;
   value: {
     [uuid: string]: {
-      /**
-       * A better-than-nothing way to track book progress for now. Ideally we'd
-       * store something more normalised like page number, but we can do that as
-       * a future improvement.
-       */
-      startingHref: string;
-
-      blockScrollFractionOnLastViewedPage: number;
+      pageDetails: Exclude<PageDetails, { pageType: 'auto' }>;
+      pageBlockScroll: number;
 
       // TODO: would be good to have overall book progress percent.
     };

@@ -1,7 +1,7 @@
-import { BookScreenProps } from './book-screen.types';
+import { BookScreenProps, PageDetails } from './book-screen.types';
 
 export type ToCScreenProps = {
   backParams: BookScreenProps;
-  headerTitle: string;
+  pageType: Extract<PageDetails['pageType'], 'toc' | 'spine'>;
   items: Array<{ href: string; label: string }>;
 };
