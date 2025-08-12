@@ -468,7 +468,11 @@ export default function BookScreen({
         // treating file URLs as being blocklisted. Blocklisted URLs get opened
         // via Linking (to be passed on to Safari) instead.
         originWhitelist={['file://*']}
-        source={{ uri: webViewUri }}
+        source={
+          // For some reason, RNW tries (and fails) to open "about:blank" as a
+          // file URL
+          webViewUri === 'about:blank' ? { html: '' } : { uri: webViewUri }
+        }
         onNavigationStateChange={({ url }) => {
           // The first navigation upon load will be "about:blank".
           if (!url.startsWith('file://')) {
