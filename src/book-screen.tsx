@@ -24,7 +24,7 @@ import { lookUpTerm } from '@/utils/look-up-term';
 import type { RootStackParamList } from './navigation.types';
 import injectedCss from './source-assets/injected-css.wvcss';
 import mainScript from './source-assets/injected-javascript.wvjs';
-import { BookState } from './persistence/book-state';
+import { BookState, BookStateType } from './persistence/book-state';
 import { PageDetails } from './book-screen.types';
 
 export default function BookScreen({
@@ -419,16 +419,26 @@ export default function BookScreen({
             return;
           }
 
+          const pageDetails = pageDetailsQuery.data;
+          if (!pageDetails) {
+            console.log('skipping progress update, as no pageDetails');
+            return;
+          }
+
           BookState.get()
             .then(store => {
               const definiteStore = store ?? {};
-              return BookState.set({
+              const update: BookStateType['value'] = {
                 ...definiteStore,
                 [uniqueIdentifier]: {
                   ...definiteStore[uniqueIdentifier],
+                  pageDetails,
                   pageBlockScroll: blockScrollFraction,
                 },
-              });
+              };
+              // console.log('writing progress update', update);
+
+              return BookState.set(update);
             })
             .catch(error => {
               console.error('Failed to update persisted book state.', error);
@@ -437,7 +447,7 @@ export default function BookScreen({
         }
       }
     },
-    [spine, params.opsUri],
+    [spine, params.opsUri, pageDetailsQuery.data],
   );
 
   if (library.type !== 'loaded') {
