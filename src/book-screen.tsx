@@ -88,17 +88,32 @@ export default function BookScreen({
       params.pageDetails,
     ] as const,
     queryFn: async ({ queryKey: [, opf] }) => {
+      console.log(
+        `[pageDetailsQuery] running with params.pageDetails ${JSON.stringify(
+          params.pageDetails,
+        )}`,
+      );
       if (!opf) {
         throw new Error('required opf to be populated');
       }
 
       if (params.pageDetails.pageType !== 'auto') {
+        console.log(
+          `[pageDetailsQuery] isn't type 'auto', so returning params.pageDetails as-is ${JSON.stringify(
+            params.pageDetails,
+          )}`,
+        );
         return params.pageDetails;
       }
 
       const bookStateStore = (await BookState.get()) ?? {};
       const bookState = bookStateStore[params.uniqueIdentifier];
       if (bookState) {
+        console.log(
+          `[pageDetailsQuery] using persisted pageDetails ${JSON.stringify(
+            bookState.pageDetails,
+          )}`,
+        );
         return bookState.pageDetails;
       }
 
@@ -122,6 +137,13 @@ export default function BookScreen({
         );
       }
 
+      console.log(
+        `[pageDetailsQuery] returning pageDetails ${JSON.stringify({
+          pageType: 'spine',
+          href: item.href,
+        })}`,
+      );
+
       return { pageType: 'spine', href: item.href } satisfies PageDetails;
     },
     enabled: !!opfQuery.data,
@@ -134,13 +156,6 @@ export default function BookScreen({
   const webViewRef = useRef<WebView>(null);
 
   const dbRef = useDatabase();
-
-  // This hook, and the navigationTimestamp, are a crude workaround for the
-  // webViewUri not updating when a sub-screen (e.g. ToC) unwinds back to this
-  // screen, passing the same params.href as it the screen began with.
-  useEffect(() => {
-    setWebViewUri(href);
-  }, [href, params.navigationTimestamp]);
 
   useEffect(() => {
     navigation.setOptions({
