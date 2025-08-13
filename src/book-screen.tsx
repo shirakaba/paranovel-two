@@ -332,8 +332,34 @@ export default function BookScreen({
           }
 
           const newUri = `${params.opsUri}/${newPage.href}`;
-          console.log(`[onMessage] Setting URI to "${newUri}"`);
-          setWebViewUri(`${newUri}`);
+          const onFinally = () => {
+            console.log(`[navigation-request] Setting URI to "${newUri}"`);
+            setWebViewUri(newUri);
+          };
+
+          // FIXME: This query is always returning the page details as they were
+          // upon mount (e.g. always page 5 despite any new navigations).
+          const pageDetails = pageDetailsQuery.data;
+          if (!pageDetails) {
+            console.log(
+              '[navigation-request] Skipping progress update, as no pageDetails',
+            );
+            onFinally();
+            return;
+          }
+
+          updateBookState({
+            uniqueIdentifier: params.uniqueIdentifier,
+            pageDetails,
+            blockScrollFraction: 0,
+          })
+            .catch(error => {
+              console.error(
+                '[navigation-request] Failed to update persisted book state.',
+                error,
+              );
+            })
+            .finally(onFinally);
           break;
         }
         case 'tokenize': {
@@ -415,40 +441,24 @@ export default function BookScreen({
         case 'progress-update': {
           const { blockScrollFraction } = parsed;
 
-          const uniqueIdentifier = params.uniqueIdentifier;
-          if (!uniqueIdentifier) {
-            return;
-          }
-
           const pageDetails = pageDetailsQuery.data;
           if (!pageDetails) {
             console.log('skipping progress update, as no pageDetails');
             return;
           }
 
-          BookState.get()
-            .then(store => {
-              const definiteStore = store ?? {};
-              const update: BookStateType['value'] = {
-                ...definiteStore,
-                [uniqueIdentifier]: {
-                  ...definiteStore[uniqueIdentifier],
-                  pageDetails,
-                  pageBlockScroll: blockScrollFraction,
-                },
-              };
-              // console.log('writing progress update', update);
-
-              return BookState.set(update);
-            })
-            .catch(error => {
-              console.error('Failed to update persisted book state.', error);
-            });
+          updateBookState({
+            uniqueIdentifier: params.uniqueIdentifier,
+            pageDetails,
+            blockScrollFraction,
+          }).catch(error => {
+            console.error('Failed to update persisted book state.', error);
+          });
           break;
         }
       }
     },
-    [spine, params.opsUri, pageDetailsQuery.data],
+    [spine, params.opsUri, params.uniqueIdentifier, pageDetailsQuery.data],
   );
 
   if (library.type !== 'loaded') {
@@ -509,3 +519,48 @@ ${mainScript}
 const style = StyleSheet.create({
   container: { flex: 1 },
 });
+
+async function updateBookState({
+  uniqueIdentifier,
+  pageDetails,
+  blockScrollFraction,
+}: {
+  uniqueIdentifier: string;
+  pageDetails: Exclude<
+    PageDetails,
+    {
+      pageType: 'auto';
+    }
+  >;
+  blockScrollFraction: number;
+}) {
+  let store: BookStateType['value'];
+  try {
+    store = (await BookState.get()) ?? {};
+  } catch (cause) {
+    throw new Error(
+      'Failed to update BookState, as was unable to read BookState',
+      { cause },
+    );
+  }
+
+  const update: BookStateType['value'] = {
+    ...store,
+    [uniqueIdentifier]: {
+      pageDetails,
+      pageBlockScroll: blockScrollFraction,
+    },
+  };
+  // console.log(
+  //   `Writing progress update ${JSON.stringify(update[uniqueIdentifier])}`,
+  // );
+
+  try {
+    await BookState.set(update);
+  } catch (cause) {
+    throw new Error(
+      'Failed to update BookState, as was unable to write to BookState',
+      { cause },
+    );
+  }
+}
