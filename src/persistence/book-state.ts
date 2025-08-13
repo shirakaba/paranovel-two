@@ -49,6 +49,7 @@ export const BookState: StorageBase<BookStateType> = {
     return AsyncStorage.removeItem(BookState.key);
   },
 };
+// BookState.clear();
 
 type BookStateV1 = {
   schemaVersion: 1;

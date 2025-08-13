@@ -149,10 +149,28 @@ export default function BookScreen({
     enabled: !!opfQuery.data,
   });
 
-  const href = pageDetailsQuery.data
+  const pageDetailsHref = pageDetailsQuery.data
     ? `${params.opsUri}/${pageDetailsQuery.data.href}`
     : 'about:blank';
-  const [webViewUri, setWebViewUri] = useState(href);
+  const [webViewUri, setWebViewUri] = useState(pageDetailsHref);
+  console.log(
+    `[BookScreen] render webViewUri "${webViewUri}", given route.params.pageDetails ${JSON.stringify(
+      route.params.pageDetails,
+    )}`,
+  );
+
+  // FIXME: Navigating from Library to Book generally traps you in a long (but
+  // not infinite) loop of re-rendering about:blank. Not sure why yet. But
+  // everything downstream of it seems to work.
+
+  // This hook, and the navigationTimestamp, are a crude workaround for the
+  // webViewUri not updating when a sub-screen (e.g. ToC) unwinds back to this
+  // screen, passing the same params.href as it the screen began with.
+  useEffect(() => {
+    console.log(`[BookScreen] effect setWebViewUri("${pageDetailsHref}")`);
+    setWebViewUri(pageDetailsHref);
+  }, [pageDetailsHref]);
+
   const webViewRef = useRef<WebView>(null);
 
   const dbRef = useDatabase();
@@ -512,12 +530,19 @@ export default function BookScreen({
           // file URL
           webViewUri === 'about:blank' ? { html: '' } : { uri: webViewUri }
         }
-        onNavigationStateChange={({ url }) => {
-          // The first navigation upon load will be "about:blank".
-          if (!url.startsWith('file://')) {
-            return;
+        // https://github.com/react-native-webview/react-native-webview/blob/master/docs/Guide.md#setting-custom-headers
+        onShouldStartLoadWithRequest={({ url, isTopFrame }) => {
+          // Allow loads that are in sync with React state, and iframes I guess.
+          if (url === webViewUri || !isTopFrame) {
+            return true;
           }
+
+          console.log(`[onShouldStartLoadWithRequest] setWebViewUri("${url}")`);
+
+          // Keep React state in sync by denying the load here and re-rendering
+          // with a new source value instead.
           setWebViewUri(url);
+          return false;
         }}
       />
     </SafeAreaView>
