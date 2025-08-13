@@ -309,6 +309,9 @@ export default function BookScreen({
         }
         case 'navigation-request': {
           if (!spine) {
+            console.log(
+              `[navigation-request] Bailing out due to spine being undefined.`,
+            );
             return;
           }
           const { value, currentHref } = parsed;
@@ -322,33 +325,29 @@ export default function BookScreen({
           if (currentItemIndex === -1) {
             // This can happen when the browser transforms the URL so as to make
             // it different from the href written into the spine.
-            console.log('Unable to find current page in spine');
+            console.log(
+              `[navigation-request] Bailing out, as unable to find current page in spine`,
+            );
             return;
           }
           const newIndex = currentItemIndex + (value === 'next' ? 1 : -1);
           const newPage = spine[newIndex];
           if (!newPage) {
-            return;
-          }
-
-          const newUri = `${params.opsUri}/${newPage.href}`;
-          const onFinally = () => {
-            console.log(`[navigation-request] Setting URI to "${newUri}"`);
-            setWebViewUri(newUri);
-          };
-
-          // FIXME: This query is always returning the page details as they were
-          // upon mount (e.g. always page 5 despite any new navigations).
-          const pageDetails = pageDetailsQuery.data;
-          if (!pageDetails) {
             console.log(
-              '[navigation-request] Skipping progress update, as no pageDetails',
+              `[navigation-request] Bailing out, as unable to find new page in spine`,
             );
-            onFinally();
             return;
           }
+
+          const pageDetails: PageDetails = {
+            pageType: 'spine',
+            href: newPage.href,
+            blockScroll: 0,
+          };
+          const newUri = `${params.opsUri}/${newPage.href}`;
 
           updateBookState({
+            loggingContext: '[navigation-request]',
             uniqueIdentifier: params.uniqueIdentifier,
             pageDetails,
             blockScrollFraction: 0,
@@ -359,7 +358,10 @@ export default function BookScreen({
                 error,
               );
             })
-            .finally(onFinally);
+            .finally(() => {
+              console.log(`[navigation-request] Setting URI to "${newUri}"`);
+              setWebViewUri(newUri);
+            });
           break;
         }
         case 'tokenize': {
@@ -448,6 +450,7 @@ export default function BookScreen({
           }
 
           updateBookState({
+            loggingContext: '[progress-update]',
             uniqueIdentifier: params.uniqueIdentifier,
             pageDetails,
             blockScrollFraction,
@@ -521,10 +524,12 @@ const style = StyleSheet.create({
 });
 
 async function updateBookState({
+  loggingContext,
   uniqueIdentifier,
   pageDetails,
   blockScrollFraction,
 }: {
+  loggingContext: `[${string}]`;
   uniqueIdentifier: string;
   pageDetails: Exclude<
     PageDetails,
@@ -539,7 +544,7 @@ async function updateBookState({
     store = (await BookState.get()) ?? {};
   } catch (cause) {
     throw new Error(
-      'Failed to update BookState, as was unable to read BookState',
+      `${loggingContext} Failed to update BookState, as was unable to read BookState`,
       { cause },
     );
   }
@@ -551,15 +556,17 @@ async function updateBookState({
       pageBlockScroll: blockScrollFraction,
     },
   };
-  // console.log(
-  //   `Writing progress update ${JSON.stringify(update[uniqueIdentifier])}`,
-  // );
+  console.log(
+    `${loggingContext} Writing progress update ${JSON.stringify(
+      update[uniqueIdentifier],
+    )}`,
+  );
 
   try {
     await BookState.set(update);
   } catch (cause) {
     throw new Error(
-      'Failed to update BookState, as was unable to write to BookState',
+      `${loggingContext} Failed to update BookState, as was unable to write to BookState`,
       { cause },
     );
   }
