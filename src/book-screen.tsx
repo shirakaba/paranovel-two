@@ -38,7 +38,7 @@ export default function BookScreen({
     queryKey: ['ncx', params.opsUri, params.ncxFileHref] as const,
     queryFn: async ({ queryKey: [, opsUri, ncxFileHref] }) => {
       if (!ncxFileHref) {
-        return;
+        throw new Error('required ncxFileHref to be populated');
       }
 
       const absoluteUriToNcx = `${opsUri}/${ncxFileHref}`;
@@ -51,12 +51,13 @@ export default function BookScreen({
 
       const ncx = parseNCX(ncxText);
       if (!ncx) {
-        return;
+        return null;
       }
 
       const toc = getTocFromNCX({ ncx, ncxFileHref });
       return { toc, ncx };
     },
+    enabled: !!params.ncxFileHref,
   });
   const toc = ncxQuery.data?.toc;
 
