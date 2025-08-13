@@ -6,6 +6,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import { ReactScan } from 'react-scan/native';
 import { RootStack } from './navigation';
 import React, { useEffect } from 'react';
 import { DatabaseProvider } from '../utils/DatabaseProvider';
@@ -36,17 +37,24 @@ export default function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <DatabaseProvider>
-        <ThemeProvider
-          value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <LibraryProvider>
-            <NavigationContainer>
-              <RootStack />
-            </NavigationContainer>
-          </LibraryProvider>
-        </ThemeProvider>
-      </DatabaseProvider>
-    </QueryClientProvider>
+    <ReactScan
+      options={{
+        enabled: true,
+        log: true,
+        animationWhenFlashing: 'fade-out',
+      }}>
+      <QueryClientProvider client={queryClient}>
+        <DatabaseProvider>
+          <ThemeProvider
+            value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <LibraryProvider>
+              <NavigationContainer>
+                <RootStack />
+              </NavigationContainer>
+            </LibraryProvider>
+          </ThemeProvider>
+        </DatabaseProvider>
+      </QueryClientProvider>
+    </ReactScan>
   );
 }
