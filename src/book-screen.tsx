@@ -611,3 +611,4 @@ async function updateBookState({
     );
   }
 }
+BookScreen.whyDidYouRender = true;
