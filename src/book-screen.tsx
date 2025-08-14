@@ -149,6 +149,11 @@ export default function BookScreen({
     enabled: !!opfQuery.data,
   });
 
+  // FIXME: Both `params.opsUri` and `pageDetailsQuery.data.href` come in
+  // unencoded. When we set `pageDetailsHref` as the source, the moment
+  // onShouldStartLoadWithRequest() runs, you'll see it's handling it as an
+  // encoded URI instead. To keep React state in better sync, we should encode
+  // before setting as source.
   const pageDetailsHref = pageDetailsQuery.data
     ? `${params.opsUri}/${pageDetailsQuery.data.href}`
     : 'about:blank';
@@ -531,9 +536,32 @@ export default function BookScreen({
           webViewUri === 'about:blank' ? { html: '' } : { uri: webViewUri }
         }
         // https://github.com/react-native-webview/react-native-webview/blob/master/docs/Guide.md#setting-custom-headers
-        onShouldStartLoadWithRequest={({ url, isTopFrame }) => {
+        onShouldStartLoadWithRequest={req => {
+          console.log(
+            `[onShouldStartLoadWithRequest] Got req.url "${req.url}" while webViewUri was ${webViewUri}`,
+            req,
+          );
+
+          const { url, isTopFrame } = req;
+
+          // I can't fully explain why, but preventing load of "about:blank"
+          // (which is the default page the WebView loads) avoids a hellish
+          // render loop when moving from the Library Screen to the Book Screen.
+          if (url === 'about:blank') {
+            return false;
+          }
+
           // Allow loads that are in sync with React state, and iframes I guess.
-          if (url === webViewUri || !isTopFrame) {
+          if (
+            url === webViewUri ||
+            // While this url may be in sync with React state, we may get a
+            // false positive because the `webViewUri` is always unencoded, yet
+            // `url` may be encoded (need to check whether it's always so).
+            //
+            // TODO: Encode upstream so that we don't need to special-case this.
+            encodeURI(webViewUri) === url ||
+            !isTopFrame
+          ) {
             return true;
           }
 
