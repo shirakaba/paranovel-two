@@ -148,6 +148,12 @@ export default function BookScreen({
     },
     enabled: !!opfQuery.data,
   });
+  const pageDetailsQueryDataRef = useRef(pageDetailsQuery.data);
+  pageDetailsQueryDataRef.current = pageDetailsQuery.data;
+
+  const queryParams = pageDetailsQuery.data
+    ? `?scroll=${pageDetailsQuery.data.blockScroll ?? 0}`
+    : '';
 
   // FIXME: Both `params.opsUri` and `pageDetailsQuery.data.href` come in
   // unencoded. When we set `pageDetailsHref` as the source, the moment
@@ -155,7 +161,8 @@ export default function BookScreen({
   // encoded URI instead. To keep React state in better sync, we should encode
   // before setting as source.
   const pageDetailsHref = pageDetailsQuery.data
-    ? new URL(`${params.opsUri}/${pageDetailsQuery.data.href}`).href
+    ? new URL(`${params.opsUri}/${pageDetailsQuery.data.href}${queryParams}`)
+        .href
     : 'about:blank';
   const [webViewUri, setWebViewUri] = useState(pageDetailsHref);
   console.log(
@@ -398,7 +405,6 @@ export default function BookScreen({
             loggingContext: '[navigation-request]',
             uniqueIdentifier: params.uniqueIdentifier,
             pageDetails,
-            blockScrollFraction: 0,
           })
             .catch(error => {
               console.error(
@@ -496,7 +502,7 @@ export default function BookScreen({
         case 'progress-update': {
           const { blockScrollFraction } = parsed;
 
-          const pageDetails = pageDetailsQuery.data;
+          const pageDetails = pageDetailsQueryDataRef.current;
           if (!pageDetails) {
             console.log('skipping progress update, as no pageDetails');
             return;
@@ -505,8 +511,10 @@ export default function BookScreen({
           updateBookState({
             loggingContext: '[progress-update]',
             uniqueIdentifier: params.uniqueIdentifier,
-            pageDetails,
-            blockScrollFraction,
+            pageDetails: {
+              ...pageDetails,
+              blockScroll: blockScrollFraction,
+            },
           }).catch(error => {
             console.error('Failed to update persisted book state.', error);
           });
@@ -514,7 +522,9 @@ export default function BookScreen({
         }
       }
     },
-    [spine, params.opsUri, params.uniqueIdentifier, pageDetailsQuery.data],
+    // FIXME: Not too confident in when onMessage gets updated, so would rather
+    // accept all params as refs.
+    [spine, params.opsUri, params.uniqueIdentifier],
   );
 
   if (library.type !== 'loaded') {
@@ -563,8 +573,12 @@ export default function BookScreen({
         // https://github.com/react-native-webview/react-native-webview/blob/master/docs/Guide.md#setting-custom-headers
         onShouldStartLoadWithRequest={req => {
           // This normalises the URI encoding to be definitely encoded.
-          const current = new URL(webViewUri).href;
-          const incoming = new URL(req.url).href;
+          const currentURL = new URL(webViewUri);
+          const incomingURL = new URL(req.url);
+          const current = currentURL.href;
+          const incoming = incomingURL.href;
+          const currentWithoutParams = `${currentURL.origin}${currentURL.pathname}`;
+          const incomingWithoutParams = `${incomingURL.origin}${incomingURL.pathname}`;
 
           const { a: reqUrlDiff, b: webViewUriDiff } = stringDiff(
             current,
@@ -606,6 +620,15 @@ export default function BookScreen({
           // on the way in (which matches how it comes through here). But there
           // could be other discrepancies, like trailing slashes or something.
           if (incoming === current || !isTopFrame) {
+            console.log(
+              `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[32mtrue\x1b[0m`,
+            );
+            return true;
+          }
+
+          if (incomingWithoutParams === currentWithoutParams) {
+            const report = `[onShouldStartLoadWithRequest] diff:\n\t\x1b[90mwebViewUri.search\x1b[0m: "…\x1b[31m${currentURL.search}\x1b[0m"\n\t   \x1b[90mreq.url.search\x1b[0m: "…\x1b[32m${incomingURL.search}\x1b[0m"`;
+
             console.log(
               `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[32mtrue\x1b[0m`,
             );
@@ -668,17 +691,10 @@ async function updateBookState({
   loggingContext,
   uniqueIdentifier,
   pageDetails,
-  blockScrollFraction,
 }: {
   loggingContext: `[${string}]`;
   uniqueIdentifier: string;
-  pageDetails: Exclude<
-    PageDetails,
-    {
-      pageType: 'auto';
-    }
-  >;
-  blockScrollFraction: number;
+  pageDetails: Exclude<PageDetails, { pageType: 'auto' }>;
 }) {
   let store: BookStateType['value'];
   try {
@@ -694,7 +710,6 @@ async function updateBookState({
     ...store,
     [uniqueIdentifier]: {
       pageDetails,
-      pageBlockScroll: blockScrollFraction,
     },
   };
   console.log(

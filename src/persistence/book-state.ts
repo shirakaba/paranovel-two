@@ -56,7 +56,6 @@ type BookStateV1 = {
   value: {
     [uuid: string]: {
       pageDetails: Exclude<PageDetails, { pageType: 'auto' }>;
-      pageBlockScroll: number;
 
       // TODO: would be good to have overall book progress percent.
     };
