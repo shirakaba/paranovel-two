@@ -159,7 +159,10 @@ export default function BookScreen({
     : 'about:blank';
   const [webViewUri, setWebViewUri] = useState(pageDetailsHref);
   console.log(
-    `[BookScreen] render webViewUri "${webViewUri}", given route.params.pageDetails ${JSON.stringify(
+    `[BookScreen] render webViewUri "…\x1b[32m${webViewUri.replace(
+      encodeURI(params.opsUri),
+      '',
+    )}\x1b[0m", given route.params.pageDetails ${JSON.stringify(
       route.params.pageDetails,
     )}`,
   );
@@ -172,7 +175,12 @@ export default function BookScreen({
   // webViewUri not updating when a sub-screen (e.g. ToC) unwinds back to this
   // screen, passing the same params.href as it the screen began with.
   useEffect(() => {
-    console.log(`[BookScreen] effect setWebViewUri("${pageDetailsHref}")`);
+    console.log(
+      `[BookScreen] effect setWebViewUri("…\x1b[32m${pageDetailsHref.replace(
+        encodeURI(params.opsUri),
+        '',
+      )}\x1b[0m")`,
+    );
     setWebViewUri(pageDetailsHref);
   }, [pageDetailsHref]);
 
@@ -517,11 +525,21 @@ export default function BookScreen({
         webviewDebuggingEnabled={true}
         javaScriptEnabled={true}
         onMessage={onMessage}
-        onLoadStart={({ nativeEvent: { url, loading, title } }) => {
-          console.log('onLoadStart', url, loading, title);
+        onLoadStart={({ nativeEvent: { url } }) => {
+          console.log(
+            `[onLoadStart] "…\x1b[32m${url.replace(
+              encodeURI(params.opsUri),
+              '',
+            )}\x1b[0m"`,
+          );
         }}
-        onLoadEnd={({ nativeEvent: { url, loading, title } }) => {
-          console.log('onLoadEnd', url, loading, title);
+        onLoadEnd={({ nativeEvent: { url } }) => {
+          console.log(
+            `[onLoadEnd] "…\x1b[32m${url.replace(
+              encodeURI(params.opsUri),
+              '',
+            )}\x1b[0m"`,
+          );
         }}
         injectedJavaScript={injectedJavaScript}
         allowFileAccessFromFileURLs={true}
@@ -537,10 +555,24 @@ export default function BookScreen({
         }
         // https://github.com/react-native-webview/react-native-webview/blob/master/docs/Guide.md#setting-custom-headers
         onShouldStartLoadWithRequest={req => {
-          console.log(
-            `[onShouldStartLoadWithRequest] Got req.url "${req.url}" while webViewUri was ${webViewUri}`,
-            req,
+          const { a: reqUrlDiff, b: webViewUriDiff } = stringDiff(
+            webViewUri,
+            req.url,
           );
+
+          const report =
+            reqUrlDiff === webViewUriDiff
+              ? `[onShouldStartLoadWithRequest] URI unchanged! "…\x1b[32m${req.url.replace(
+                  encodeURI(params.opsUri),
+                  '',
+                )}\x1b[0m"`
+              : `[onShouldStartLoadWithRequest] diff:\n\t\x1b[90mwebViewUri\x1b[0m: "…\x1b[31m${webViewUriDiff.replace(
+                  encodeURI(params.opsUri),
+                  '',
+                )}\x1b[0m"\n\t   \x1b[90mreq.url\x1b[0m: "…\x1b[32m${reqUrlDiff.replace(
+                  encodeURI(params.opsUri),
+                  '',
+                )}\x1b[0m"`;
 
           const { url, isTopFrame } = req;
 
@@ -548,6 +580,9 @@ export default function BookScreen({
           // (which is the default page the WebView loads) avoids a hellish
           // render loop when moving from the Library Screen to the Book Screen.
           if (url === 'about:blank') {
+            console.log(
+              `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m`,
+            );
             return false;
           }
 
@@ -560,6 +595,9 @@ export default function BookScreen({
           // on the way in (which matches how it comes through here). But there
           // could be other discrepancies, like trailing slashes or something.
           if (url === webViewUri || !isTopFrame) {
+            console.log(
+              `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[32mtrue\x1b[0m`,
+            );
             return true;
           }
 
@@ -568,11 +606,35 @@ export default function BookScreen({
           // Keep React state in sync by denying the load here and re-rendering
           // with a new source value instead.
           setWebViewUri(url);
+          console.log(
+            `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m`,
+          );
           return false;
         }}
       />
     </SafeAreaView>
   );
+}
+
+function stringDiff(a: string, b: string) {
+  const longer = a.length > b.length ? a : b;
+
+  let aDiff = '';
+  let bDiff = '';
+  for (let i = 0; i < longer.length; i++) {
+    if (a[i] === b[i]) {
+      continue;
+    }
+
+    if (a[i] !== undefined) {
+      aDiff += a[i];
+    }
+    if (b[i] !== undefined) {
+      bDiff += b[i];
+    }
+  }
+
+  return { a: aDiff, b: bDiff };
 }
 
 const injectedJavaScript = `
