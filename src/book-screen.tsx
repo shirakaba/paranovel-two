@@ -25,13 +25,16 @@ import type { RootStackParamList } from './navigation.types';
 import injectedCss from './source-assets/injected-css.wvcss';
 import mainScript from './source-assets/injected-javascript.wvjs';
 import { BookState, BookStateType } from './persistence/book-state';
-import { PageDetails } from './book-screen.types';
+import { BookScreenProps, PageDetails } from './book-screen.types';
+import { QuickSQLiteConnection } from 'react-native-quick-sqlite';
 
 export default function BookScreen({
   navigation,
   route,
 }: NativeStackScreenProps<RootStackParamList, 'Book'>) {
   const params = route.params;
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
   const library = useLibrary();
 
   const ncxQuery = useQuery({
@@ -79,6 +82,8 @@ export default function BookScreen({
     },
   });
   const spine = opfQuery.data?.spine;
+  const spineRef = useRef(spine);
+  spineRef.current = spine;
 
   const pageDetailsQuery = useQuery({
     queryKey: [
@@ -254,278 +259,17 @@ export default function BookScreen({
     });
   }, [navigation, params, spine, toc]);
 
-  const onMessage = useCallback(
-    ({ nativeEvent: { data } }: WebViewMessageEvent) => {
-      interface LogPayload {
-        type: 'log';
-        message: string;
-      }
-      interface LookUpPayload {
-        type: 'lookUpTerm';
-        id: number;
-        term: string;
-      }
-      interface TokenizePayload {
-        type: 'tokenize';
-        id: number;
-        blockBaseText: string;
-        offset: number;
-      }
-      interface NavigationRequestPayload {
-        type: 'navigation-request';
-        value: string;
-        currentHref: string;
-      }
-      interface ProgressPayload {
-        type: 'progress-update';
-        /** We may support visible element-based updates in future. */
-        subtype: 'scroll';
-        blockScrollFraction: number;
-      }
-      type Payload =
-        | LogPayload
-        | LookUpPayload
-        | TokenizePayload
-        | NavigationRequestPayload
-        | ProgressPayload;
-
-      let parsed: Payload;
-      try {
-        parsed = JSON.parse(data);
-      } catch (error) {
-        console.error('[WebView] error parsing message', error);
-        return;
-      }
-
-      // TODO: validate
-
-      switch (parsed.type) {
-        case 'log': {
-          const { message } = parsed;
-          console.log(`[WebView] log: ${message}`);
-          break;
-        }
-        case 'lookUpTerm': {
-          const webView = webViewRef.current;
-          if (!webView) {
-            return;
-          }
-
-          // Gross, but just working with what react-native-webview gives me.
-          const settle = (
-            type: 'resolve' | 'reject',
-            value: string,
-            id?: number,
-          ) =>
-            webView.injectJavaScript(
-              typeof id === 'number'
-                ? `__paranovelState.tokenizationPromiseHandlers[${id}].${type}(${value});`
-                : `Object.keys(__paranovelState.tokenizationPromiseHandlers).forEach(id => __paranovelState.tokenizationPromiseHandlers[id].${type}(${value}));`,
-            );
-          const resolve = (value: string, id?: number) =>
-            settle('resolve', value, id);
-          const reject = (value: string, id?: number) =>
-            settle('reject', `new Error(${value})`, id);
-
-          if (typeof parsed !== 'object') {
-            return reject('"Expected message to be object"');
-          }
-
-          const { term } = parsed;
-          if (typeof term !== 'string') {
-            return reject('"Expected body to have term"');
-          }
-
-          const db = dbRef.current;
-          if (!db) {
-            console.log(
-              `[WebView] lookUpTerm "${term}" unable to complete due to lack of dictionary database`,
-            );
-            return reject('"Lacked database"');
-          }
-
-          lookUpTerm(term, db)
-            .then(results => {
-              // console.log(
-              //   `[WebView] lookUpTerm: "${term}" got results`,
-              //   results,
-              // );
-              resolve(JSON.stringify(results));
-            })
-            .catch(error => {
-              console.error('Error during database lookup', error);
-              reject(
-                `"Error during database lookup${
-                  error instanceof Error ? `: ${error.message}` : ''
-                }"`,
-              );
-            });
-          return;
-        }
-        case 'navigation-request': {
-          if (!spine) {
-            console.log(
-              `[navigation-request] Bailing out due to spine being undefined.`,
-            );
-            return;
-          }
-          const { value, currentHref } = parsed;
-
-          // Strip off any URL params and URI fragments by converting to path.
-          const currentPathname = decodeURI(new URL(currentHref).pathname);
-          const currentItemIndex = spine.findIndex(({ href }) =>
-            currentPathname.endsWith(href),
-          );
-
-          if (currentItemIndex === -1) {
-            // This can happen when the browser transforms the URL so as to make
-            // it different from the href written into the spine.
-            console.log(
-              `[navigation-request] Bailing out, as unable to find current page in spine`,
-            );
-            return;
-          }
-          const newIndex = currentItemIndex + (value === 'next' ? 1 : -1);
-          const newPage = spine[newIndex];
-          if (!newPage) {
-            console.log(
-              `[navigation-request] Bailing out, as unable to find new page in spine`,
-            );
-            return;
-          }
-
-          const pageDetails: PageDetails = {
-            pageType: 'spine',
-            href: newPage.href,
-            blockScroll: 0,
-          };
-          const newUri = new URL(`${params.opsUri}/${newPage.href}`).href;
-
-          updateBookState({
-            loggingContext: '[navigation-request]',
-            uniqueIdentifier: params.uniqueIdentifier,
-            pageDetails,
-          })
-            .catch(error => {
-              console.error(
-                '[navigation-request] Failed to update persisted book state.',
-                error,
-              );
-            })
-            .finally(() => {
-              console.log(
-                `[navigation-request] Setting URI to "…\x1b[32m${newUri.replace(
-                  encodeURI(params.opsUri),
-                  '',
-                )}\x1b[0m"`,
-              );
-              setWebViewUri(newUri);
-            });
-          break;
-        }
-        case 'tokenize': {
-          const webView = webViewRef.current;
-          if (!webView) {
-            return;
-          }
-
-          // Gross, but just working with what react-native-webview gives me.
-          const settle = (
-            type: 'resolve' | 'reject',
-            value: string,
-            id?: number,
-          ) =>
-            webView.injectJavaScript(
-              typeof id === 'number'
-                ? `__paranovelState.tokenizationPromiseHandlers[${id}].${type}(${value});`
-                : `Object.keys(__paranovelState.tokenizationPromiseHandlers).forEach(id => __paranovelState.tokenizationPromiseHandlers[id].${type}(${value}));`,
-            );
-          const resolve = (value: string, id?: number) =>
-            settle('resolve', value, id);
-          const reject = (value: string, id?: number) =>
-            settle('reject', `new Error(${value})`, id);
-
-          if (typeof parsed !== 'object') {
-            return reject('"Expected message to be object"');
-          }
-
-          const { id, blockBaseText, offset: targetOffset } = parsed;
-          if (typeof id !== 'number') {
-            return reject('"Expected body to have id"');
-          }
-          if (typeof blockBaseText !== 'string') {
-            return reject('"Expected body to contain blockBaseText"', id);
-          }
-          if (typeof targetOffset !== 'number') {
-            return reject('"Expected body to contain targetOffset"', id);
-          }
-
-          const tokens = tokenize(blockBaseText);
-          if (!tokens.length) {
-            return reject('"Expected to produce more than 0 tokens."', id);
-          }
-
-          // MeCab always trims leading whitespace.
-          const leadingWhiteSpace = /^\\s+/.exec(blockBaseText)?.[0] ?? '';
-          // The user may have clicked into the middle of a token, so we want to
-          // return the start offset of the token containing the clicked
-          // character.
-          let offsetOfTargetTokenIntoBlockBaseText = leadingWhiteSpace.length;
-
-          for (const token of tokens) {
-            const length =
-              token.surface.length + (token.trailingWhitespace?.length ?? 0);
-
-            if (offsetOfTargetTokenIntoBlockBaseText + length > targetOffset) {
-              // Although 'フェルディナンド' does give a non-null lemma, it's '*'.
-              const dictionaryForm =
-                token.lemma && token.lemma !== '*'
-                  ? token.lemma
-                  : token.surface;
-
-              return resolve(
-                JSON.stringify({
-                  offsetOfTargetTokenIntoBlockBaseText,
-                  offsetOfTargetCharacterIntoBlockBaseText: targetOffset,
-                  tokenLength: length,
-                  dictionaryForm,
-                }),
-                id,
-              );
-            }
-
-            offsetOfTargetTokenIntoBlockBaseText += length;
-          }
-
-          return reject('"Didn\'t find token"', id);
-        }
-        case 'progress-update': {
-          const { blockScrollFraction } = parsed;
-
-          const pageDetails = pageDetailsQueryDataRef.current;
-          if (!pageDetails) {
-            console.log('skipping progress update, as no pageDetails');
-            return;
-          }
-
-          updateBookState({
-            loggingContext: '[progress-update]',
-            uniqueIdentifier: params.uniqueIdentifier,
-            pageDetails: {
-              ...pageDetails,
-              blockScroll: blockScrollFraction,
-            },
-          }).catch(error => {
-            console.error('Failed to update persisted book state.', error);
-          });
-          break;
-        }
-      }
-    },
-    // FIXME: Not too confident in when onMessage gets updated, so would rather
-    // accept all params as refs.
-    [spine, params.opsUri, params.uniqueIdentifier],
-  );
+  const onMessageCallback = useCallback((event: WebViewMessageEvent) => {
+    onMessage({
+      event,
+      webViewRef,
+      dbRef,
+      spineRef,
+      paramsRef,
+      setWebViewUri,
+      pageDetailsQueryDataRef,
+    });
+  }, []);
 
   if (library.type !== 'loaded') {
     return null;
@@ -541,7 +285,7 @@ export default function BookScreen({
         ref={webViewRef}
         webviewDebuggingEnabled={true}
         javaScriptEnabled={true}
-        onMessage={onMessage}
+        onMessage={onMessageCallback}
         onLoadStart={({ nativeEvent: { url } }) => {
           console.log(
             `[onLoadStart] "…\x1b[32m${url.replace(
@@ -686,6 +430,311 @@ ${mainScript}
 const style = StyleSheet.create({
   container: { flex: 1 },
 });
+
+// Use refs for every arg so that we don't have to worry about race conditions
+// when reassigning the onMessage() handler (with potentially stale data)
+// between renders.
+function onMessage({
+  event: {
+    nativeEvent: { data },
+  },
+  webViewRef,
+  dbRef,
+  spineRef,
+  paramsRef,
+  setWebViewUri,
+  pageDetailsQueryDataRef,
+}: {
+  event: WebViewMessageEvent;
+  webViewRef: React.RefObject<WebView>;
+  dbRef: React.MutableRefObject<QuickSQLiteConnection | null>;
+  spineRef: React.MutableRefObject<
+    | Array<{
+        href: string;
+        label: string;
+      }>
+    | undefined
+  >;
+  paramsRef: React.MutableRefObject<Readonly<BookScreenProps>>;
+  setWebViewUri: React.Dispatch<React.SetStateAction<string>>;
+  pageDetailsQueryDataRef: React.MutableRefObject<
+    | {
+        pageType: 'toc';
+        href: string;
+        label: string;
+        blockScroll?: number;
+      }
+    | {
+        pageType: 'spine' | 'other';
+        href: string;
+        blockScroll?: number;
+      }
+    | undefined
+  >;
+}) {
+  interface LogPayload {
+    type: 'log';
+    message: string;
+  }
+  interface LookUpPayload {
+    type: 'lookUpTerm';
+    id: number;
+    term: string;
+  }
+  interface TokenizePayload {
+    type: 'tokenize';
+    id: number;
+    blockBaseText: string;
+    offset: number;
+  }
+  interface NavigationRequestPayload {
+    type: 'navigation-request';
+    value: string;
+    currentHref: string;
+  }
+  interface ProgressPayload {
+    type: 'progress-update';
+    /** We may support visible element-based updates in future. */
+    subtype: 'scroll';
+    blockScrollFraction: number;
+  }
+  type Payload =
+    | LogPayload
+    | LookUpPayload
+    | TokenizePayload
+    | NavigationRequestPayload
+    | ProgressPayload;
+
+  let parsed: Payload;
+  try {
+    parsed = JSON.parse(data);
+  } catch (error) {
+    console.error('[WebView] error parsing message', error);
+    return;
+  }
+
+  // TODO: validate
+
+  switch (parsed.type) {
+    case 'log': {
+      const { message } = parsed;
+      console.log(`[WebView] log: ${message}`);
+      break;
+    }
+    case 'lookUpTerm': {
+      const webView = webViewRef.current;
+      if (!webView) {
+        return;
+      }
+
+      // Gross, but just working with what react-native-webview gives me.
+      const settle = (type: 'resolve' | 'reject', value: string, id?: number) =>
+        webView.injectJavaScript(
+          typeof id === 'number'
+            ? `__paranovelState.tokenizationPromiseHandlers[${id}].${type}(${value});`
+            : `Object.keys(__paranovelState.tokenizationPromiseHandlers).forEach(id => __paranovelState.tokenizationPromiseHandlers[id].${type}(${value}));`,
+        );
+      const resolve = (value: string, id?: number) =>
+        settle('resolve', value, id);
+      const reject = (value: string, id?: number) =>
+        settle('reject', `new Error(${value})`, id);
+
+      if (typeof parsed !== 'object') {
+        return reject('"Expected message to be object"');
+      }
+
+      const { term } = parsed;
+      if (typeof term !== 'string') {
+        return reject('"Expected body to have term"');
+      }
+
+      const db = dbRef.current;
+      if (!db) {
+        console.log(
+          `[WebView] lookUpTerm "${term}" unable to complete due to lack of dictionary database`,
+        );
+        return reject('"Lacked database"');
+      }
+
+      lookUpTerm(term, db)
+        .then(results => {
+          // console.log(
+          //   `[WebView] lookUpTerm: "${term}" got results`,
+          //   results,
+          // );
+          resolve(JSON.stringify(results));
+        })
+        .catch(error => {
+          console.error('Error during database lookup', error);
+          reject(
+            `"Error during database lookup${
+              error instanceof Error ? `: ${error.message}` : ''
+            }"`,
+          );
+        });
+      return;
+    }
+    case 'navigation-request': {
+      const spine = spineRef.current;
+      if (!spine) {
+        console.log(
+          `[navigation-request] Bailing out due to spine being undefined.`,
+        );
+        return;
+      }
+      const { value, currentHref } = parsed;
+
+      // Strip off any URL params and URI fragments by converting to path.
+      const currentPathname = decodeURI(new URL(currentHref).pathname);
+      const currentItemIndex = spine.findIndex(({ href }) =>
+        currentPathname.endsWith(href),
+      );
+
+      if (currentItemIndex === -1) {
+        // This can happen when the browser transforms the URL so as to make
+        // it different from the href written into the spine.
+        console.log(
+          `[navigation-request] Bailing out, as unable to find current page in spine`,
+        );
+        return;
+      }
+      const newIndex = currentItemIndex + (value === 'next' ? 1 : -1);
+      const newPage = spine[newIndex];
+      if (!newPage) {
+        console.log(
+          `[navigation-request] Bailing out, as unable to find new page in spine`,
+        );
+        return;
+      }
+
+      const params = paramsRef.current;
+      const pageDetails: PageDetails = {
+        pageType: 'spine',
+        href: newPage.href,
+        blockScroll: 0,
+      };
+      const newUri = new URL(`${params.opsUri}/${newPage.href}`).href;
+
+      updateBookState({
+        loggingContext: '[navigation-request]',
+        uniqueIdentifier: params.uniqueIdentifier,
+        pageDetails,
+      })
+        .catch(error => {
+          console.error(
+            '[navigation-request] Failed to update persisted book state.',
+            error,
+          );
+        })
+        .finally(() => {
+          console.log(
+            `[navigation-request] Setting URI to "…\x1b[32m${newUri.replace(
+              encodeURI(params.opsUri),
+              '',
+            )}\x1b[0m"`,
+          );
+          setWebViewUri(newUri);
+        });
+      break;
+    }
+    case 'tokenize': {
+      const webView = webViewRef.current;
+      if (!webView) {
+        return;
+      }
+
+      // Gross, but just working with what react-native-webview gives me.
+      const settle = (type: 'resolve' | 'reject', value: string, id?: number) =>
+        webView.injectJavaScript(
+          typeof id === 'number'
+            ? `__paranovelState.tokenizationPromiseHandlers[${id}].${type}(${value});`
+            : `Object.keys(__paranovelState.tokenizationPromiseHandlers).forEach(id => __paranovelState.tokenizationPromiseHandlers[id].${type}(${value}));`,
+        );
+      const resolve = (value: string, id?: number) =>
+        settle('resolve', value, id);
+      const reject = (value: string, id?: number) =>
+        settle('reject', `new Error(${value})`, id);
+
+      if (typeof parsed !== 'object') {
+        return reject('"Expected message to be object"');
+      }
+
+      const { id, blockBaseText, offset: targetOffset } = parsed;
+      if (typeof id !== 'number') {
+        return reject('"Expected body to have id"');
+      }
+      if (typeof blockBaseText !== 'string') {
+        return reject('"Expected body to contain blockBaseText"', id);
+      }
+      if (typeof targetOffset !== 'number') {
+        return reject('"Expected body to contain targetOffset"', id);
+      }
+
+      const tokens = tokenize(blockBaseText);
+      if (!tokens.length) {
+        return reject('"Expected to produce more than 0 tokens."', id);
+      }
+
+      // MeCab always trims leading whitespace.
+      const leadingWhiteSpace = /^\\s+/.exec(blockBaseText)?.[0] ?? '';
+      // The user may have clicked into the middle of a token, so we want to
+      // return the start offset of the token containing the clicked
+      // character.
+      let offsetOfTargetTokenIntoBlockBaseText = leadingWhiteSpace.length;
+
+      for (const token of tokens) {
+        const length =
+          token.surface.length + (token.trailingWhitespace?.length ?? 0);
+
+        if (offsetOfTargetTokenIntoBlockBaseText + length > targetOffset) {
+          // Although 'フェルディナンド' does give a non-null lemma, it's '*'.
+          const dictionaryForm =
+            token.lemma && token.lemma !== '*' ? token.lemma : token.surface;
+
+          return resolve(
+            JSON.stringify({
+              offsetOfTargetTokenIntoBlockBaseText,
+              offsetOfTargetCharacterIntoBlockBaseText: targetOffset,
+              tokenLength: length,
+              dictionaryForm,
+            }),
+            id,
+          );
+        }
+
+        offsetOfTargetTokenIntoBlockBaseText += length;
+      }
+
+      return reject('"Didn\'t find token"', id);
+    }
+    case 'progress-update': {
+      const { blockScrollFraction } = parsed;
+
+      const params = paramsRef.current;
+      if (!params) {
+        return;
+      }
+
+      const pageDetails = pageDetailsQueryDataRef.current;
+      if (!pageDetails) {
+        console.log('skipping progress update, as no pageDetails');
+        return;
+      }
+
+      updateBookState({
+        loggingContext: '[progress-update]',
+        uniqueIdentifier: params.uniqueIdentifier,
+        pageDetails: {
+          ...pageDetails,
+          blockScroll: blockScrollFraction,
+        },
+      }).catch(error => {
+        console.error('Failed to update persisted book state.', error);
+      });
+      break;
+    }
+  }
+}
 
 async function updateBookState({
   loggingContext,
