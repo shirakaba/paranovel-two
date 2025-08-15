@@ -155,7 +155,7 @@ export default function BookScreen({
   // encoded URI instead. To keep React state in better sync, we should encode
   // before setting as source.
   const pageDetailsHref = pageDetailsQuery.data
-    ? `${params.opsUri}/${pageDetailsQuery.data.href}`
+    ? encodeURI(`${params.opsUri}/${pageDetailsQuery.data.href}`)
     : 'about:blank';
   const [webViewUri, setWebViewUri] = useState(pageDetailsHref);
   console.log(
@@ -552,16 +552,14 @@ export default function BookScreen({
           }
 
           // Allow loads that are in sync with React state, and iframes I guess.
-          if (
-            url === webViewUri ||
-            // While this url may be in sync with React state, we may get a
-            // false positive because the `webViewUri` is always unencoded, yet
-            // `url` may be encoded (need to check whether it's always so).
-            //
-            // TODO: Encode upstream so that we don't need to special-case this.
-            encodeURI(webViewUri) === url ||
-            !isTopFrame
-          ) {
+          // If the WebView ever stays white and thrashes between two URLs in
+          // the logs, here is where to look.
+          //
+          // Note: We're tentatively comparing URL equality by
+          // `url === webViewUri`, based on the fact that we've URI-encoded it
+          // on the way in (which matches how it comes through here). But there
+          // could be other discrepancies, like trailing slashes or something.
+          if (url === webViewUri || !isTopFrame) {
             return true;
           }
 
