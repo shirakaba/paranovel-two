@@ -1292,6 +1292,49 @@ function isElement(node) {
   return node.nodeType === Node.ELEMENT_NODE;
 }
 
+function restoreScroll() {
+  const scroll = parseFloat(
+    new URL(location.href).searchParams.get('scroll') ?? '0',
+  );
+
+  const writingMode =
+    document.body.computedStyleMap().get('writing-mode')?.value ??
+    'horizontal-tb';
+
+  switch (writingMode) {
+    case 'lr':
+    case 'lr-tb':
+    case 'rl':
+    case 'horizontal-tb': {
+      const scrollTop =
+        (document.scrollingElement.scrollHeight - window.innerHeight) * scroll;
+
+      log(`Restoring scrollTop to ${scrollTop} based on scroll=${scroll}`);
+
+      document.scrollingElement.scrollTop = scrollTop;
+      break;
+    }
+    case 'tb-lr':
+    case 'tb-rl':
+    case 'sideways-rl':
+    case 'vertical-rl':
+    case 'sideways-lr':
+    case 'vertical-lr': {
+      const scrollLeft =
+        (document.scrollingElement.scrollWidth - window.innerWidth) *
+        scroll *
+        (writingMode.endsWith('rl') ? -1 : 1);
+      log(`Restoring scrollLeft to ${scrollLeft} based on scroll=${scroll}`);
+
+      document.scrollingElement.scrollLeft = scrollLeft;
+      break;
+    }
+    default: {
+      throw new Error(`Unexpected writing mode, ${writingMode}`);
+    }
+  }
+}
+
 const __paranovelState = {
   wordHighlight: new Highlight(),
   tokenizationPromiseCount: 0,
@@ -1336,6 +1379,7 @@ document.addEventListener(
       return;
     }
 
+    // FIXME: hard-assumes vertical-rl
     const blockScrollFraction =
       -1 *
       (document.scrollingElement.scrollLeft /
@@ -1353,3 +1397,8 @@ document.addEventListener(
   },
   { passive: true },
 );
+
+// Wait a frame for writing-mode to be resolved
+requestAnimationFrame(() => {
+  restoreScroll();
+});
