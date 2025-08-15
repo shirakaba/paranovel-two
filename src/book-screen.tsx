@@ -555,9 +555,13 @@ export default function BookScreen({
         }
         // https://github.com/react-native-webview/react-native-webview/blob/master/docs/Guide.md#setting-custom-headers
         onShouldStartLoadWithRequest={req => {
+          // This normalises the URI encoding to be definitely encoded.
+          const current = new URL(webViewUri).href;
+          const incoming = new URL(req.url).href;
+
           const { a: reqUrlDiff, b: webViewUriDiff } = stringDiff(
-            webViewUri,
-            req.url,
+            current,
+            incoming,
           );
 
           const report =
@@ -574,12 +578,12 @@ export default function BookScreen({
                   '',
                 )}\x1b[0m"`;
 
-          const { url, isTopFrame } = req;
+          const { isTopFrame } = req;
 
           // I can't fully explain why, but preventing load of "about:blank"
           // (which is the default page the WebView loads) avoids a hellish
           // render loop when moving from the Library Screen to the Book Screen.
-          if (url === 'about:blank') {
+          if (incoming === 'about:blank') {
             console.log(
               `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m`,
             );
@@ -594,18 +598,20 @@ export default function BookScreen({
           // `url === webViewUri`, based on the fact that we've URI-encoded it
           // on the way in (which matches how it comes through here). But there
           // could be other discrepancies, like trailing slashes or something.
-          if (url === webViewUri || !isTopFrame) {
+          if (incoming === current || !isTopFrame) {
             console.log(
               `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[32mtrue\x1b[0m`,
             );
             return true;
           }
 
-          console.log(`[onShouldStartLoadWithRequest] setWebViewUri("${url}")`);
+          console.log(
+            `[onShouldStartLoadWithRequest] setWebViewUri("${incoming}")`,
+          );
 
           // Keep React state in sync by denying the load here and re-rendering
           // with a new source value instead.
-          setWebViewUri(url);
+          setWebViewUri(incoming);
           console.log(
             `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m`,
           );
