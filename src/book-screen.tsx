@@ -155,11 +155,13 @@ export default function BookScreen({
   // encoded URI instead. To keep React state in better sync, we should encode
   // before setting as source.
   const pageDetailsHref = pageDetailsQuery.data
-    ? encodeURI(`${params.opsUri}/${pageDetailsQuery.data.href}`)
+    ? new URL(`${params.opsUri}/${pageDetailsQuery.data.href}`).href
     : 'about:blank';
   const [webViewUri, setWebViewUri] = useState(pageDetailsHref);
   console.log(
-    `[BookScreen] render webViewUri "…\x1b[32m${webViewUri.replace(
+    `[BookScreen] render webViewUri "…\x1b[32m${new URL(
+      webViewUri,
+    ).href.replace(
       encodeURI(params.opsUri),
       '',
     )}\x1b[0m", given route.params.pageDetails ${JSON.stringify(
@@ -390,7 +392,7 @@ export default function BookScreen({
             href: newPage.href,
             blockScroll: 0,
           };
-          const newUri = `${params.opsUri}/${newPage.href}`;
+          const newUri = new URL(`${params.opsUri}/${newPage.href}`).href;
 
           updateBookState({
             loggingContext: '[navigation-request]',
@@ -405,7 +407,12 @@ export default function BookScreen({
               );
             })
             .finally(() => {
-              console.log(`[navigation-request] Setting URI to "${newUri}"`);
+              console.log(
+                `[navigation-request] Setting URI to "…\x1b[32m${newUri.replace(
+                  encodeURI(params.opsUri),
+                  '',
+                )}\x1b[0m"`,
+              );
               setWebViewUri(newUri);
             });
           break;
