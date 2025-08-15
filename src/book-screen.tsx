@@ -304,7 +304,15 @@ export default function BookScreen({
         }}
         injectedJavaScript={injectedJavaScript}
         allowFileAccessFromFileURLs={true}
-        allowingReadAccessToURL={params.opsUri}
+        // It doesn't actually matter whether we URI-encode this or not. At the
+        // point of use (i.e. `visitSource` > `syncCookiesToWebView` in
+        // RNCWebViewImpl.m), react-native-webview processes this value with
+        // `[RCTConvert NSURL:allowingReadAccessToURL]` before handing it over
+        // to `loadFileURL:allowingReadAccessToURL:`.
+        //
+        // The RCTConvert part runs `[NSURL URLWithString:path]` on it, which
+        // normalises it as encoded, without doubly-encoding it.
+        allowingReadAccessToURL={encodeURI(params.opsUri)}
         // Specifying 'file://*' in here is necessary to stop the WebView from
         // treating file URLs as being blocklisted. Blocklisted URLs get opened
         // via Linking (to be passed on to Safari) instead.
