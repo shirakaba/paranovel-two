@@ -325,8 +325,8 @@ export default function BookScreen({
           const incomingWithoutParams = `${incomingURL.origin}${incomingURL.pathname}`;
 
           const { a: reqUrlDiff, b: webViewUriDiff } = stringDiff(
-            current,
             incoming,
+            current,
           );
 
           const report =
@@ -350,7 +350,7 @@ export default function BookScreen({
           // render loop when moving from the Library Screen to the Book Screen.
           if (incoming === 'about:blank') {
             console.log(
-              `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m`,
+              `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(never render about:blank)\x1b[0m`,
             );
             return false;
           }
@@ -387,7 +387,7 @@ export default function BookScreen({
           // with a new source value instead.
           setWebViewUri(incoming);
           console.log(
-            `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m`,
+            `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(calling setWebViewUri())\x1b[0m`,
           );
           return false;
         }}
