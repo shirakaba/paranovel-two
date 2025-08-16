@@ -409,9 +409,14 @@ function stringDiff(a: string, b: string) {
 
   let aDiff = '';
   let bDiff = '';
+  let foundDifference = false;
   for (let i = 0; i < longer.length; i++) {
-    if (a[i] === b[i]) {
-      continue;
+    if (!foundDifference) {
+      if (a[i] === b[i]) {
+        continue;
+      }
+
+      foundDifference = true;
     }
 
     if (a[i] !== undefined) {
