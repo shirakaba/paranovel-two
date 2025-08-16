@@ -1366,6 +1366,11 @@ document.addEventListener('dblclick', () => {
   // unexplained codepath in WebKit that abrogates the scrolling.
 });
 
+/**
+ * @type {{ type: "inactive" } | { type: "scrolling", interval: ReturnType<Window["setInterval"]>, lastScroll: Date }}
+ */
+let scrollState = { type: 'inactive' };
+
 // Track reading progress within the current page.
 //
 // I wanted to use IntersectionObserver, but it doesn't fire callbacks (upon
@@ -1373,30 +1378,78 @@ document.addEventListener('dblclick', () => {
 document.addEventListener(
   'scroll',
   () => {
-    /** @type {HTMLProgressElement} */
-    const progress = document.getElementById('paranovel-progress');
-    if (!progress) {
+    const lastScroll = new Date();
+
+    if (scrollState.type !== 'inactive') {
+      scrollState.lastScroll = lastScroll;
       return;
     }
 
-    // FIXME: hard-assumes vertical-rl
-    const blockScrollFraction =
-      -1 *
-      (document.scrollingElement.scrollLeft /
-        (document.scrollingElement.scrollWidth - window.innerWidth));
+    // Scroll events in the iOS simulator seem to be every 16-50 ms.
+    // Here, we set up a callback that is debounced to run every 50 ms.
+    const period = 100;
+    const endAfter = Math.round(period * 1.5);
+    const interval = setInterval(() => {
+      if (scrollState.type === 'inactive') {
+        return;
+      }
 
-    progress.value = blockScrollFraction * 100;
+      const dateNow = new Date();
 
-    window.ReactNativeWebView.postMessage(
-      JSON.stringify({
-        type: 'progress-update',
-        subtype: 'scroll',
-        blockScrollFraction,
-      }),
-    );
+      // FIXME: hard-assumes vertical-rl
+      const blockScrollFraction =
+        -1 *
+        (document.scrollingElement.scrollLeft /
+          (document.scrollingElement.scrollWidth - window.innerWidth));
+
+      const diff = dateNow.getTime() - scrollState.lastScroll.getTime();
+
+      // As WebKit has not implemented 'scrollend', we wait for 150 ms without a
+      // scroll event before we assume that the scrolling has finished.
+      if (diff > endAfter) {
+        clearInterval(interval);
+        scrollState = { type: 'inactive' };
+        onScrollEnd(blockScrollFraction);
+        return;
+      }
+
+      onScrollInterval(blockScrollFraction);
+    }, period);
+
+    scrollState = {
+      type: 'scrolling',
+      lastScroll,
+      interval,
+    };
   },
   { passive: true },
 );
+
+/**
+ * @param {number} blockScrollFraction
+ */
+function onScrollInterval(blockScrollFraction) {
+  /** @type {HTMLProgressElement} */
+  const progress = document.getElementById('paranovel-progress');
+  if (!progress) {
+    return;
+  }
+
+  progress.value = blockScrollFraction * 100;
+}
+
+/**
+ * @param {number} blockScrollFraction
+ */
+function onScrollEnd(blockScrollFraction) {
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({
+      type: 'progress-update',
+      subtype: 'scroll',
+      blockScrollFraction,
+    }),
+  );
+}
 
 // Wait a frame for writing-mode to be resolved
 requestAnimationFrame(() => {
