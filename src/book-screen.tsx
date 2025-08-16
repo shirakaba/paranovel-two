@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { readAsStringAsync } from 'expo-file-system';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   Button,
   SafeAreaView,
@@ -32,13 +32,31 @@ export default function BookScreen({
   navigation,
   route,
 }: NativeStackScreenProps<RootStackParamList, 'Book'>) {
+  // Queries are cached and survive remounts. In our case, this causes trouble,
+  // because one of our assumptions is that when we mount BookScreen, we always
+  // start with an unloaded query, presenting about:blank.
+  //
+  // If we don't couple the cache to the component, then the moment we mount
+  // BookScreen, if there's a query in the cache, pageDetailsQuery.data will
+  // begin populated, and so the WebView will initially render the cached
+  // webViewUri rather than about:blank.
+  //
+  // In practice, this causes thrashing. Given the complex nature of this Rube
+  // Goldberg machine, the simplest (and only) solution I've found is to couple
+  // query caches to component instances via useId().
+  const componentId = useId();
+
   const params = route.params;
   const paramsRef = useRef(params);
   paramsRef.current = params;
   const library = useLibrary();
 
   const ncxQuery = useQuery({
-    queryKey: ['ncx', params.opsUri, params.ncxFileHref] as const,
+    queryKey: [
+      `ncx-${componentId}`,
+      params.opsUri,
+      params.ncxFileHref,
+    ] as const,
     queryFn: async ({ queryKey: [, opsUri, ncxFileHref] }) => {
       if (!ncxFileHref) {
         throw new Error('required ncxFileHref to be populated');
@@ -65,7 +83,11 @@ export default function BookScreen({
   const toc = ncxQuery.data?.toc;
 
   const opfQuery = useQuery({
-    queryKey: ['opf', params.opsUri, params.relativePathToOpfFromOps] as const,
+    queryKey: [
+      `opf-${componentId}`,
+      params.opsUri,
+      params.relativePathToOpfFromOps,
+    ] as const,
     queryFn: async ({ queryKey: [, opsUri, relativePathToOpfFromOps] }) => {
       const absoluteUriToOpf = `${opsUri}/${relativePathToOpfFromOps}`;
       let opfText: string;
@@ -87,7 +109,7 @@ export default function BookScreen({
 
   const pageDetailsQuery = useQuery({
     queryKey: [
-      'pageDetails',
+      `pageDetails-${componentId}`,
       opfQuery.data?.opf,
       params.uniqueIdentifier,
       params.pageDetails,
@@ -160,20 +182,23 @@ export default function BookScreen({
     ? `?scroll=${pageDetailsQuery.data.blockScroll ?? 0}`
     : '';
 
-  // FIXME: Both `params.opsUri` and `pageDetailsQuery.data.href` come in
-  // unencoded. When we set `pageDetailsHref` as the source, the moment
-  // onShouldStartLoadWithRequest() runs, you'll see it's handling it as an
-  // encoded URI instead. To keep React state in better sync, we should encode
-  // before setting as source.
+  // Both `params.opsUri` and `pageDetailsQuery.data.href` come in unencoded.
+  // When we set `webViewUri` as the source, the moment
+  // onShouldStartLoadWithRequest() runs, you'll see that on the native side,
+  // it's handling it as an encoded URI instead. So, to keep React state in
+  // better sync with native, we encode before setting as source.
+  //
+  // - `new URL(...).href` seemed attractive, as it normalises to encoded.
+  // - `encodeURI(...)` is the only thing that seems to work for Bookworm,
+  //   however. Without it, we get the following in Xcode:
+  //   > 0x17b0180c0 - [PID=4363] WebProcessProxy::checkURLReceivedFromWebProcess: Received an unexpected URL from the web process
+  //   > 0x10bdfd618 - [pageProxyID=13, webPageID=14, PID=4363] WebPageProxy::Ignoring request to load this main resource because it is outside the sandbox
   const pageDetailsHref = pageDetailsQuery.data
-    ? new URL(`${params.opsUri}/${pageDetailsQuery.data.href}${queryParams}`)
-        .href
+    ? encodeURI(`${params.opsUri}/${pageDetailsQuery.data.href}${queryParams}`)
     : 'about:blank';
   const [webViewUri, setWebViewUri] = useState(pageDetailsHref);
   console.log(
-    `[BookScreen] render webViewUri "…\x1b[32m${new URL(
-      webViewUri,
-    ).href.replace(
+    `[BookScreen] render webViewUri "…\x1b[32m${webViewUri.replace(
       encodeURI(params.opsUri),
       '',
     )}\x1b[0m", given route.params.pageDetails ${JSON.stringify(
@@ -387,15 +412,11 @@ export default function BookScreen({
             return true;
           }
 
-          console.log(
-            `[onShouldStartLoadWithRequest] setWebViewUri("${incoming}")`,
-          );
-
           // Keep React state in sync by denying the load here and re-rendering
           // with a new source value instead.
           setWebViewUri(incoming);
           console.log(
-            `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(calling setWebViewUri())\x1b[0m`,
+            `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(calling setWebViewUri("${incoming}"))\x1b[0m`,
           );
           return false;
         }}
@@ -626,7 +647,7 @@ function onMessage({
         href: newPage.href,
         blockScroll: 0,
       };
-      const newUri = new URL(`${params.opsUri}/${newPage.href}`).href;
+      const newUri = encodeURI(`${params.opsUri}/${newPage.href}`);
 
       updateBookState({
         loggingContext: '[navigation-request]',
