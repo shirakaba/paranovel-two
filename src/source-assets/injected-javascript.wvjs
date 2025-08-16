@@ -1367,7 +1367,7 @@ document.addEventListener('dblclick', () => {
 });
 
 /**
- * @type {{ type: "inactive" } | { type: "scrolling", interval: ReturnType<Window["setInterval"]>, lastScroll: Date }}
+ * @type {{ type: "inactive" } | { type: "scrolling", interval: ReturnType<Window["requestAnimationFrame"]>, lastScroll: Date, lastInterval: Date | null }}
  */
 let scrollState = { type: 'inactive' };
 
@@ -1380,50 +1380,74 @@ document.addEventListener(
   () => {
     const lastScroll = new Date();
 
-    if (scrollState.type !== 'inactive') {
-      scrollState.lastScroll = lastScroll;
+    if (scrollState.type === 'inactive') {
+      const millisecondsPerFrame = Math.round(1000 / 60);
+
+      scrollState = {
+        type: 'scrolling',
+        lastScroll,
+        lastInterval: null,
+        interval: debouncedScrollListener(
+          100 - millisecondsPerFrame,
+          150 - millisecondsPerFrame,
+        ),
+      };
       return;
     }
 
-    // Scroll events in the iOS simulator seem to be every 16-50 ms.
-    // Here, we set up a callback that is debounced to run every 50 ms.
-    const period = 100;
-    const endAfter = Math.round(period * 1.5);
-    const interval = setInterval(() => {
-      if (scrollState.type === 'inactive') {
-        return;
-      }
-
-      const dateNow = new Date();
-
-      // FIXME: hard-assumes vertical-rl
-      const blockScrollFraction =
-        -1 *
-        (document.scrollingElement.scrollLeft /
-          (document.scrollingElement.scrollWidth - window.innerWidth));
-
-      const diff = dateNow.getTime() - scrollState.lastScroll.getTime();
-
-      // As WebKit has not implemented 'scrollend', we wait for 150 ms without a
-      // scroll event before we assume that the scrolling has finished.
-      if (diff > endAfter) {
-        clearInterval(interval);
-        scrollState = { type: 'inactive' };
-        onScrollEnd(blockScrollFraction);
-        return;
-      }
-
-      onScrollInterval(blockScrollFraction);
-    }, period);
-
-    scrollState = {
-      type: 'scrolling',
-      lastScroll,
-      interval,
-    };
+    scrollState.lastScroll = lastScroll;
   },
   { passive: true },
 );
+
+/**
+ * @param {number} period
+ * @param {number} endScrollAfter
+ */
+function debouncedScrollListener(period, endScrollAfter) {
+  return requestAnimationFrame(() => {
+    if (scrollState.type === 'inactive') {
+      return;
+    }
+
+    cancelAnimationFrame(scrollState.interval);
+    const dateNow = new Date();
+    const timeSinceLastInterval = scrollState.lastInterval
+      ? dateNow.getTime() - scrollState.lastInterval.getTime()
+      : null;
+    const timeSinceLastScroll =
+      dateNow.getTime() - scrollState.lastScroll.getTime();
+
+    // As WebKit has not implemented 'scrollend', we wait for x ms without a
+    // scroll event before we assume that the scrolling has finished.
+    if (timeSinceLastScroll > endScrollAfter) {
+      const blockScrollFraction = calculateBlockScrollFraction();
+      scrollState = { type: 'inactive' };
+      onScrollEnd(blockScrollFraction);
+      return;
+    }
+
+    if (timeSinceLastInterval === null || timeSinceLastInterval > period) {
+      const blockScrollFraction = calculateBlockScrollFraction();
+      onScrollInterval(blockScrollFraction);
+      scrollState.lastInterval = dateNow;
+    }
+
+    scrollState = {
+      ...scrollState,
+      interval: debouncedScrollListener(period, endScrollAfter),
+    };
+  });
+}
+
+function calculateBlockScrollFraction() {
+  // FIXME: hard-assumes vertical-rl
+  return (
+    -1 *
+    (document.scrollingElement.scrollLeft /
+      (document.scrollingElement.scrollWidth - window.innerWidth))
+  );
+}
 
 /**
  * @param {number} blockScrollFraction
