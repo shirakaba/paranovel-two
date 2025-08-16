@@ -1297,9 +1297,7 @@ function restoreScroll() {
     new URL(location.href).searchParams.get('scroll') ?? '0',
   );
 
-  const writingMode =
-    document.body.computedStyleMap().get('writing-mode')?.value ??
-    'horizontal-tb';
+  const writingMode = cachedWritingMode ?? 'horizontal-tb';
 
   switch (writingMode) {
     case 'lr':
@@ -1341,6 +1339,13 @@ const __paranovelState = {
   tokenizationPromiseHandlers: {},
 };
 
+/**
+ * Necessarily lazy because writing mode can't be correctly resolved until we've
+ * waited an animation frame for styles to apply.
+ * @type {string | null}
+ */
+let cachedWritingMode = null;
+
 CSS.highlights.set('word', __paranovelState.wordHighlight);
 
 insertNavigationButtons(document.body);
@@ -1366,64 +1371,73 @@ document.addEventListener('dblclick', () => {
   // unexplained codepath in WebKit that abrogates the scrolling.
 });
 
-/**
- * @type {{ type: "inactive" } | { type: "scrolling", interval: ReturnType<Window["setInterval"]>, lastScroll: Date }}
- */
-let scrollState = { type: 'inactive' };
+// Wait a frame for writing-mode to be resolved.
+requestAnimationFrame(() => {
+  cachedWritingMode =
+    document.body.computedStyleMap().get('writing-mode')?.value ??
+    'horizontal-tb';
 
-// Track reading progress within the current page.
-//
-// I wanted to use IntersectionObserver, but it doesn't fire callbacks (upon
-// elements scrolling into the viewport) for vertical-rl text on WebKit.
-document.addEventListener(
-  'scroll',
-  () => {
-    const lastScroll = new Date();
+  /**
+   * @type {{ type: "inactive" } | { type: "scrolling", interval: ReturnType<Window["setInterval"]>, lastScroll: Date }}
+   */
+  let scrollState = { type: 'inactive' };
 
-    if (scrollState.type !== 'inactive') {
-      scrollState.lastScroll = lastScroll;
-      return;
-    }
+  // Track reading progress within the current page.
+  //
+  // I wanted to use IntersectionObserver, but it doesn't fire callbacks (upon
+  // elements scrolling into the viewport) for vertical-rl text on WebKit.
+  document.addEventListener(
+    'scroll',
+    () => {
+      const lastScroll = new Date();
 
-    // Scroll events in the iOS simulator seem to be every 16-50 ms.
-    // Here, we set up a callback that is debounced to run every 50 ms.
-    const period = 100;
-    const endAfter = Math.round(period * 1.5);
-    const interval = setInterval(() => {
-      if (scrollState.type === 'inactive') {
+      if (scrollState.type !== 'inactive') {
+        scrollState.lastScroll = lastScroll;
         return;
       }
 
-      const dateNow = new Date();
+      // Scroll events in the iOS simulator seem to be every 16-50 ms.
+      // Here, we set up a callback that is debounced to run every 50 ms.
+      const period = 100;
+      const endAfter = Math.round(period * 1.5);
+      const interval = setInterval(() => {
+        if (scrollState.type === 'inactive') {
+          return;
+        }
 
-      // FIXME: hard-assumes vertical-rl
-      const blockScrollFraction =
-        -1 *
-        (document.scrollingElement.scrollLeft /
-          (document.scrollingElement.scrollWidth - window.innerWidth));
+        const dateNow = new Date();
 
-      const diff = dateNow.getTime() - scrollState.lastScroll.getTime();
+        // FIXME: hard-assumes vertical-rl
+        const blockScrollFraction =
+          -1 *
+          (document.scrollingElement.scrollLeft /
+            (document.scrollingElement.scrollWidth - window.innerWidth));
 
-      // As WebKit has not implemented 'scrollend', we wait for 150 ms without a
-      // scroll event before we assume that the scrolling has finished.
-      if (diff > endAfter) {
-        clearInterval(interval);
-        scrollState = { type: 'inactive' };
-        onScrollEnd(blockScrollFraction);
-        return;
-      }
+        const diff = dateNow.getTime() - scrollState.lastScroll.getTime();
 
-      onScrollInterval(blockScrollFraction);
-    }, period);
+        // As WebKit has not implemented 'scrollend', we wait for 150 ms without a
+        // scroll event before we assume that the scrolling has finished.
+        if (diff > endAfter) {
+          clearInterval(interval);
+          scrollState = { type: 'inactive' };
+          onScrollEnd(blockScrollFraction);
+          return;
+        }
 
-    scrollState = {
-      type: 'scrolling',
-      lastScroll,
-      interval,
-    };
-  },
-  { passive: true },
-);
+        onScrollInterval(blockScrollFraction);
+      }, period);
+
+      scrollState = {
+        type: 'scrolling',
+        lastScroll,
+        interval,
+      };
+    },
+    { passive: true },
+  );
+
+  restoreScroll();
+});
 
 /**
  * @param {number} blockScrollFraction
@@ -1450,8 +1464,3 @@ function onScrollEnd(blockScrollFraction) {
     }),
   );
 }
-
-// Wait a frame for writing-mode to be resolved
-requestAnimationFrame(() => {
-  restoreScroll();
-});
