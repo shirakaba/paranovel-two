@@ -620,6 +620,9 @@ function insertProgressBar(container) {
   progress.style.writingMode = 'horizontal-tb';
   progress.style.width = 'calc(100% - 2rem)';
   progress.style.marginInline = 'auto';
+
+  // Hide until we've been updated with our first value.
+  progress.style.visibility = 'hidden';
 }
 
 function log(message) {
@@ -1450,6 +1453,7 @@ function onScrollInterval(blockScrollFraction) {
   }
 
   progress.value = blockScrollFraction * 100;
+  progress.style.visibility = 'visible';
 }
 
 /**
