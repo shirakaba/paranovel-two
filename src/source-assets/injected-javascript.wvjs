@@ -287,19 +287,24 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
     }
   }
 
-  /** @type {Array<{ orientation: Orientation, overflow: number }>} */
-  const overflows = [];
+  /** @type {Array<{ orientation: Orientation, blockOverflow: number, clientInlineSize: number }>} */
+  const solutions = [];
   /** @type {Orientation} */
   let lastTried;
   for (const orientation of positionTryOrder) {
     lastTried = orientation;
-    const { blockOverflow, inlineOverflow, isOverflowingViewport, stageRect } =
-      tryOrientation({
-        popoverStage,
-        popoverContent,
-        anchorRect,
-        orientation,
-      });
+    const {
+      blockOverflow,
+      inlineOverflow,
+      clientInlineSize,
+      isOverflowingViewport,
+      stageRect,
+    } = tryOrientation({
+      popoverStage,
+      popoverContent,
+      anchorRect,
+      orientation,
+    });
 
     if (isOverflowingViewport) {
       console.log(
@@ -316,42 +321,53 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
       continue;
     }
 
-    overflows.push({ orientation, overflow: blockOverflow });
-
-    if (!blockOverflow) {
-      break;
-    }
+    solutions.push({ orientation, blockOverflow, clientInlineSize });
   }
 
-  const sortedOverflows = overflows.sort((a, b) => a.overflow - b.overflow);
-  const leastOverflow = sortedOverflows.at(0)?.orientation;
+  const sortedSolutions = solutions.sort((a, b) => {
+    // Sort in descending order of inline size.
+    const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
 
-  if (!leastOverflow) {
+    // If there's no tie, use that alone as the sorting factor.
+    if (clientInlineSize) {
+      return clientInlineSize;
+    }
+
+    // Otherwise, sort in ascending order of block overflow.
+    //
+    // (Given that we reserve the same amount of block space for both
+    // orientations, though, this won't actually make any difference unless we
+    // change the layout algorithm in future.)
+    return a.blockOverflow - b.blockOverflow;
+  });
+  const bestSolution = sortedSolutions.at(0)?.orientation;
+
+  if (!bestSolution) {
     return;
   }
 
-  if (leastOverflow === lastTried) {
+  if (bestSolution === lastTried) {
     console.log(
-      `Given overflows ${JSON.stringify(
-        sortedOverflows,
-      )}, picking ${leastOverflow} (last tried)`,
+      `Given solutions ${JSON.stringify(
+        sortedSolutions,
+      )}, picking ${bestSolution} (last tried)`,
     );
   } else {
     console.log(
-      `Given overflows ${JSON.stringify(
-        sortedOverflows,
-      )}, picking ${leastOverflow} (redoing layout)`,
+      `Given solutions ${JSON.stringify(
+        sortedSolutions,
+      )}, picking ${bestSolution} (redoing layout)`,
     );
 
     tryOrientation({
       popoverStage,
       popoverContent,
       anchorRect,
-      orientation: leastOverflow,
+      orientation: bestSolution,
     });
   }
 
-  return leastOverflow;
+  return bestSolution;
 }
 
 /**
@@ -431,6 +447,8 @@ function tryOrientation({
   /** @type {number} */
   let blockOverflow = 0;
   let inlineOverflow = 0;
+  let clientBlockSize = 0;
+  let clientInlineSize = 0;
 
   switch (orientation) {
     case 'top': {
@@ -439,6 +457,8 @@ function tryOrientation({
       popoverStage.style.bottom = `${window.innerHeight - top}px`;
       blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
       inlineOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      clientBlockSize = popoverContent.clientHeight;
+      clientInlineSize = popoverContent.clientWidth;
       break;
     }
     case 'right': {
@@ -449,11 +469,15 @@ function tryOrientation({
         blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
         inlineOverflow =
           popoverContent.scrollHeight - popoverContent.clientHeight;
+        clientBlockSize = popoverContent.clientWidth;
+        clientInlineSize = popoverContent.clientHeight;
       } else {
         blockOverflow =
           popoverContent.scrollHeight - popoverContent.clientHeight;
         inlineOverflow =
           popoverContent.scrollWidth - popoverContent.clientWidth;
+        clientBlockSize = popoverContent.clientHeight;
+        clientInlineSize = popoverContent.clientWidth;
       }
       break;
     }
@@ -463,6 +487,8 @@ function tryOrientation({
       popoverStage.style.top = `${bottom}px`;
       blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
       inlineOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      clientBlockSize = popoverContent.clientHeight;
+      clientInlineSize = popoverContent.clientWidth;
       break;
     }
     case 'left': {
@@ -473,11 +499,15 @@ function tryOrientation({
         blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
         inlineOverflow =
           popoverContent.scrollHeight - popoverContent.clientHeight;
+        clientBlockSize = popoverContent.clientWidth;
+        clientInlineSize = popoverContent.clientHeight;
       } else {
         blockOverflow =
           popoverContent.scrollHeight - popoverContent.clientHeight;
         inlineOverflow =
           popoverContent.scrollWidth - popoverContent.clientWidth;
+        clientBlockSize = popoverContent.clientHeight;
+        clientInlineSize = popoverContent.clientWidth;
       }
       break;
     }
@@ -497,7 +527,14 @@ function tryOrientation({
     isOverflowingViewport = true;
   }
 
-  return { blockOverflow, inlineOverflow, isOverflowingViewport, stageRect };
+  return {
+    blockOverflow,
+    inlineOverflow,
+    clientBlockSize,
+    clientInlineSize,
+    isOverflowingViewport,
+    stageRect,
+  };
 }
 
 /**
