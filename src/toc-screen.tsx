@@ -32,7 +32,6 @@ export default function TableOfContents({
                     href,
                     label,
                   },
-                  navigationTimestamp: `${Date.now()}`,
                 });
               }}
             />

@@ -206,13 +206,6 @@ export default function BookScreen({
     )}`,
   );
 
-  // FIXME: Navigating from Library to Book generally traps you in a long (but
-  // not infinite) loop of re-rendering about:blank. Not sure why yet. But
-  // everything downstream of it seems to work.
-
-  // This hook, and the navigationTimestamp, are a crude workaround for the
-  // webViewUri not updating when a sub-screen (e.g. ToC) unwinds back to this
-  // screen, passing the same params.href as it the screen began with.
   useEffect(() => {
     console.log(
       `[BookScreen] effect setWebViewUri("…\x1b[32m${pageDetailsHref.replace(

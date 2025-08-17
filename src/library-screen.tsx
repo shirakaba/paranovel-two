@@ -96,7 +96,6 @@ export default function LibraryScreen({
                 navigation.push('Book', {
                   ...book,
                   pageDetails: { pageType: 'auto' },
-                  navigationTimestamp: `${Date.now()}`,
                 });
               }}
               book={book}
