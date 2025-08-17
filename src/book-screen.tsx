@@ -24,9 +24,13 @@ import { lookUpTerm } from '@/utils/look-up-term';
 import type { RootStackParamList } from './navigation.types';
 import injectedCss from './source-assets/injected-css.wvcss';
 import mainScript from './source-assets/injected-javascript.wvjs';
-import { BookState, BookStateType } from './persistence/book-state';
+import { BookState } from './persistence/book-state';
 import { BookScreenProps, PageDetails } from './book-screen.types';
 import { QuickSQLiteConnection } from 'react-native-quick-sqlite';
+import {
+  updateBookStateFromUrl,
+  updateBookState,
+} from '@/utils/update-book-state';
 
 export default function BookScreen({
   navigation,
@@ -378,8 +382,7 @@ export default function BookScreen({
 
           const { isTopFrame } = req;
 
-          const navigationLockId = navigationLockIdRef.current;
-          if (typeof navigationLockId === 'number') {
+          if (typeof navigationLockIdRef.current === 'number') {
             console.log(
               `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(navigation lock active)\x1b[0m`,
             );
@@ -440,23 +443,18 @@ export default function BookScreen({
               uniqueIdentifier,
               spine,
             })
-              .then(() => {
-                console.log(
-                  `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(Successfully persisted book state. Calling setWebViewUri("${incoming}"))\x1b[0m`,
-                );
-                setWebViewUri(incoming);
-              })
               .catch(error => {
                 console.error(
-                  '[hyperlink] Failed to update persisted book state.',
+                  '[hyperlink] Failed to persist book state, but will proceed to call setWebViewUri().',
                   error,
-                );
-                console.log(
-                  `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(Failed to persist book state. Can't proceed to call setWebViewUri("${incoming}").)\x1b[0m`,
                 );
               })
               .finally(() => {
                 navigationLockIdRef.current = undefined;
+                console.log(
+                  `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(Calling setWebViewUri("${incoming}"))\x1b[0m`,
+                );
+                setWebViewUri(incoming);
               });
             return false;
           }
@@ -816,81 +814,5 @@ function onMessage({
       });
       break;
     }
-  }
-}
-
-async function updateBookStateFromUrl({
-  url,
-  uniqueIdentifier,
-  spine,
-}: {
-  url: URL;
-  uniqueIdentifier: string;
-  spine: {
-    href: string;
-    label: string;
-  }[];
-}) {
-  // Strip off any URL params and URI fragments by converting to path.
-  const pathname = decodeURI(url.pathname);
-  const itemIndex = spine.findIndex(({ href }) => pathname.endsWith(href));
-  const page = spine[itemIndex];
-  if (!page) {
-    throw new Error(
-      `[updateBookStateFromUrl] Bailing out, as unable to find page with pathname "${pathname}" in the spine`,
-    );
-  }
-
-  const pageDetails: PageDetails = {
-    pageType: 'spine',
-    href: page.href,
-    blockScroll: 0,
-  };
-
-  return await updateBookState({
-    loggingContext: '[hyperlink]',
-    uniqueIdentifier,
-    pageDetails,
-  });
-}
-
-async function updateBookState({
-  loggingContext,
-  uniqueIdentifier,
-  pageDetails,
-}: {
-  loggingContext: `[${string}]`;
-  uniqueIdentifier: string;
-  pageDetails: Exclude<PageDetails, { pageType: 'auto' }>;
-}) {
-  let store: BookStateType['value'];
-  try {
-    store = (await BookState.get()) ?? {};
-  } catch (cause) {
-    throw new Error(
-      `${loggingContext} Failed to update BookState, as was unable to read BookState`,
-      { cause },
-    );
-  }
-
-  const update: BookStateType['value'] = {
-    ...store,
-    [uniqueIdentifier]: {
-      pageDetails,
-    },
-  };
-  console.log(
-    `${loggingContext} Writing progress update ${JSON.stringify(
-      update[uniqueIdentifier],
-    )}`,
-  );
-
-  try {
-    await BookState.set(update);
-  } catch (cause) {
-    throw new Error(
-      `${loggingContext} Failed to update BookState, as was unable to write to BookState`,
-      { cause },
-    );
   }
 }
