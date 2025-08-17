@@ -289,6 +289,9 @@ export default function BookScreen({
     });
   }, []);
 
+  const navigationLockCounterRef = useRef(0);
+  const navigationLockIdRef = useRef<number>();
+
   if (library.type !== 'loaded') {
     return null;
   }
@@ -357,11 +360,15 @@ export default function BookScreen({
 
           const report =
             reqUrlDiff === webViewUriDiff
-              ? `[onShouldStartLoadWithRequest] URI unchanged! "…\x1b[32m${req.url.replace(
+              ? `[onShouldStartLoadWithRequest] (${
+                  req.navigationType
+                }) URI unchanged! "…\x1b[32m${req.url.replace(
                   encodeURI(params.opsUri),
                   '',
                 )}\x1b[0m"`
-              : `[onShouldStartLoadWithRequest] diff:\n\t\x1b[90mwebViewUri\x1b[0m: "…\x1b[31m${webViewUriDiff.replace(
+              : `[onShouldStartLoadWithRequest] (${
+                  req.navigationType
+                }) diff:\n\t\x1b[90mwebViewUri\x1b[0m: "…\x1b[31m${webViewUriDiff.replace(
                   encodeURI(params.opsUri),
                   '',
                 )}\x1b[0m"\n\t   \x1b[90mreq.url\x1b[0m: "…\x1b[32m${reqUrlDiff.replace(
@@ -370,6 +377,14 @@ export default function BookScreen({
                 )}\x1b[0m"`;
 
           const { isTopFrame } = req;
+
+          const navigationLockId = navigationLockIdRef.current;
+          if (typeof navigationLockId === 'number') {
+            console.log(
+              `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(navigation lock active)\x1b[0m`,
+            );
+            return false;
+          }
 
           // I can't fully explain why, but preventing load of "about:blank"
           // (which is the default page the WebView loads) avoids a hellish
@@ -397,12 +412,53 @@ export default function BookScreen({
           }
 
           if (incomingWithoutParams === currentWithoutParams) {
-            const report = `[onShouldStartLoadWithRequest] diff:\n\t\x1b[90mwebViewUri.search\x1b[0m: "…\x1b[31m${currentURL.search}\x1b[0m"\n\t   \x1b[90mreq.url.search\x1b[0m: "…\x1b[32m${incomingURL.search}\x1b[0m"`;
+            const report = `[onShouldStartLoadWithRequest] (${req.navigationType}) diff:\n\t\x1b[90mwebViewUri.search\x1b[0m: "…\x1b[31m${currentURL.search}\x1b[0m"\n\t   \x1b[90mreq.url.search\x1b[0m: "…\x1b[32m${incomingURL.search}\x1b[0m"`;
 
             console.log(
               `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[32mtrue\x1b[0m`,
             );
             return true;
+          }
+
+          // Support persisting navigations following users clicking links in a
+          // HTML ToC page.
+          if (req.navigationType === 'click') {
+            const spine = spineRef.current;
+            if (!spine) {
+              console.log(
+                `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(spine not populated, so can't proceed to call setWebViewUri("${incoming}").)\x1b[0m`,
+              );
+              return false;
+            }
+
+            const navigationLockId = navigationLockCounterRef.current++;
+            navigationLockIdRef.current = navigationLockId;
+            const uniqueIdentifier = paramsRef.current.uniqueIdentifier;
+
+            updateBookStateFromUrl({
+              url: incomingURL,
+              uniqueIdentifier,
+              spine,
+            })
+              .then(() => {
+                console.log(
+                  `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(Successfully persisted book state. Calling setWebViewUri("${incoming}"))\x1b[0m`,
+                );
+                setWebViewUri(incoming);
+              })
+              .catch(error => {
+                console.error(
+                  '[hyperlink] Failed to update persisted book state.',
+                  error,
+                );
+                console.log(
+                  `${report}\n\t  \x1b[90mdecision\x1b[0m: \x1b[31mfalse\x1b[0m \x1b[90m(Failed to persist book state. Can't proceed to call setWebViewUri("${incoming}").)\x1b[0m`,
+                );
+              })
+              .finally(() => {
+                navigationLockIdRef.current = undefined;
+              });
+            return false;
           }
 
           // Keep React state in sync by denying the load here and re-rendering
@@ -761,6 +817,41 @@ function onMessage({
       break;
     }
   }
+}
+
+async function updateBookStateFromUrl({
+  url,
+  uniqueIdentifier,
+  spine,
+}: {
+  url: URL;
+  uniqueIdentifier: string;
+  spine: {
+    href: string;
+    label: string;
+  }[];
+}) {
+  // Strip off any URL params and URI fragments by converting to path.
+  const pathname = decodeURI(url.pathname);
+  const itemIndex = spine.findIndex(({ href }) => pathname.endsWith(href));
+  const page = spine[itemIndex];
+  if (!page) {
+    throw new Error(
+      `[updateBookStateFromUrl] Bailing out, as unable to find page with pathname "${pathname}" in the spine`,
+    );
+  }
+
+  const pageDetails: PageDetails = {
+    pageType: 'spine',
+    href: page.href,
+    blockScroll: 0,
+  };
+
+  return await updateBookState({
+    loggingContext: '[hyperlink]',
+    uniqueIdentifier,
+    pageDetails,
+  });
 }
 
 async function updateBookState({
