@@ -201,6 +201,9 @@ export default function BookScreen({
     ? encodeURI(`${params.opsUri}/${pageDetailsQuery.data.href}${queryParams}`)
     : 'about:blank';
   const [webViewUri, setWebViewUri] = useState(pageDetailsHref);
+  const webViewUriRef = useRef(webViewUri);
+  webViewUriRef.current = webViewUri;
+
   console.log(
     `[BookScreen] render webViewUri "…\x1b[32m${webViewUri.replace(
       encodeURI(params.opsUri),
@@ -288,6 +291,7 @@ export default function BookScreen({
       dbRef,
       spineRef,
       paramsRef,
+      webViewUriRef,
       setWebViewUri,
       pageDetailsQueryDataRef,
     });
@@ -439,6 +443,7 @@ export default function BookScreen({
             const uniqueIdentifier = paramsRef.current.uniqueIdentifier;
 
             updateBookStateFromUrl({
+              loggingContext: '[hyperlink]',
               url: incomingURL,
               uniqueIdentifier,
               spine,
@@ -523,6 +528,7 @@ function onMessage({
   dbRef,
   spineRef,
   paramsRef,
+  webViewUriRef,
   setWebViewUri,
   pageDetailsQueryDataRef,
 }: {
@@ -537,6 +543,7 @@ function onMessage({
     | undefined
   >;
   paramsRef: React.MutableRefObject<Readonly<BookScreenProps>>;
+  webViewUriRef: React.MutableRefObject<string>;
   setWebViewUri: React.Dispatch<React.SetStateAction<string>>;
   pageDetailsQueryDataRef: React.MutableRefObject<
     | {
@@ -793,22 +800,25 @@ function onMessage({
 
       const params = paramsRef.current;
       if (!params) {
+        console.log('[progress-update] skipping progress update, as no params');
         return;
       }
 
-      const pageDetails = pageDetailsQueryDataRef.current;
-      if (!pageDetails) {
-        console.log('skipping progress update, as no pageDetails');
+      const spine = spineRef.current;
+      if (!spine) {
+        console.log('[progress-update] skipping progress update, as no spine');
         return;
       }
 
-      updateBookState({
+      updateBookStateFromUrl({
         loggingContext: '[progress-update]',
-        uniqueIdentifier: params.uniqueIdentifier,
-        pageDetails: {
-          ...pageDetails,
-          blockScroll: blockScrollFraction,
-        },
+        // We used to use pageDetailsQueryDataRef.current, but it can desync
+        // from the current webViewUri when you select a chapter from the
+        // Spine/ToC, click 'next', then scroll.
+        url: new URL(webViewUriRef.current),
+        uniqueIdentifier: paramsRef.current.uniqueIdentifier,
+        spine,
+        blockScroll: blockScrollFraction,
       }).catch(error => {
         console.error('Failed to update persisted book state.', error);
       });

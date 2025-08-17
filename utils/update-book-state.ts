@@ -2,16 +2,20 @@ import type { PageDetails } from '@/src/book-screen.types';
 import { type BookStateType, BookState } from '@/src/persistence/book-state';
 
 export async function updateBookStateFromUrl({
+  loggingContext,
   url,
   uniqueIdentifier,
   spine,
+  blockScroll = 0,
 }: {
+  loggingContext: `[${string}]`;
   url: URL;
   uniqueIdentifier: string;
   spine: {
     href: string;
     label: string;
   }[];
+  blockScroll?: number;
 }) {
   // Strip off any URL params and URI fragments by converting to path.
   const pathname = decodeURI(url.pathname);
@@ -26,11 +30,11 @@ export async function updateBookStateFromUrl({
   const pageDetails: PageDetails = {
     pageType: 'spine',
     href: page.href,
-    blockScroll: 0,
+    blockScroll,
   };
 
   return await updateBookState({
-    loggingContext: '[hyperlink]',
+    loggingContext,
     uniqueIdentifier,
     pageDetails,
   });
