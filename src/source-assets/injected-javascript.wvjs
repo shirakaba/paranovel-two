@@ -612,17 +612,6 @@ function insertProgressBar(container) {
   container.appendChild(progress);
   progress.max = 100;
   progress.value = 0;
-
-  progress.style.position = 'fixed';
-  progress.style.top = '1rem';
-  progress.style.left = '0';
-  progress.style.right = '0';
-  progress.style.writingMode = 'horizontal-tb';
-  progress.style.width = 'calc(100% - 2rem)';
-  progress.style.marginInline = 'auto';
-
-  // Hide until we've been updated with our first value.
-  progress.style.visibility = 'hidden';
 }
 
 function log(message) {
@@ -1352,7 +1341,6 @@ let cachedWritingMode = null;
 CSS.highlights.set('word', __paranovelState.wordHighlight);
 
 insertNavigationButtons(document.body);
-insertProgressBar(document.body);
 document.addEventListener('click', onClickDocument);
 
 document.addEventListener('dblclick', () => {
@@ -1379,6 +1367,30 @@ requestAnimationFrame(() => {
   cachedWritingMode =
     document.body.computedStyleMap().get('writing-mode')?.value ??
     'horizontal-tb';
+
+  switch (cachedWritingMode) {
+    case 'lr':
+    case 'lr-tb':
+    case 'rl':
+    case 'horizontal-tb': {
+      // TODO: Design a progress bar that suits horizontal text, or make a
+      // viewport padding box (right now, the top padding doesn't follow as you
+      // scroll), or make it fade out after inactivity.
+      break;
+    }
+    case 'tb-lr':
+    case 'tb-rl':
+    case 'sideways-rl':
+    case 'vertical-rl':
+    case 'sideways-lr':
+    case 'vertical-lr': {
+      insertProgressBar(document.body);
+      break;
+    }
+    default: {
+      throw new Error(`Unexpected writing mode, ${cachedWritingMode}`);
+    }
+  }
 
   /**
    * @type {{ type: "inactive" } | { type: "scrolling", interval: ReturnType<Window["setInterval"]>, lastScroll: Date }}

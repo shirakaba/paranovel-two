@@ -88,6 +88,24 @@ svg {
   max-inline-size: 100% !important;
 }
 
+#paranovel-progress {
+  position: fixed;
+  /* Based on the User Agent default */
+  --block-size: 1em;
+
+  /* Place the progress bar centrally in top padding box */
+  top: calc((var(--paranovel-inline-padding) - var(--block-size)) / 2);
+  margin-inline: auto;
+  left: 0;
+  right: 0;
+  writing-mode: horizontal-tb;
+  block-size: var(--block-size);
+  inline-size: calc(100% - 2rem);
+
+  /* Hide until we've been updated with our first value. */
+  visibility: hidden;
+}
+
 #paranovel-anchor {
   /* Avoid this interfering with click-to-define */
   pointer-events: none;
