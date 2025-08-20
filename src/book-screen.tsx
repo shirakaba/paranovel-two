@@ -351,6 +351,10 @@ export default function BookScreen({
           // file URL
           webViewUri === 'about:blank' ? { html: '' } : { uri: webViewUri }
         }
+        onContentProcessDidTerminate={() => {
+          console.log('[onContentProcessDidTerminate] reloading...');
+          webViewRef.current?.reload();
+        }}
         // https://github.com/react-native-webview/react-native-webview/blob/master/docs/Guide.md#setting-custom-headers
         onShouldStartLoadWithRequest={req => {
           // This normalises the URI encoding to be definitely encoded.
