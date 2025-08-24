@@ -1,6 +1,13 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { readAsStringAsync } from 'expo-file-system';
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Button,
   SafeAreaView,
@@ -182,24 +189,54 @@ export default function BookScreen({
   const pageDetailsQueryDataRef = useRef(pageDetailsQuery.data);
   pageDetailsQueryDataRef.current = pageDetailsQuery.data;
 
-  const queryParams = pageDetailsQuery.data
-    ? `?scroll=${pageDetailsQuery.data.blockScroll ?? 0}`
-    : '';
+  const pageDetailsHref = useMemo(() => {
+    if (!pageDetailsQuery.data) {
+      return 'about:blank';
+    }
+    const { blockScroll } = pageDetailsQuery.data;
 
-  // Both `params.opsUri` and `pageDetailsQuery.data.href` come in unencoded.
-  // When we set `webViewUri` as the source, the moment
-  // onShouldStartLoadWithRequest() runs, you'll see that on the native side,
-  // it's handling it as an encoded URI instead. So, to keep React state in
-  // better sync with native, we encode before setting as source.
-  //
-  // - `new URL(...).href` seemed attractive, as it normalises to encoded.
-  // - `encodeURI(...)` is the only thing that seems to work for Bookworm,
-  //   however. Without it, we get the following in Xcode:
-  //   > 0x17b0180c0 - [PID=4363] WebProcessProxy::checkURLReceivedFromWebProcess: Received an unexpected URL from the web process
-  //   > 0x10bdfd618 - [pageProxyID=13, webPageID=14, PID=4363] WebPageProxy::Ignoring request to load this main resource because it is outside the sandbox
-  const pageDetailsHref = pageDetailsQuery.data
-    ? encodeURI(`${params.opsUri}/${pageDetailsQuery.data.href}${queryParams}`)
-    : 'about:blank';
+    // To explain the odd URL-processing we do below:
+    //
+    // - `new URL()` normalises to encoded (so anything that's already encoded
+    //    doesn't get doubly encoded).
+    // - `encodeURI()` adds one layer of encoding. On certain books (e.g.
+    //   Bookworm), it works for us while `new URL()` doesn't.
+    //   - Specifically, when we try `new URL()`, we get the following in Xcode:
+    //     > 0x17b0180c0 - [PID=4363] WebProcessProxy::checkURLReceivedFromWebProcess: Received an unexpected URL from the web process
+    //     > 0x10bdfd618 - [pageProxyID=13, webPageID=14, PID=4363] WebPageProxy::Ignoring request to load this main resource because it is outside the sandbox
+    // - Both `params.opsUri` and `pageDetailsQuery.data.href` are unencoded.
+    // - However, after we pass the URL to react-native-webview, at the point of
+    //   use (i.e. `visitSource` > `syncCookiesToWebView` in RNCWebViewImpl.m),
+    //   it processes it with `[RCTConvert NSURL:allowingReadAccessToURL]`
+    //   before handing it over to `loadFileURL:allowingReadAccessToURL:`.
+    // - The RCTConvert part runs `[NSURL URLWithString:path]` on it, which
+    //   normalises it as encoded, without doubly-encoding it.
+    // - This means that the URL that comes back through
+    //   `onShouldStartLoadWithRequest` may not match the `webViewUri` we set,
+    //   due to encoding differences.
+    // - If it doesn't match, our navigation ends up thrashing, due to the
+    //   desync between React state and native state.
+    // - So, to keep React state in sync with native state, we need to either:
+    //   1. render a URL that won't be changed by RCTConvert, or;
+    //   2. match the native RCTConvert algorithm inside our
+    //      `onShouldStartLoadWithRequest` JavaScript callback.
+    // - In practice, we do both. Here, we render a definitely-encoded URI, and
+    //   in our `onShouldStartLoadWithRequest` JavaScript callback, we compare
+    //   URLs using `new URL()`, both with and without params.
+
+    // As established, `encodeURI()` seems to support our books better than
+    // `new URL()`, but the latter is still the best tool to extract any
+    // existing search params.
+    const { searchParams } = new URL(pageDetailsQuery.data.href, params.opsUri);
+    if (blockScroll) {
+      searchParams.append('scroll', blockScroll.toString());
+    }
+    const paramsString = searchParams.size ? `?${searchParams.toString()}` : '';
+
+    return encodeURI(
+      `${params.opsUri}/${pageDetailsQuery.data.href}${paramsString}`,
+    );
+  }, [params.opsUri, pageDetailsQuery.data?.href]);
   const [webViewUri, setWebViewUri] = useState(pageDetailsHref);
   const webViewUriRef = useRef(webViewUri);
   webViewUriRef.current = webViewUri;
