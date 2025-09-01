@@ -13,6 +13,7 @@ import {
   SafeAreaView,
   StyleSheet,
   TouchableOpacity,
+  useColorScheme,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
@@ -334,6 +335,8 @@ export default function BookScreen({
     });
   }, []);
 
+  const scheme = useColorScheme();
+
   const navigationLockCounterRef = useRef(0);
   const navigationLockIdRef = useRef<number>();
 
@@ -346,12 +349,21 @@ export default function BookScreen({
   }
 
   return (
-    <SafeAreaView style={style.container}>
+    <SafeAreaView
+      style={[
+        style.container,
+        {
+          backgroundColor: scheme === 'dark' ? '#2c2c2c' : 'white',
+        },
+      ]}>
       <WebView
         ref={webViewRef}
         webviewDebuggingEnabled={true}
         javaScriptEnabled={true}
         onMessage={onMessageCallback}
+        style={{
+          backgroundColor: scheme === 'dark' ? 'black' : 'white',
+        }}
         onLoadStart={({ nativeEvent: { url } }) => {
           console.log(
             `[onLoadStart] "…\x1b[32m${url.replace(

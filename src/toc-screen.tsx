@@ -1,6 +1,12 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useRef } from 'react';
-import { View, Button, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  Button,
+  StyleSheet,
+  ScrollView,
+  useColorScheme,
+} from 'react-native';
 import { updateBookState } from '@/utils/update-book-state';
 import type { RootStackParamList } from './navigation.types';
 import type { PageDetails } from './book-screen.types';
@@ -17,12 +23,16 @@ export default function TableOfContents({
       headerTitle: params.pageType === 'spine' ? 'Spine' : 'Table of Contents',
     });
   }, [params.pageType]);
+  const scheme = useColorScheme();
 
   const navigationLockCounterRef = useRef(0);
   const navigationLockIdRef = useRef<number>();
 
   return (
-    <ScrollView>
+    <ScrollView
+      style={{
+        backgroundColor: scheme === 'dark' ? 'black' : 'white',
+      }}>
       <View style={style.list}>
         {items.map(({ href, label }) => {
           return (

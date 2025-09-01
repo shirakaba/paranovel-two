@@ -15,6 +15,9 @@
   --paranovel-popover-background-color: #222;
 
   --paranovel-popover-definition-font-size: 14px;
+
+  /* Opt in to dark mode */
+  color-scheme: light dark;
 }
 
 ::highlight(word) {
@@ -261,4 +264,29 @@ body:has(dialog[open]) {
 }
 #paranovel-popover.with-show-more-button .paranovel-show-more-container {
   display: flex;
+}
+
+/* Must occur after the original declarations to override them. */
+@media screen and (prefers-color-scheme: dark) {
+  :root {
+    color: #ababab;
+    background-color: black;
+  }
+
+  ::highlight(word) {
+    color: black;
+    background-color: rgba(200, 200, 0);
+  }
+
+  #paranovel-popover-content {
+    color: #ababab;
+    background: #2c2c2c;
+  }
+
+  .paranovel-headword,
+  .paranovel-reading-item,
+  .paranovel-pos-item,
+  .paranovel-gloss-item {
+    color: #ddd;
+  }
 }
