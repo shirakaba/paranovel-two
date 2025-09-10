@@ -34,7 +34,7 @@ PODS:
     - Yoga
   - ExpoAsset (11.1.7):
     - ExpoModulesCore
-  - ExpoFileSystem (18.0.8):
+  - ExpoFileSystem (18.1.11):
     - ExpoModulesCore
   - ExpoFont (13.3.2):
     - ExpoModulesCore
@@ -2239,7 +2239,7 @@ SPEC CHECKSUMS:
   EXConstants: aa93a3e70f8b37c81a80931cfd23f860b1819167
   Expo: f715b0c058ac26efde6fb3b4f18ffdd8bd933605
   ExpoAsset: 7bdbbacf4e6752ae6e3cf70555cee076f6229e6e
-  ExpoFileSystem: 48e09d173f2ffe87fe318243d78d1fd650801535
+  ExpoFileSystem: 9681caebda23fa1b38a12a9c68b2bade7072ce20
   ExpoFont: 091a47eeaa1b30b0b760aa1d0a2e7814e8bf6fe6
   ExpoKeepAwake: e8dedc115d9f6f24b153ccd2d1d8efcdfd68a527
   ExpoMecab: 0303572109456dfd5321d7f20d01bc7f69e02036
