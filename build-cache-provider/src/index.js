@@ -1,3 +1,4 @@
+const { parseProjectEnv } = require('@expo/env');
 const process = require('node:process');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -11,6 +12,10 @@ const {
   createReleaseAndUploadAsset,
 } = require('./github');
 const { downloadAndMaybeExtractAppAsync } = require('./download');
+
+const { BUILD_CACHE_PROVIDER_TOKEN } = parseProjectEnv(
+  path.resolve(__dirname, '../..'),
+).env;
 
 /**
  *
@@ -35,17 +40,16 @@ async function resolveGitHubRemoteBuildCache(
     console.log('Cached build found, skipping download');
     return cachedAppPath;
   }
-  if (!process.env.GITHUB_TOKEN) {
+  if (!BUILD_CACHE_PROVIDER_TOKEN) {
     console.log(
-      'No GITHUB_TOKEN provided; build-cache-provider skipping resolveGitHubRemoteBuildCache.',
+      'No BUILD_CACHE_PROVIDER_TOKEN env var found in project env files; build-cache-provider skipping resolveGitHubRemoteBuildCache.',
     );
     return null;
   }
   console.log(`Searching builds with matching fingerprint on Github Releases`);
-
   try {
     const assets = await getReleaseAssetsByTag({
-      token: process.env.GITHUB_TOKEN,
+      token: BUILD_CACHE_PROVIDER_TOKEN,
       owner,
       repo,
       tag: getTagName({
@@ -81,9 +85,9 @@ async function uploadGitHubRemoteBuildCache(
   { projectRoot, fingerprintHash, runOptions, buildPath },
   { owner, repo },
 ) {
-  if (!process.env.GITHUB_TOKEN) {
+  if (!BUILD_CACHE_PROVIDER_TOKEN) {
     console.log(
-      'No GITHUB_TOKEN provided; build-cache-provider skipping uploadGitHubRemoteBuildCache.',
+      'No BUILD_CACHE_PROVIDER_TOKEN env var found in project env files; build-cache-provider skipping uploadGitHubRemoteBuildCache.',
     );
     return null;
   }
@@ -91,7 +95,7 @@ async function uploadGitHubRemoteBuildCache(
   console.log(`Uploading build to Github Releases`);
   try {
     const result = await createReleaseAndUploadAsset({
-      token: process.env.GITHUB_TOKEN,
+      token: BUILD_CACHE_PROVIDER_TOKEN,
       owner,
       repo,
       tagName: getTagName({
