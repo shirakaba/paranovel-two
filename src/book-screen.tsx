@@ -39,6 +39,7 @@ import {
   updateBookStateFromUrl,
   updateBookState,
 } from '@/utils/update-book-state';
+import { makeUrlFromOps, prettifyOpsUrl } from '@/utils/url-processing';
 
 export default function BookScreen({
   navigation,
@@ -190,74 +191,40 @@ export default function BookScreen({
   const pageDetailsQueryDataRef = useRef(pageDetailsQuery.data);
   pageDetailsQueryDataRef.current = pageDetailsQuery.data;
 
-  const pageDetailsHref = useMemo(() => {
-    if (!pageDetailsQuery.data) {
-      return 'about:blank';
-    }
-    const { blockScroll } = pageDetailsQuery.data;
-
-    // To explain the odd URL-processing we do below:
-    //
-    // - `new URL()` normalises to encoded (so anything that's already encoded
-    //    doesn't get doubly encoded).
-    // - `encodeURI()` adds one layer of encoding. On certain books (e.g.
-    //   Bookworm), it works for us while `new URL()` doesn't.
-    //   - Specifically, when we try `new URL()`, we get the following in Xcode:
-    //     > 0x17b0180c0 - [PID=4363] WebProcessProxy::checkURLReceivedFromWebProcess: Received an unexpected URL from the web process
-    //     > 0x10bdfd618 - [pageProxyID=13, webPageID=14, PID=4363] WebPageProxy::Ignoring request to load this main resource because it is outside the sandbox
-    // - Both `params.opsUri` and `pageDetailsQuery.data.href` are unencoded.
-    // - However, after we pass the URL to react-native-webview, at the point of
-    //   use (i.e. `visitSource` > `syncCookiesToWebView` in RNCWebViewImpl.m),
-    //   it processes it with `[RCTConvert NSURL:allowingReadAccessToURL]`
-    //   before handing it over to `loadFileURL:allowingReadAccessToURL:`.
-    // - The RCTConvert part runs `[NSURL URLWithString:path]` on it, which
-    //   normalises it as encoded, without doubly-encoding it.
-    // - This means that the URL that comes back through
-    //   `onShouldStartLoadWithRequest` may not match the `webViewUri` we set,
-    //   due to encoding differences.
-    // - If it doesn't match, our navigation ends up thrashing, due to the
-    //   desync between React state and native state.
-    // - So, to keep React state in sync with native state, we need to either:
-    //   1. render a URL that won't be changed by RCTConvert, or;
-    //   2. match the native RCTConvert algorithm inside our
-    //      `onShouldStartLoadWithRequest` JavaScript callback.
-    // - In practice, we do both. Here, we render a definitely-encoded URI, and
-    //   in our `onShouldStartLoadWithRequest` JavaScript callback, we compare
-    //   URLs using `new URL()`, both with and without params.
-
-    // As established, `encodeURI()` seems to support our books better than
-    // `new URL()`, but the latter is still the best tool to extract any
-    // existing search params.
-    const { searchParams } = new URL(pageDetailsQuery.data.href, params.opsUri);
-    if (blockScroll) {
-      searchParams.append('scroll', blockScroll.toString());
-    }
-    const paramsString = searchParams.size ? `?${searchParams.toString()}` : '';
-
-    return encodeURI(
-      `${params.opsUri}/${pageDetailsQuery.data.href}${paramsString}`,
-    );
-  }, [params.opsUri, pageDetailsQuery.data?.href]);
+  const pageDetailsHref = useMemo(
+    () =>
+      pageDetailsQuery.data
+        ? makeUrlFromOps({
+            opsUri: params.opsUri,
+            pageHref: pageDetailsQuery.data.href,
+            params: { blockScroll: pageDetailsQuery.data.blockScroll },
+          })
+        : 'about:blank',
+    [params.opsUri, pageDetailsQuery.data?.href],
+  );
   const [webViewUri, setWebViewUri] = useState(pageDetailsHref);
   const webViewUriRef = useRef(webViewUri);
   webViewUriRef.current = webViewUri;
 
   console.log(
-    `[BookScreen] render webViewUri "…\x1b[32m${webViewUri.replace(
-      encodeURI(params.opsUri),
-      '',
-    )}\x1b[0m", given route.params.pageDetails ${JSON.stringify(
+    `[BookScreen] render webViewUri ${prettifyOpsUrl({
+      url: webViewUri,
+      opsUri: params.opsUri,
+      color: 'green',
+    })}, given route.params.pageDetails ${JSON.stringify(
       route.params.pageDetails,
     )}`,
   );
 
   useEffect(() => {
     console.log(
-      `[BookScreen] effect setWebViewUri("…\x1b[32m${pageDetailsHref.replace(
-        encodeURI(params.opsUri),
-        '',
-      )}\x1b[0m")`,
+      `[BookScreen] effect setWebViewUri(${prettifyOpsUrl({
+        url: pageDetailsHref,
+        opsUri: params.opsUri,
+        color: 'green',
+      })})`,
     );
+
     setWebViewUri(pageDetailsHref);
   }, [pageDetailsHref]);
 
@@ -366,18 +333,20 @@ export default function BookScreen({
         }}
         onLoadStart={({ nativeEvent: { url } }) => {
           console.log(
-            `[onLoadStart] "…\x1b[32m${url.replace(
-              encodeURI(params.opsUri),
-              '',
-            )}\x1b[0m"`,
+            `[onLoadStart] ${prettifyOpsUrl({
+              url,
+              opsUri: params.opsUri,
+              color: 'green',
+            })}`,
           );
         }}
         onLoadEnd={({ nativeEvent: { url } }) => {
           console.log(
-            `[onLoadEnd] "…\x1b[32m${url.replace(
-              encodeURI(params.opsUri),
-              '',
-            )}\x1b[0m"`,
+            `[onLoadEnd] ${prettifyOpsUrl({
+              url,
+              opsUri: params.opsUri,
+              color: 'green',
+            })}`,
           );
         }}
         injectedJavaScript={injectedJavaScript}
@@ -754,7 +723,11 @@ function onMessage({
         href: newPage.href,
         blockScroll: 0,
       };
-      const newUri = encodeURI(`${params.opsUri}/${newPage.href}`);
+      const newUri = makeUrlFromOps({
+        opsUri: params.opsUri,
+        pageHref: newPage.href,
+        params: { blockScroll: 0 },
+      });
 
       updateBookState({
         loggingContext: '[navigation-request]',
@@ -769,10 +742,11 @@ function onMessage({
         })
         .finally(() => {
           console.log(
-            `[navigation-request] Setting URI to "…\x1b[32m${newUri.replace(
-              encodeURI(params.opsUri),
-              '',
-            )}\x1b[0m"`,
+            `[navigation-request] Setting URI to ${prettifyOpsUrl({
+              url: newUri,
+              opsUri: params.opsUri,
+              color: 'green',
+            })}`,
           );
           setWebViewUri(newUri);
         });
