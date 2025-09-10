@@ -22,7 +22,7 @@
         "react-native": "~0.79.6",
         "react-native-document-picker": "^9.3.1",
         "react-native-quick-sqlite": "^8.2.7",
-        "react-native-safe-area-context": "^5.1.0",
+        "react-native-safe-area-context": "^5.6.1",
         "react-native-screens": "^4.5.0",
         "react-native-webview": "^13.13.2",
       },
@@ -1487,7 +1487,7 @@
 
     "react-native-quick-sqlite": ["react-native-quick-sqlite@8.2.7", "", { "dependencies": { "typeorm": "^0.3.20" }, "peerDependencies": { "react": ">=17.0.0", "react-native": ">=0.74.0" } }, "sha512-gUW00ic8yM347Uz68bq0lQLKKWqu+4g2j2kIvjif/IySAoQjXj9p6RDuezfZPQEmfslAJQio8Xn1ORMkeZ4b1Q=="],
 
-    "react-native-safe-area-context": ["react-native-safe-area-context@5.1.0", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-Y4vyJX+0HPJUQNVeIJTj2/UOjbSJcB09OEwirAWDrOZ67Lz5p43AmjxSy8nnZft1rMzoh3rcPuonB6jJyHTfCw=="],
+    "react-native-safe-area-context": ["react-native-safe-area-context@5.6.1", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-/wJE58HLEAkATzhhX1xSr+fostLsK8Q97EfpfMDKo8jlOc1QKESSX/FQrhk7HhQH/2uSaox4Y86sNaI02kteiA=="],
 
     "react-native-screens": ["react-native-screens@4.6.0", "", { "dependencies": { "react-freeze": "^1.0.0", "warn-once": "^0.1.0" }, "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-PqGtR/moJLiTMSavhfo5spKXNHZrlxffq3g5UUVPmyuu7MmazFlPvYqiAYnR2iB9tkJYgvZO6sbjYAE7619M0A=="],
 

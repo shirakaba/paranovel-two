@@ -36,7 +36,7 @@
     "react-native": "~0.79.6",
     "react-native-document-picker": "^9.3.1",
     "react-native-quick-sqlite": "^8.2.7",
-    "react-native-safe-area-context": "^5.1.0",
+    "react-native-safe-area-context": "^5.6.1",
     "react-native-screens": "^4.5.0",
     "react-native-webview": "^13.13.2"
   },
