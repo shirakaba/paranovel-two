@@ -70,5 +70,8 @@
   "resolutions": {
     "signal-exit": "^3.0.7"
   },
-  "private": true
+  "private": true,
+  "workspaces": [
+    "build-cache-provider"
+  ]
 }

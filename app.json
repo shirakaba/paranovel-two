@@ -23,6 +23,17 @@
       },
       "package": "uk.co.birchlabs.paranovel"
     },
-    "plugins": [["@bacons/link-assets", ["./assets/jmdict.sqlite3"]]]
+    "plugins": [["@bacons/link-assets", ["./assets/jmdict.sqlite3"]]],
+    "experiments": {
+      "remoteBuildCache": {
+        "provider": {
+          "plugin": "./build-cache-provider/build/index.js",
+          "options": {
+            "owner": "shirakaba",
+            "repo": "paranovel-two"
+          }
+        }
+      }
+    }
   }
 }
