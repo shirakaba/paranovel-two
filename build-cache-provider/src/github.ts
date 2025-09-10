@@ -1,6 +1,6 @@
 import type { Octokit } from '@octokit/rest';
+import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods';
 import fs from 'fs-extra';
-import { type RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods';
 import { v4 as uuidv4 } from 'uuid';
 import { create as createTar } from 'tar';
 import path from 'path';

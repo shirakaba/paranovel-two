@@ -3,8 +3,13 @@
   "compilerOptions": {
     "declaration": true,
     "importHelpers": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
+
+    // We want top-level imports/exports to be transpiled to CJS, yet dynamic
+    // import() to be preserved (which is needed to import ESM from a CJS
+    // context).
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
