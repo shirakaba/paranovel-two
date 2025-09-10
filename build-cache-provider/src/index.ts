@@ -20,7 +20,7 @@ export async function resolveGitHubRemoteBuildCache(
   }: ResolveBuildCacheProps,
   { owner, repo }: { owner: string; repo: string },
 ): Promise<string | null> {
-  const cachedAppPath = getCachedAppPath({
+  const cachedAppPath = await getCachedAppPath({
     fingerprintHash,
     platform,
     projectRoot,
@@ -105,7 +105,7 @@ function getTagName({
   }`;
 }
 
-function getCachedAppPath({
+async function getCachedAppPath({
   fingerprintHash,
   platform,
   projectRoot,
@@ -115,9 +115,11 @@ function getCachedAppPath({
   projectRoot: string;
   runOptions: RunOptions;
   platform: 'ios' | 'android';
-}): string {
+}): Promise<string> {
+  const buildRunCacheDirectoryPath = await getBuildRunCacheDirectoryPath();
+
   return path.join(
-    getBuildRunCacheDirectoryPath(),
+    buildRunCacheDirectoryPath,
     `${getTagName({
       fingerprintHash,
       projectRoot,

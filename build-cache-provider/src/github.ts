@@ -145,8 +145,8 @@ async function uploadReleaseAsset(
   let filePath = params.binaryPath;
   let name = path.basename(filePath);
   if ((await fs.stat(filePath)).isDirectory()) {
-    await fs.mkdirp(getTmpDirectory());
-    const tarPath = path.join(getTmpDirectory(), `${uuidv4()}.tar.gz`);
+    await fs.mkdirp(await getTmpDirectory());
+    const tarPath = path.join(await getTmpDirectory(), `${uuidv4()}.tar.gz`);
     const parentPath = path.dirname(filePath);
     await createTar({ cwd: parentPath, file: tarPath, gzip: true }, [name]);
     filePath = tarPath;

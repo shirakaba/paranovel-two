@@ -47,7 +47,7 @@ export async function downloadAndMaybeExtractAppAsync(
   platform: 'ios' | 'android',
   cachedAppPath?: string,
 ): Promise<string> {
-  const outputDir = path.join(getTmpDirectory(), uuidv4());
+  const outputDir = path.join(await getTmpDirectory(), uuidv4());
   await fs.promises.mkdir(outputDir, { recursive: true });
 
   if (url.endsWith('apk')) {
@@ -56,7 +56,7 @@ export async function downloadAndMaybeExtractAppAsync(
     console.log('Successfully downloaded app');
     return await maybeCacheAppAsync(apkFilePath, cachedAppPath);
   } else {
-    const tmpArchivePathDir = path.join(getTmpDirectory(), uuidv4());
+    const tmpArchivePathDir = path.join(await getTmpDirectory(), uuidv4());
     await fs.mkdir(tmpArchivePathDir, { recursive: true });
 
     const tmpArchivePath = path.join(tmpArchivePathDir, `${uuidv4()}.tar.gz`);
@@ -78,7 +78,7 @@ export async function extractAppFromLocalArchiveAsync(
   appArchivePath: string,
   platform: 'ios' | 'android',
 ): Promise<string> {
-  const outputDir = path.join(getTmpDirectory(), uuidv4());
+  const outputDir = path.join(await getTmpDirectory(), uuidv4());
   await fs.promises.mkdir(outputDir, { recursive: true });
 
   await tarExtractAsync(appArchivePath, outputDir);

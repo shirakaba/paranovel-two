@@ -1,7 +1,4 @@
 import { getPackageJson, RunOptions } from '@expo/config';
-import envPaths from 'env-paths';
-
-const { temp: TEMP_PATH } = envPaths('github-build-cache-provider');
 
 import path from 'path';
 
@@ -34,6 +31,15 @@ export function hasDirectDevClientDependency(projectRoot: string): boolean {
   );
 }
 
-export const getTmpDirectory = (): string => TEMP_PATH;
-export const getBuildRunCacheDirectoryPath = (): string =>
-  path.join(getTmpDirectory(), 'build-run-cache');
+export const getTmpDirectory = async (): Promise<string> => {
+  const { default: envPaths } = await import('env-paths');
+
+  const { temp: TEMP_PATH } = envPaths('github-build-cache-provider');
+
+  return TEMP_PATH;
+};
+
+export const getBuildRunCacheDirectoryPath = async (): Promise<string> => {
+  const TEMP_PATH = await getTmpDirectory();
+  return path.join(TEMP_PATH, 'build-run-cache');
+};
