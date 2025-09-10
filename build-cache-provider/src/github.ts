@@ -1,4 +1,4 @@
-import { Octokit } from '@octokit/rest';
+import type { Octokit } from '@octokit/rest';
 import fs from 'fs-extra';
 import { type RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods';
 import { v4 as uuidv4 } from 'uuid';
@@ -22,6 +22,8 @@ export async function createReleaseAndUploadAsset({
   tagName,
   binaryPath,
 }: GithubProviderOptions) {
+  const { Octokit } = await import('@octokit/rest');
+
   const octokit = new Octokit({ auth: token });
 
   try {
@@ -179,6 +181,8 @@ export async function getReleaseAssetsByTag({
   repo: string;
   tag: string;
 }) {
+  const { Octokit } = await import('@octokit/rest');
+
   const octokit = new Octokit({ auth: token });
   const release = await octokit.rest.repos.getReleaseByTag({
     owner,
