@@ -15,9 +15,9 @@ const { downloadAndMaybeExtractAppAsync } = require('./download');
 /**
  *
  * @param {import("@expo/config").ResolveBuildCacheProps} resolveBuildCacheProps
- * @param {object} ownerAndRepo
- * @param {string} ownerAndRepo.owner
- * @param {string} ownerAndRepo.repo
+ * @param {object} options options passed in from app.json.
+ * @param {string} options.owner
+ * @param {string} options.repo
  *
  * @returns {Promise<string | null>}
  */
@@ -71,9 +71,9 @@ exports.resolveGitHubRemoteBuildCache = resolveGitHubRemoteBuildCache;
 /**
  *
  * @param {import("@expo/config").UploadBuildCacheProps} uploadBuildCacheProps
- * @param {object} ownerAndRepo
- * @param {string} ownerAndRepo.owner
- * @param {string} ownerAndRepo.repo
+ * @param {object} options options passed in from app.json.
+ * @param {string} options.owner
+ * @param {string} options.repo
  *
  * @returns {Promise<string | null>}
  */
