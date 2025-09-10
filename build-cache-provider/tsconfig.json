@@ -1,8 +1,13 @@
+// Based on:
+// https://github.com/expo/examples/blob/master/with-github-remote-build-cache-provider/build-cache-provider/tsconfig.json
 {
   "extends": "@tsconfig/node22/tsconfig.json",
   "compilerOptions": {
     "declaration": true,
     "importHelpers": true,
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
 
     // We want top-level imports/exports to be transpiled to CJS, yet dynamic
     // import() to be preserved (which is needed to import ESM from a CJS

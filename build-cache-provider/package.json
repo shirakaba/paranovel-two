@@ -1,15 +1,12 @@
 {
   "name": "build-cache-provider",
-  "scripts": {
-    "build": "tsc"
-  },
   "dependencies": {
     "@expo/config": "^11.0.13",
     "@expo/spawn-async": "^1.7.2",
-    "fs-extra": "^11.3.1",
-    "octokit": "^4.1.3",
     "@octokit/rest": "^21.1.1",
     "env-paths": "^3.0.0",
+    "fs-extra": "^11.3.1",
+    "octokit": "^4.1.3",
     "tar": "^7.4.3",
     "uuid": "^11.1.0"
   },

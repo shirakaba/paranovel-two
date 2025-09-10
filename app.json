@@ -27,7 +27,7 @@
     "experiments": {
       "remoteBuildCache": {
         "provider": {
-          "plugin": "./build-cache-provider/build/index.js",
+          "plugin": "./build-cache-provider/src/index.js",
           "options": {
             "owner": "shirakaba",
             "repo": "paranovel-two"

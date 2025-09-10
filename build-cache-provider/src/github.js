@@ -1,28 +1,31 @@
-import type { Octokit } from '@octokit/rest';
-import type { RestEndpointMethodTypes } from '@octokit/plugin-rest-endpoint-methods';
-import fs from 'fs-extra';
-import { v4 as uuidv4 } from 'uuid';
-import { create as createTar } from 'tar';
-import path from 'path';
+const fs = require("fs-extra");
+const { v4: uuidv4 } = require("uuid");
+const { create: createTar } = require("tar");
+const path = require("path");
 
-import { getTmpDirectory } from './helpers';
+const { getTmpDirectory } = require("./helpers");
 
-interface GithubProviderOptions {
-  token: string;
-  owner: string;
-  repo: string;
-  tagName: string;
-  binaryPath: string;
-}
+/**
+ * @typedef {{
+ *   token: string;
+ *   owner: string;
+ *   repo: string;
+ *   tagName: string;
+ *   binaryPath: string;
+ * }} GithubProviderOptions
+ */
 
-export async function createReleaseAndUploadAsset({
+/**
+ * @param {GithubProviderOptions} arg
+ */
+async function createReleaseAndUploadAsset({
   token,
   owner,
   repo,
   tagName,
   binaryPath,
-}: GithubProviderOptions) {
-  const { Octokit } = await import('@octokit/rest');
+}) {
+  const { Octokit } = await import("@octokit/rest");
 
   const octokit = new Octokit({ auth: token });
 
@@ -38,10 +41,10 @@ export async function createReleaseAndUploadAsset({
       tag: tagName,
       message: tagName,
       object: commitSha,
-      type: 'commit',
+      type: "commit",
       tagger: {
-        name: 'Release Bot',
-        email: 'bot@expo.dev',
+        name: "Release Bot",
+        email: "bot@expo.dev",
         date: new Date().toISOString(),
       },
     });
@@ -71,13 +74,16 @@ export async function createReleaseAndUploadAsset({
     );
   }
 }
+exports.createReleaseAndUploadAsset = createReleaseAndUploadAsset;
 
-async function getBranchShaWithFallback(
-  octokit: Octokit,
-  owner: string,
-  repo: string,
-): Promise<string> {
-  const branchesToTry = ['main', 'master'];
+/**
+ * @param {import("@octokit/rest").Octokit} octokit
+ * @param {string} owner
+ * @param {string} repo
+ * @returns {Promise<string>}
+ */
+async function getBranchShaWithFallback(octokit, owner, repo) {
+  const branchesToTry = ["main", "master"];
 
   for (const branchName of branchesToTry) {
     try {
@@ -90,20 +96,23 @@ async function getBranchShaWithFallback(
     } catch (error) {
       if (
         error instanceof Error &&
-        error.message.includes('Branch not found')
+        error.message.includes("Branch not found")
       ) {
-        if (branchName === 'master') throw new Error('No valid branch found');
+        if (branchName === "master") throw new Error("No valid branch found");
         continue;
       }
       throw error;
     }
   }
-  throw new Error('Branch fallback exhausted');
+  throw new Error("Branch fallback exhausted");
 }
-async function ensureAnnotatedTag(
-  octokit: Octokit,
-  params: RestEndpointMethodTypes['git']['createTag']['parameters'],
-): Promise<string> {
+
+/**
+ * @param {import("@octokit/rest").Octokit} octokit
+ * @param {import("@octokit/plugin-rest-endpoint-methods").RestEndpointMethodTypes["git"]["createTag"]["parameters"]} params
+ * @returns {Promise<string>}
+ */
+async function ensureAnnotatedTag(octokit, params) {
   const { owner, repo, tag } = params;
   const refName = `refs/tags/${tag}`;
 
@@ -115,7 +124,8 @@ async function ensureAnnotatedTag(
     });
     // Return existing tag SHA
     return existingRef.object.sha;
-  } catch (err: any) {
+  } catch (err) {
+    // @ts-ignore
     if (err.status !== 404) {
       throw err;
     }
@@ -135,15 +145,15 @@ async function ensureAnnotatedTag(
   return tagData.sha;
 }
 
-async function uploadReleaseAsset(
-  octokit: Octokit,
-  params: {
-    owner: string;
-    repo: string;
-    releaseId: number;
-    binaryPath: string;
-  },
-) {
+/**
+ * @param {import("@octokit/rest").Octokit} octokit
+ * @param {object} params
+ * @param {string} params.owner
+ * @param {string} params.repo
+ * @param {number} params.releaseId
+ * @param {string} params.binaryPath
+ */
+async function uploadReleaseAsset(octokit, params) {
   let filePath = params.binaryPath;
   let name = path.basename(filePath);
   if ((await fs.stat(filePath)).isDirectory()) {
@@ -152,9 +162,11 @@ async function uploadReleaseAsset(
     const parentPath = path.dirname(filePath);
     await createTar({ cwd: parentPath, file: tarPath, gzip: true }, [name]);
     filePath = tarPath;
-    name = name + '.tar.gz';
+    name = name + ".tar.gz";
   }
 
+  /** @type {string} Type workaround for binary data */
+  // @ts-ignore
   const fileData = await fs.readFile(filePath);
 
   return octokit.rest.repos.uploadReleaseAsset({
@@ -162,26 +174,24 @@ async function uploadReleaseAsset(
     repo: params.repo,
     release_id: params.releaseId,
     name: name,
-    data: fileData as unknown as string, // Type workaround for binary data
+    data: fileData,
     headers: {
-      'content-type': 'application/octet-stream',
-      'content-length': fileData.length.toString(),
+      "content-type": "application/octet-stream",
+      "content-length": fileData.length.toString(),
     },
   });
 }
 
-export async function getReleaseAssetsByTag({
-  token,
-  owner,
-  repo,
-  tag,
-}: {
-  token: string;
-  owner: string;
-  repo: string;
-  tag: string;
-}) {
-  const { Octokit } = await import('@octokit/rest');
+/**
+ *
+ * @param {object} arg
+ * @param {string} arg.token
+ * @param {string} arg.owner
+ * @param {string} arg.repo
+ * @param {string} arg.tag
+ */
+async function getReleaseAssetsByTag({ token, owner, repo, tag }) {
+  const { Octokit } = await import("@octokit/rest");
 
   const octokit = new Octokit({ auth: token });
   const release = await octokit.rest.repos.getReleaseByTag({
@@ -191,3 +201,4 @@ export async function getReleaseAssetsByTag({
   });
   return release.data.assets;
 }
+exports.getReleaseAssetsByTag = getReleaseAssetsByTag;
