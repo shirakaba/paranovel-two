@@ -67,7 +67,7 @@ async function resolveGitHubRemoteBuildCache(
     const buildDownloadURL = assets[0].browser_download_url;
     return await downloadAndMaybeExtractAppAsync(
       buildDownloadURL,
-      'ios',
+      platform,
       cachedAppPath,
     );
   } catch (error) {
@@ -137,9 +137,7 @@ exports.uploadGitHubRemoteBuildCache = uploadGitHubRemoteBuildCache;
 function getTagName({ fingerprintHash, projectRoot, runOptions }) {
   const isDevClient = isDevClientBuild({ projectRoot, runOptions });
 
-  return `fingerprint.${fingerprintHash}${
-    isDevClient || true ? '.dev-client' : ''
-  }`;
+  return `fingerprint.${fingerprintHash}${isDevClient ? '.dev-client' : ''}`;
 }
 
 /**
