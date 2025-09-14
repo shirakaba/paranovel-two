@@ -1,3 +1,6 @@
+// A TS->JS port of:
+// https://github.com/expo/examples/blob/master/with-github-remote-build-cache-provider/build-cache-provider/src/index.ts
+
 const { parseProjectEnv } = require('@expo/env');
 const process = require('node:process');
 const path = require('node:path');
@@ -37,16 +40,18 @@ async function resolveGitHubRemoteBuildCache(
     runOptions,
   });
   if (fs.existsSync(cachedAppPath)) {
-    console.log('Cached build found, skipping download');
+    console.log('[build-cache-provider] Cached build found, skipping download');
     return cachedAppPath;
   }
   if (!BUILD_CACHE_PROVIDER_TOKEN) {
     console.log(
-      'No BUILD_CACHE_PROVIDER_TOKEN env var found in project env files; build-cache-provider skipping resolveGitHubRemoteBuildCache.',
+      '[build-cache-provider] No BUILD_CACHE_PROVIDER_TOKEN env var found in project env files; build-cache-provider skipping resolveGitHubRemoteBuildCache.',
     );
     return null;
   }
-  console.log(`Searching builds with matching fingerprint on Github Releases`);
+  console.log(
+    `[build-cache-provider] Searching builds with matching fingerprint on Github Releases`,
+  );
   try {
     const assets = await getReleaseAssetsByTag({
       token: BUILD_CACHE_PROVIDER_TOKEN,
@@ -66,7 +71,9 @@ async function resolveGitHubRemoteBuildCache(
       cachedAppPath,
     );
   } catch (error) {
-    console.log('No cached builds available for this fingerprint');
+    console.log(
+      '[build-cache-provider] No cached builds available for this fingerprint',
+    );
   }
   return null;
 }
@@ -87,12 +94,12 @@ async function uploadGitHubRemoteBuildCache(
 ) {
   if (!BUILD_CACHE_PROVIDER_TOKEN) {
     console.log(
-      'No BUILD_CACHE_PROVIDER_TOKEN env var found in project env files; build-cache-provider skipping uploadGitHubRemoteBuildCache.',
+      '[build-cache-provider] No BUILD_CACHE_PROVIDER_TOKEN env var found in project env files; build-cache-provider skipping uploadGitHubRemoteBuildCache.',
     );
     return null;
   }
 
-  console.log(`Uploading build to Github Releases`);
+  console.log(`[build-cache-provider] Uploading build to Github Releases`);
   try {
     const result = await createReleaseAndUploadAsset({
       token: BUILD_CACHE_PROVIDER_TOKEN,
@@ -108,9 +115,9 @@ async function uploadGitHubRemoteBuildCache(
 
     return result;
   } catch (error) {
-    console.log('error', error);
+    console.log('[build-cache-provider] error', error);
     console.error(
-      'Release failed:',
+      '[build-cache-provider] Release failed:',
       error instanceof Error ? error.message : 'Unknown error',
     );
     process.exit(1);

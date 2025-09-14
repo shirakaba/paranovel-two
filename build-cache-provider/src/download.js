@@ -1,11 +1,14 @@
-const spawnAsync = require("@expo/spawn-async");
-const glob = require("fast-glob");
-const fs = require("fs-extra");
-const path = require("node:path");
-const { pipeline } = require("stream/promises");
-const { extract } = require("tar");
-const { v4: uuidv4 } = require("uuid");
-const { getTmpDirectory } = require("./helpers");
+// A TS->JS port of:
+// https://github.com/expo/examples/blob/master/with-github-remote-build-cache-provider/build-cache-provider/src/download.ts
+
+const spawnAsync = require('@expo/spawn-async');
+const glob = require('fast-glob');
+const fs = require('fs-extra');
+const path = require('node:path');
+const { pipeline } = require('stream/promises');
+const { extract } = require('tar');
+const { v4: uuidv4 } = require('uuid');
+const { getTmpDirectory } = require('./helpers');
 
 /**
  * @param {string} url
@@ -20,6 +23,7 @@ async function downloadFileAsync(url, outputPath) {
       throw new Error(`Failed to download file from ${url}`);
     }
 
+    // @ts-expect-error Not quite sure why it's unhappy with Response.
     await pipeline(response.body, fs.createWriteStream(outputPath));
   } catch (error) {
     if (await fs.pathExists(outputPath)) {
@@ -53,10 +57,10 @@ async function downloadAndMaybeExtractAppAsync(url, platform, cachedAppPath) {
   const outputDir = path.join(await getTmpDirectory(), uuidv4());
   await fs.promises.mkdir(outputDir, { recursive: true });
 
-  if (url.endsWith("apk")) {
+  if (url.endsWith('apk')) {
     const apkFilePath = path.join(outputDir, `${uuidv4()}.apk`);
     await downloadFileAsync(url, apkFilePath);
-    console.log("Successfully downloaded app");
+    console.log('[build-cache-provider] Successfully downloaded app');
     return await maybeCacheAppAsync(apkFilePath, cachedAppPath);
   } else {
     const tmpArchivePathDir = path.join(await getTmpDirectory(), uuidv4());
@@ -65,12 +69,12 @@ async function downloadAndMaybeExtractAppAsync(url, platform, cachedAppPath) {
     const tmpArchivePath = path.join(tmpArchivePathDir, `${uuidv4()}.tar.gz`);
 
     await downloadFileAsync(url, tmpArchivePath);
-    console.log("Successfully downloaded app archive");
+    console.log('[build-cache-provider] Successfully downloaded app archive');
     await tarExtractAsync(tmpArchivePath, outputDir);
 
     const appPath = await getAppPathAsync(
       outputDir,
-      platform === "ios" ? "app" : "apk",
+      platform === 'ios' ? 'app' : 'apk',
     );
 
     return await maybeCacheAppAsync(appPath, cachedAppPath);
@@ -91,7 +95,7 @@ async function extractAppFromLocalArchiveAsync(appArchivePath, platform) {
 
   return await getAppPathAsync(
     outputDir,
-    platform === "android" ? "apk" : "app",
+    platform === 'android' ? 'apk' : 'app',
   );
 }
 exports.extractAppFromLocalArchiveAsync = extractAppFromLocalArchiveAsync;
@@ -108,7 +112,7 @@ async function getAppPathAsync(outputDir, applicationExtension) {
   });
 
   if (appFilePaths.length === 0) {
-    throw Error("Did not find any installable apps inside tarball.");
+    throw Error('Did not find any installable apps inside tarball.');
   }
 
   return path.join(outputDir, appFilePaths[0]);
@@ -121,19 +125,21 @@ async function getAppPathAsync(outputDir, applicationExtension) {
  */
 async function tarExtractAsync(input, output) {
   try {
-    if (process.platform !== "win32") {
-      await spawnAsync("tar", ["-xf", input, "-C", output], {
-        stdio: "inherit",
+    if (process.platform !== 'win32') {
+      await spawnAsync('tar', ['-xf', input, '-C', output], {
+        stdio: 'inherit',
       });
       return;
     }
   } catch (error) {
     console.warn(
       // @ts-ignore
-      `Failed to extract tar using native tools, falling back on JS tar module. ${error.message}`,
+      `[build-cache-provider] Failed to extract tar using native tools, falling back on JS tar module. ${error.message}`,
     );
   }
-  console.debug(`Extracting ${input} to ${output} using JS tar module`);
+  console.log(
+    `[build-cache-provider] Extracting ${input} to ${output} using JS tar module`,
+  );
   // tar node module has previously had problems with big files, and seems to
   // be slower, so only use it as a backup.
   await extract({ file: input, cwd: output });

@@ -1,6 +1,9 @@
-const { getPackageJson } = require("@expo/config");
+// A TS->JS port of:
+// https://github.com/expo/examples/blob/master/with-github-remote-build-cache-provider/build-cache-provider/src/helpers.ts
 
-const path = require("node:path");
+const { getPackageJson } = require('@expo/config');
+
+const path = require('node:path');
 
 /**
  *
@@ -15,11 +18,11 @@ function isDevClientBuild({ runOptions, projectRoot }) {
     return false;
   }
 
-  if ("variant" in runOptions && runOptions.variant !== undefined) {
-    return runOptions.variant === "debug";
+  if ('variant' in runOptions && runOptions.variant !== undefined) {
+    return runOptions.variant === 'debug';
   }
-  if ("configuration" in runOptions && runOptions.configuration !== undefined) {
-    return runOptions.configuration === "Debug";
+  if ('configuration' in runOptions && runOptions.configuration !== undefined) {
+    return runOptions.configuration === 'Debug';
   }
 
   return true;
@@ -34,15 +37,15 @@ function hasDirectDevClientDependency(projectRoot) {
   const { dependencies = {}, devDependencies = {} } =
     getPackageJson(projectRoot);
   return (
-    !!dependencies["expo-dev-client"] || !!devDependencies["expo-dev-client"]
+    !!dependencies['expo-dev-client'] || !!devDependencies['expo-dev-client']
   );
 }
 exports.hasDirectDevClientDependency = hasDirectDevClientDependency;
 
 async function getTmpDirectory() {
-  const { default: envPaths } = await import("env-paths");
+  const { default: envPaths } = await import('env-paths');
 
-  const { temp: TEMP_PATH } = envPaths("github-build-cache-provider");
+  const { temp: TEMP_PATH } = envPaths('github-build-cache-provider');
 
   return TEMP_PATH;
 }
@@ -50,6 +53,6 @@ exports.getTmpDirectory = getTmpDirectory;
 
 async function getBuildRunCacheDirectoryPath() {
   const TEMP_PATH = await getTmpDirectory();
-  return path.join(TEMP_PATH, "build-run-cache");
+  return path.join(TEMP_PATH, 'build-run-cache');
 }
 exports.getBuildRunCacheDirectoryPath = getBuildRunCacheDirectoryPath;

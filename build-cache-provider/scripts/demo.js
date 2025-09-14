@@ -2,25 +2,25 @@
 // without having to run a full `npx expo run:ios` command.
 //
 // Run it as follows:
-// node ./build-cache-provider/build/node.js
+// node ./build-cache-provider/scripts/demo.js
 
-const path = require("node:path");
+const path = require('node:path');
 const {
   default: providerPlugin,
   uploadGitHubRemoteBuildCache,
-} = require("./index");
+} = require('../src/index');
 
 main()
   .then(() => {
-    console.log("success");
+    console.log('[demo] success');
   })
-  .catch((error) => {
-    console.error("failure", error);
+  .catch(error => {
+    console.error('[demo] failure', error);
   });
 
 async function main() {
   /** @type {"ios" | "android"} */
-  const platform = "ios";
+  const platform = 'ios';
   // The options I got by default from `npx expo run:ios`.
   /** @type {import("@expo/config").RunOptions} */
   const runOptions = {
@@ -28,7 +28,7 @@ async function main() {
     bundler: true,
     install: true,
   };
-  const projectRoot = path.resolve(__dirname, "../..");
+  const projectRoot = path.resolve(__dirname, '../..');
 
   const fingerprintHash = await calculateFingerprintHashAsync({
     projectRoot,
@@ -37,17 +37,17 @@ async function main() {
     provider: { plugin: providerPlugin, options: {} },
   });
   if (!fingerprintHash) {
-    throw new Error("Expected fingerprintHash to be non-null.");
+    throw new Error('Expected fingerprintHash to be non-null.');
   }
   await uploadGitHubRemoteBuildCache(
     {
-      projectRoot: path.resolve(__dirname, "../.."),
+      projectRoot: path.resolve(__dirname, '../..'),
       fingerprintHash,
       runOptions,
       platform,
-      buildPath: "",
+      buildPath: '',
     },
-    { owner: "shirakaba", repo: "paranovel-two" },
+    { owner: 'shirakaba', repo: 'paranovel-two' },
   );
 }
 
@@ -83,7 +83,7 @@ async function calculateFingerprintHashAsync({
   const Fingerprint = importFingerprintForDev(projectRoot);
   if (!Fingerprint) {
     console.warn(
-      "@expo/fingerprint is not installed in the project, unable to calculate fingerprint",
+      '[build-cache-provider] @expo/fingerprint is not installed in the project, unable to calculate fingerprint',
     );
     return null;
   }
@@ -97,16 +97,14 @@ async function calculateFingerprintHashAsync({
  */
 function importFingerprintForDev(projectRoot) {
   try {
-    return require(
-      require.resolve("@expo/fingerprint", {
-        paths: [projectRoot],
-      }),
-    );
+    return require(require.resolve('@expo/fingerprint', {
+      paths: [projectRoot],
+    }));
   } catch (error) {
     if (
       error instanceof Error &&
-      "code" in error &&
-      error.code === "MODULE_NOT_FOUND"
+      'code' in error &&
+      error.code === 'MODULE_NOT_FOUND'
     ) {
       return null;
     }

@@ -1,9 +1,12 @@
-const fs = require("fs-extra");
-const { v4: uuidv4 } = require("uuid");
-const { create: createTar } = require("tar");
-const path = require("path");
+// A TS->JS port of:
+// https://github.com/expo/examples/blob/master/with-github-remote-build-cache-provider/build-cache-provider/src/github.ts
 
-const { getTmpDirectory } = require("./helpers");
+const fs = require('fs-extra');
+const { v4: uuidv4 } = require('uuid');
+const { create: createTar } = require('tar');
+const path = require('path');
+
+const { getTmpDirectory } = require('./helpers');
 
 /**
  * @typedef {{
@@ -25,7 +28,7 @@ async function createReleaseAndUploadAsset({
   tagName,
   binaryPath,
 }) {
-  const { Octokit } = await import("@octokit/rest");
+  const { Octokit } = await import('@octokit/rest');
 
   const octokit = new Octokit({ auth: token });
 
@@ -41,10 +44,10 @@ async function createReleaseAndUploadAsset({
       tag: tagName,
       message: tagName,
       object: commitSha,
-      type: "commit",
+      type: 'commit',
       tagger: {
-        name: "Release Bot",
-        email: "bot@expo.dev",
+        name: 'Release Bot',
+        email: 'bot@expo.dev',
         date: new Date().toISOString(),
       },
     });
@@ -83,7 +86,7 @@ exports.createReleaseAndUploadAsset = createReleaseAndUploadAsset;
  * @returns {Promise<string>}
  */
 async function getBranchShaWithFallback(octokit, owner, repo) {
-  const branchesToTry = ["main", "master"];
+  const branchesToTry = ['main', 'master'];
 
   for (const branchName of branchesToTry) {
     try {
@@ -96,15 +99,15 @@ async function getBranchShaWithFallback(octokit, owner, repo) {
     } catch (error) {
       if (
         error instanceof Error &&
-        error.message.includes("Branch not found")
+        error.message.includes('Branch not found')
       ) {
-        if (branchName === "master") throw new Error("No valid branch found");
+        if (branchName === 'master') throw new Error('No valid branch found');
         continue;
       }
       throw error;
     }
   }
-  throw new Error("Branch fallback exhausted");
+  throw new Error('Branch fallback exhausted');
 }
 
 /**
@@ -162,7 +165,7 @@ async function uploadReleaseAsset(octokit, params) {
     const parentPath = path.dirname(filePath);
     await createTar({ cwd: parentPath, file: tarPath, gzip: true }, [name]);
     filePath = tarPath;
-    name = name + ".tar.gz";
+    name = name + '.tar.gz';
   }
 
   /** @type {string} Type workaround for binary data */
@@ -176,8 +179,8 @@ async function uploadReleaseAsset(octokit, params) {
     name: name,
     data: fileData,
     headers: {
-      "content-type": "application/octet-stream",
-      "content-length": fileData.length.toString(),
+      'content-type': 'application/octet-stream',
+      'content-length': fileData.length.toString(),
     },
   });
 }
@@ -191,7 +194,7 @@ async function uploadReleaseAsset(octokit, params) {
  * @param {string} arg.tag
  */
 async function getReleaseAssetsByTag({ token, owner, repo, tag }) {
-  const { Octokit } = await import("@octokit/rest");
+  const { Octokit } = await import('@octokit/rest');
 
   const octokit = new Octokit({ auth: token });
   const release = await octokit.rest.repos.getReleaseByTag({
