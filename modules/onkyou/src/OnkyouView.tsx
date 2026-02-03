@@ -1,4 +1,4 @@
-import { requireNativeViewManager } from 'expo-modules-core';
+import { requireNativeView } from 'expo';
 import * as React from 'react';
 import { StyleSheet, ViewProps } from 'react-native';
 
@@ -6,7 +6,7 @@ import { OnkyouViewInterface, OnkyouViewProps } from './Onkyou.types';
 import OnkyouModule from './OnkyouModule';
 
 const NativeView: React.ComponentType<OnkyouViewProps & ViewProps> =
-  requireNativeViewManager('Onkyou');
+  requireNativeView('Onkyou');
 
 const OnkyouView = React.forwardRef<
   OnkyouViewInterface,
@@ -26,7 +26,7 @@ const OnkyouView = React.forwardRef<
       getBuffered: () => OnkyouModule.getBuffered(id),
       isPaused: () => OnkyouModule.isPaused(id),
     }),
-    [id]
+    [id],
   );
 
   return <NativeView {...props} instanceId={id} style={styles.hidden} />;

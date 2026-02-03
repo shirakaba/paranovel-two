@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useLibrary } from '@/hooks/useLibrary';
 import { tokenize } from '@/modules/mecab';
 import { useQuery } from '@tanstack/react-query';
@@ -40,6 +39,7 @@ import {
   updateBookState,
 } from '@/utils/update-book-state';
 import { makeUrlFromOps, prettifyOpsUrl } from '@/utils/url-processing';
+import { SymbolView } from 'expo-symbols';
 
 export default function BookScreen({
   navigation,
@@ -249,11 +249,11 @@ export default function BookScreen({
                 onPress={() => {
                   webViewRef.current?.reload();
                 }}>
-                <IconSymbol
-                  name="arrow.clockwise"
+                <SymbolView
+                  name={{ ios: 'arrow.clockwise' }}
                   size={22}
                   weight="medium"
-                  color={'#3677F9'}
+                  tintColor={'#3677F9'}
                 />
               </TouchableOpacity>
             )}
@@ -305,7 +305,7 @@ export default function BookScreen({
   const scheme = useColorScheme();
 
   const navigationLockCounterRef = useRef(0);
-  const navigationLockIdRef = useRef<number>();
+  const navigationLockIdRef = useRef<number>(undefined);
 
   if (library.type !== 'loaded') {
     return null;
@@ -555,7 +555,7 @@ function onMessage({
   pageDetailsQueryDataRef,
 }: {
   event: WebViewMessageEvent;
-  webViewRef: React.RefObject<WebView>;
+  webViewRef: React.RefObject<WebView | null>;
   dbRef: React.MutableRefObject<QuickSQLiteConnection | null>;
   spineRef: React.MutableRefObject<
     | Array<{

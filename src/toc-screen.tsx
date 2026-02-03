@@ -26,7 +26,7 @@ export default function TableOfContents({
   const scheme = useColorScheme();
 
   const navigationLockCounterRef = useRef(0);
-  const navigationLockIdRef = useRef<number>();
+  const navigationLockIdRef = useRef<number>(undefined);
 
   return (
     <ScrollView
