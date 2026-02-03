@@ -173,6 +173,8 @@ async function getCachedAppPath({
  */
 const providerPlugin = {
   resolveBuildCache: resolveGitHubRemoteBuildCache,
+  // This is called upon `expo run ios` and `expo run android`:
+  // node_modules/@expo/cli/build/src/run/ios/runIosAsync.js
   uploadBuildCache: uploadGitHubRemoteBuildCache,
 };
 exports.default = providerPlugin;
