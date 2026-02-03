@@ -1,0 +1,5 @@
+{
+  "extends": "@tsconfig/node24",
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}

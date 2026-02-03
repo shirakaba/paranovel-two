@@ -73,6 +73,7 @@
   },
   "private": true,
   "workspaces": [
-    "build-cache-provider"
+    "build-cache-provider",
+    "scripts"
   ]
 }

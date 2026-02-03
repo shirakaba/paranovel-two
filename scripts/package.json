@@ -1,0 +1,13 @@
+{
+  "name": "scripts",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "provision": "node provision-ebook.ts"
+  },
+  "devDependencies": {
+    "@tsconfig/node24": "^24.0.4",
+    "@types/node": "^24.10.10",
+    "typescript": "^5.9.3"
+  }
+}
