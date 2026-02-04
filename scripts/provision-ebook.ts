@@ -1,7 +1,9 @@
-import { exec, execSync } from 'node:child_process';
+import { exec, execSync, spawn } from 'node:child_process';
+import readline from 'node:readline';
 import { glob } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { checkbox } from '@inquirer/prompts';
 
 /**
  * @example
@@ -55,13 +57,32 @@ async function main() {
     }
   }
 
-  // Map(1) {
-  //   'AEFDBC13-07B0-4B77-A085-CF95B2BB6484' => {
-  //     deviceName: 'iPhone 17 Pro',
-  //     storagePath: '/Users/jamie/Library/Developer/CoreSimulator/Devices/AEFDBC13-07B0-4B77-A085-CF95B2BB6484/data/Containers/Shared/AppGroup/546B5F27-F792-4FCB-B7C8-8E7075E5AC16/File Provider Storage'
-  //   }
-  // }
-  console.log(fileProviderStorages);
+  const simulators = await checkbox({
+    message: 'Select which simulators to sync ebooks to',
+    choices: [
+      ...fileProviderStorages.entries().map(value => {
+        const [uuid, { deviceName }] = value;
+        return { name: `${deviceName} (${uuid})`, value, checked: true };
+      }),
+    ],
+  });
+
+  for (const [_simulator, { deviceName, storagePath }] of simulators) {
+    console.log(`Syncing ${deviceName}...`);
+
+    const stdout = await syncEbooks({
+      source: '/Users/jamie/Library/Mobile Documents/com~apple~CloudDocs/epubs',
+      dest: path.resolve(storagePath, 'epubs'),
+      extraFlags: [
+        // '--dry-run',
+        '--exclude=.DS_Store',
+        '--exclude=exclude',
+        // (yes, it's correct to omit quotes here)
+        '--exclude=AZW3 to EPUB.app',
+      ],
+    });
+    console.log(stdout);
+  }
 }
 
 main();
@@ -97,4 +118,71 @@ async function parsePlist(plistPath: string) {
   });
 
   return JSON.parse(stdout);
+}
+
+function syncEbooks({
+  source,
+  dest,
+  extraFlags = [],
+}: {
+  source: string;
+  dest: string;
+  extraFlags?: Array<string>;
+}) {
+  return new Promise<string>((resolve, reject) => {
+    const command = [
+      'rsync',
+      [
+        '-avv',
+        '--progress',
+        // '--quiet',
+        ...extraFlags,
+        `${source.replace(/\/*$/, '/')}`,
+        `${dest.replace(/\/*$/, '/')}`,
+      ],
+    ] as const;
+
+    console.log(`Running:\n${command[0]} ${command[1].join(' ')}`);
+
+    const cp = spawn(...command, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    if (!cp.stdout || !cp.stderr) {
+      return reject(new Error('Child process had no stdout/stderr.'));
+    }
+
+    const stdoutInterface = readline.createInterface({
+      input: cp.stdout,
+      crlfDelay: Infinity,
+    });
+    const stderrInterface = readline.createInterface({
+      input: cp.stderr,
+      crlfDelay: Infinity,
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    stdoutInterface.on('line', line => {
+      stdout += `${line}\n`;
+    });
+
+    stderrInterface.on('line', line => {
+      stderr += `${line}\n`;
+    });
+
+    cp.on('close', (code, signal) => {
+      if (code) {
+        reject(
+          new Error(
+            `Child process with code ${code} and signal ${signal}. stderr: ${stderr}`,
+          ),
+        );
+        return;
+      }
+
+      resolve(stdout);
+    });
+  });
 }
