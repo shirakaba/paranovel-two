@@ -8,7 +8,7 @@ import {
   readDirectoryAsync,
   getInfoAsync,
   readAsStringAsync,
-} from 'expo-file-system';
+} from 'expo-file-system/legacy';
 import { getMainFeaturesFromOpf, parseOPF } from '@/utils/epub-parsing';
 
 export function LibraryProvider({ children }: React.PropsWithChildren) {
