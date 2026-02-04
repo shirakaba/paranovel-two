@@ -18,8 +18,9 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {object} obj
  * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
  * @param {Range} obj.tokenRange
+ * @param {number} obj.transactionId
  */
-function updatePopover({ results, tokenRange }) {
+function updatePopover({ results, tokenRange, transactionId }) {
   /**
    * We use <dialog> rather than popover mainly because light dismissal is even
    * more broken in Safari 18 for popovers than it is for dialogs.
@@ -196,6 +197,8 @@ function updatePopover({ results, tokenRange }) {
     popoverStage,
     popoverContent,
     tokenRange,
+    transactionId,
+    results,
   });
   if (!orientation) {
     onClose();
@@ -229,8 +232,17 @@ function updatePopover({ results, tokenRange }) {
  * @param {HTMLElement} obj.popoverStage
  * @param {HTMLElement} obj.popoverContent
  * @param {Range} obj.tokenRange
+ * @param {number} obj.transactionId
+ * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
  */
-function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
+function layOutPopover({
+  anchor,
+  popoverStage,
+  popoverContent,
+  tokenRange,
+  results,
+  transactionId,
+}) {
   const anchorRect = getEffectiveBoundingClientRect(tokenRange);
   console.log(
     `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
@@ -286,6 +298,42 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
       throw new Error(`Unexpected writing mode, ${writingMode}`);
     }
   }
+
+  const payload = {
+    id: transactionId,
+    positionTryOrder,
+    anchorRect: {
+      top: anchorRect.top,
+      right: anchorRect.right,
+      left: anchorRect.left,
+      bottom: anchorRect.bottom,
+      x: anchorRect.x,
+      y: anchorRect.y,
+      width: anchorRect.width,
+      height: anchorRect.height,
+    },
+    results: results ?? [],
+  };
+
+  // TODO: Return here?
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({
+      type: 'present-native-popover',
+      id: transactionId,
+      positionTryOrder,
+      anchorRect: {
+        top: anchorRect.top,
+        right: anchorRect.right,
+        left: anchorRect.left,
+        bottom: anchorRect.bottom,
+        x: anchorRect.x,
+        y: anchorRect.y,
+        width: anchorRect.width,
+        height: anchorRect.height,
+      },
+      results: results ?? [],
+    }),
+  );
 
   /** @type {Array<{ orientation: Orientation, blockOverflow: number, clientInlineSize: number }>} */
   const solutions = [];
@@ -1042,6 +1090,7 @@ async function lookUpTerm({ dictionaryForm, tokenRange }) {
   updatePopover({
     results: response,
     tokenRange,
+    transactionId: id,
   });
 }
 

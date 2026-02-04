@@ -14,6 +14,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   useColorScheme,
+  View,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
@@ -27,7 +28,7 @@ import {
   parseNCX,
   parseOPF,
 } from '@/utils/epub-parsing';
-import { lookUpTerm } from '@/utils/look-up-term';
+import { LookupResult, lookUpTerm } from '@/utils/look-up-term';
 import type { RootStackParamList } from './navigation.types';
 import injectedCss from './source-assets/injected-css.wvcss';
 import mainScript from './source-assets/injected-javascript.wvjs';
@@ -289,6 +290,21 @@ export default function BookScreen({
     });
   }, [navigation, params, spine, toc]);
 
+  const [nativePopup, setNativePopup] = useState<NativePopupState>({
+    visible: false,
+    anchorRect: {
+      top: 0,
+      right: 0,
+      left: 0,
+      bottom: 0,
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+    },
+    results: [],
+  });
+
   const onMessageCallback = useCallback((event: WebViewMessageEvent) => {
     onMessage({
       event,
@@ -299,6 +315,7 @@ export default function BookScreen({
       webViewUriRef,
       setWebViewUri,
       pageDetailsQueryDataRef,
+      setNativePopup,
     });
   }, []);
 
@@ -495,8 +512,50 @@ export default function BookScreen({
           return false;
         }}
       />
+      <NativePopover state={nativePopup} />
     </SafeAreaView>
   );
+}
+
+function NativePopover({ state }: { state: NativePopupState }) {
+  const {
+    visible,
+    anchorRect: { top, left, width, height },
+    results,
+  } = state;
+
+  console.log('AHOY', state.anchorRect);
+
+  // Currently we're reflecting the anchorRect.
+  // TODO: see layOutPopover() in `src/source-assets/injected-javascript.wvjs`
+  //       and run the multi-try `tryOrientation()` .
+  return (
+    <View
+      style={{
+        backgroundColor: 'cyan',
+        width,
+        height,
+        top,
+        left,
+        position: 'absolute',
+        display: visible ? 'flex' : 'none',
+      }}></View>
+  );
+}
+
+interface NativePopupState {
+  visible: boolean;
+  anchorRect: {
+    top: number;
+    right: number;
+    left: number;
+    bottom: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  results: Array<LookupResult>;
 }
 
 function stringDiff(a: string, b: string) {
@@ -552,6 +611,7 @@ function onMessage({
   paramsRef,
   webViewUriRef,
   setWebViewUri,
+  setNativePopup,
   pageDetailsQueryDataRef,
 }: {
   event: WebViewMessageEvent;
@@ -567,6 +627,7 @@ function onMessage({
   paramsRef: React.MutableRefObject<Readonly<BookScreenProps>>;
   webViewUriRef: React.MutableRefObject<string>;
   setWebViewUri: React.Dispatch<React.SetStateAction<string>>;
+  setNativePopup: React.Dispatch<React.SetStateAction<NativePopupState>>;
   pageDetailsQueryDataRef: React.MutableRefObject<
     | {
         pageType: 'toc';
@@ -591,6 +652,13 @@ function onMessage({
     id: number;
     term: string;
   }
+  interface PresentNativePayloadPayload {
+    type: 'present-native-popover';
+    id: number;
+    anchorRect: DOMRect;
+    positionTryOrder: ['bottom', 'top'] | ['right', 'left'] | ['left', 'right'];
+    results: Array<LookupResult>;
+  }
   interface TokenizePayload {
     type: 'tokenize';
     id: number;
@@ -611,6 +679,7 @@ function onMessage({
   type Payload =
     | LogPayload
     | LookUpPayload
+    | PresentNativePayloadPayload
     | TokenizePayload
     | NavigationRequestPayload
     | ProgressPayload;
@@ -682,6 +751,16 @@ function onMessage({
             }"`,
           );
         });
+      return;
+    }
+    case 'present-native-popover': {
+      const {
+        id: _transactionId,
+        positionTryOrder,
+        anchorRect,
+        results,
+      } = parsed;
+      setNativePopup({ visible: true, anchorRect, results });
       return;
     }
     case 'navigation-request': {
