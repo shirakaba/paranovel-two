@@ -12,6 +12,7 @@
     "debug:ios": "DEBUG=expo:* expo run:ios",
     "test": "jest --watchAll",
     "lint": "expo lint",
+    "provision": "node ./scripts/provision-ebook.ts",
     "postinstall": "patch-package"
   },
   "jest": {
