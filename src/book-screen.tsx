@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -21,6 +22,7 @@ import {
   Text,
   Pressable,
   ScrollView,
+  ReadOnlyElement,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
@@ -518,24 +520,148 @@ export default function BookScreen({
           return false;
         }}
       />
-      <NativePopover state={nativePopup} />
+      <NativePopover state={nativePopup} writingMode="vertical-rl" />
     </SafeAreaView>
   );
 }
 
-function NativePopover({ state }: { state: NativePopupState }) {
+function NativePopover({
+  state,
+  writingMode = 'horizontal-tb',
+}: {
+  state: NativePopupState;
+  writingMode?: string;
+}) {
   const { visible, anchorRect, results } = state;
   const { top, left, width, height } = anchorRect;
-
   const [withShowMoreButton, _setWithShowMoreButton] = useState(false);
 
-  console.log('AHOY', state.anchorRect);
+  const positionTryOrder = getBestPositionTryOrder(writingMode);
 
-  // Currently we're reflecting the anchorRect.
-  // TODO: see layOutPopover() in `src/source-assets/injected-javascript.wvjs`
-  //       and run the multi-try `tryOrientation()` .
+  console.log('AHOY', results);
 
-  const stageStyles = tryOrientation({ anchorRect, orientation: 'left' });
+  const stageRef = useRef<View | null>(null);
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  useEffect(() => {
+    const scrollView = scrollViewRef.current;
+    const stage = stageRef.current;
+    const parent = stage?.parentElement;
+    if (!stage || !scrollView || !parent) {
+      return;
+    }
+
+    const solutions = new Array<{
+      orientation: Orientation;
+      blockOverflow: number;
+      clientInlineSize: number;
+    }>();
+
+    let lastTried: Orientation = positionTryOrder[0];
+
+    // FIXME: In the no-results case, 'left' will win over 'right' in
+    //        vertical-rl texts no matter how cramped, just because the
+    //        clientInlineSize (the clientHeight) is equal between the two.
+    //
+    //        This might be resolvable (for the wrong reasons) by just
+    //        implementing the "no results" text and, if possible, a minimum
+    //        width.
+    for (const orientation of positionTryOrder) {
+      lastTried = orientation;
+
+      const style = tryOrientation({ anchorRect, orientation, parent });
+      stage.setNativeProps({ style });
+      const {
+        blockOverflow,
+        inlineOverflow,
+        clientBlockSize,
+        clientInlineSize,
+      } = getOverflow({ scrollView, orientation });
+
+      const typedStyle = style as {
+        top: number;
+        right: number;
+        bottom: number;
+        left: number;
+      };
+
+      // On the Web, we compared the bounding client rect to the window's
+      // innerWidth/innerHeight. In React Native, the bounding client rect seems
+      // to stay diligently inside the parent no matter what impossible
+      // constraint you asked for, so the non-computed style gets closer to my
+      // intention of checking whether we asked for a stage that begins outside
+      // of the viewport.
+      let isOverflowingViewport = false;
+      if (
+        typedStyle.left > parent.clientWidth ||
+        typedStyle.right > parent.clientWidth ||
+        typedStyle.top < 0 ||
+        typedStyle.bottom < 0 ||
+        typedStyle.top > parent.clientHeight ||
+        typedStyle.bottom > parent.clientHeight
+      ) {
+        isOverflowingViewport = true;
+      }
+
+      if (isOverflowingViewport) {
+        console.log(
+          `Discarding orientation "${orientation}" as it's overflowing the viewport.`,
+        );
+        continue;
+      }
+
+      if (inlineOverflow) {
+        console.log(
+          `Discarding orientation "${orientation}" as it's overflowing in the inline orientation.`,
+        );
+        continue;
+      }
+
+      solutions.push({ orientation, blockOverflow, clientInlineSize });
+    }
+
+    const sortedSolutions = solutions.sort((a, b) => {
+      // Sort in descending order of inline size.
+      const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
+
+      // If there's no tie, use that alone as the sorting factor.
+      if (clientInlineSize) {
+        return clientInlineSize;
+      }
+
+      // Otherwise, sort in ascending order of block overflow.
+      //
+      // (Given that we reserve the same amount of block space for both
+      // orientations, though, this won't actually make any difference unless we
+      // change the layout algorithm in future.)
+      return a.blockOverflow - b.blockOverflow;
+    });
+    const bestSolution = sortedSolutions.at(0)?.orientation;
+
+    if (!bestSolution) {
+      return;
+    }
+
+    if (bestSolution === lastTried) {
+      console.log(
+        `Given solutions ${JSON.stringify(
+          sortedSolutions,
+        )}, picking ${bestSolution} (last tried)`,
+      );
+    } else {
+      console.log(
+        `Given solutions ${JSON.stringify(
+          sortedSolutions,
+        )}, picking ${bestSolution} (redoing layout)`,
+      );
+
+      const style = tryOrientation({
+        anchorRect,
+        orientation: bestSolution,
+        parent,
+      });
+      stage.setNativeProps({ style });
+    }
+  }, [anchorRect, results]);
 
   const fontScale = 1;
   const paranovelPopoverDefinitionFontSize = 14 / fontScale;
@@ -556,16 +682,18 @@ function NativePopover({ state }: { state: NativePopupState }) {
         }}></View>
       <View
         // #paranovel-popover-stage
+        ref={stageRef}
         style={{
           position: 'absolute',
           backgroundColor: 'rgba(255,255,0,0.5)',
           inset: 0,
           padding: 16,
           alignItems: 'center',
-          ...stageStyles,
+          // ...stageStyles,
           display: visible ? 'flex' : 'none',
         }}>
         <ScrollView
+          ref={scrollViewRef}
           // #paranovel-popover-content
           style={{
             backgroundColor: 'black',
@@ -700,135 +828,194 @@ function NativePopover({ state }: { state: NativePopupState }) {
   );
 }
 
+/**
+ * For now, the popover is always formatted as horizontal-lr, even if the
+ * ebook is vertical-rl. This is, in chief, because I'm starting with a
+ * Japanese-English dictionary, and vertical-rl does not suit English text.
+ */
+const popoverWritingDirectionMatchesBodyText: boolean = false;
+
+function getBestPositionTryOrder(
+  writingMode: string,
+): ['bottom', 'top'] | ['right', 'left'] | ['left', 'right'] {
+  /**
+   * A tactic to emulate the following CSS:
+   *
+   * ```css
+   * position-area: block-end span-all;
+   * position-try: most-block-size flip-block;
+   * ```
+   */
+  switch (writingMode) {
+    case 'lr':
+    case 'lr-tb':
+    case 'rl':
+    case 'horizontal-tb': {
+      return ['bottom', 'top'];
+    }
+    case 'tb-lr':
+    case 'tb-rl':
+    case 'sideways-rl':
+    case 'vertical-rl':
+    case 'sideways-lr':
+    case 'vertical-lr': {
+      return writingMode.endsWith('rl') ? ['left', 'right'] : ['right', 'left'];
+    }
+    default: {
+      throw new Error(`Unexpected writing mode, ${writingMode}`);
+    }
+  }
+}
+
 function tryOrientation({
   anchorRect,
   orientation,
+  parent,
 }: {
   anchorRect: Pick<DOMRect, 'top' | 'right' | 'bottom' | 'left'>;
   orientation: Orientation;
+  parent: ReadOnlyElement;
 }): StyleProp<ViewStyle> {
   // `anchorRect` is measured entirely from the top-left (i.e. `bottom` is the
   // number of pixels down from the top; it's equivalent to `top` + `height`).
   const { top, left, bottom, right } = anchorRect;
-
-  // popoverStage.style.removeProperty('top');
-  // popoverStage.style.removeProperty('right');
-  // popoverStage.style.removeProperty('bottom');
-  // popoverStage.style.removeProperty('left');
-
-  // /**
-  //  * For now, the popover is always formatted as horizontal-lr, even if the
-  //  * ebook is vertical-rl. This is, in chief, because I'm starting with a
-  //  * Japanese-English dictionary, and vertical-rl does not suit English text.
-  //  */
-  // const popoverWritingDirectionMatchesBodyText = false;
-
-  // let blockOverflow = 0;
-  // let inlineOverflow = 0;
-  // let clientBlockSize = 0;
-  // let clientInlineSize = 0;
-
-  // const windowInnerHeight =
 
   switch (orientation) {
     case 'top': {
       return {
         flexDirection: 'column',
         justifyContent: 'flex-end',
-        bottom: Dimensions.get('window').height - top,
+        top: 0,
+        right: 0,
+        bottom: parent.clientHeight - top,
+        left: 0,
       };
-
-      // blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
-      // inlineOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
-      // clientBlockSize = popoverContent.clientHeight;
-      // clientInlineSize = popoverContent.clientWidth;
-      // break;
     }
     case 'right': {
       return {
         flexDirection: 'row',
         justifyContent: 'flex-start',
+        top: 0,
+        right: 0,
+        bottom: 0,
         left: right,
       };
-      // if (popoverWritingDirectionMatchesBodyText) {
-      //   blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
-      //   inlineOverflow =
-      //     popoverContent.scrollHeight - popoverContent.clientHeight;
-      //   clientBlockSize = popoverContent.clientWidth;
-      //   clientInlineSize = popoverContent.clientHeight;
-      // } else {
-      //   blockOverflow =
-      //     popoverContent.scrollHeight - popoverContent.clientHeight;
-      //   inlineOverflow =
-      //     popoverContent.scrollWidth - popoverContent.clientWidth;
-      //   clientBlockSize = popoverContent.clientHeight;
-      //   clientInlineSize = popoverContent.clientWidth;
-      // }
-      // break;
     }
     case 'bottom': {
       return {
         flexDirection: 'column',
         justifyContent: 'flex-start',
+        top: 0,
+        right: 0,
+        bottom: 0,
         left: bottom,
       };
-
-      // blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
-      // inlineOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
-      // clientBlockSize = popoverContent.clientHeight;
-      // clientInlineSize = popoverContent.clientWidth;
-      // break;
     }
     case 'left': {
       return {
         flexDirection: 'row',
         justifyContent: 'flex-end',
-        right: Dimensions.get('window').width - left,
+        top: 0,
+        right: parent.clientWidth - left,
+        bottom: 0,
+        left: 0,
       };
+    }
+  }
+}
 
-      // popoverStage.style.flexDirection = 'row';
-      // popoverStage.style.justifyContent = 'flex-end';
-      // popoverStage.style.right = `${window.innerWidth - left}px`;
-      // if (popoverWritingDirectionMatchesBodyText) {
-      //   blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
-      //   inlineOverflow =
-      //     popoverContent.scrollHeight - popoverContent.clientHeight;
-      //   clientBlockSize = popoverContent.clientWidth;
-      //   clientInlineSize = popoverContent.clientHeight;
-      // } else {
-      //   blockOverflow =
-      //     popoverContent.scrollHeight - popoverContent.clientHeight;
-      //   inlineOverflow =
-      //     popoverContent.scrollWidth - popoverContent.clientWidth;
-      //   clientBlockSize = popoverContent.clientHeight;
-      //   clientInlineSize = popoverContent.clientWidth;
-      // }
-      // break;
+function getOverflow({
+  scrollView,
+  orientation,
+}: {
+  scrollView: ScrollView;
+  orientation: Orientation;
+}) {
+  /**
+   * For now, the popover is always formatted as horizontal-lr, even if the
+   * ebook is vertical-rl. This is, in chief, because I'm starting with a
+   * Japanese-English dictionary, and vertical-rl does not suit English text.
+   */
+  const popoverWritingDirectionMatchesBodyText = false;
+
+  let blockOverflow = 0;
+  let inlineOverflow = 0;
+  let clientBlockSize = 0;
+  let clientInlineSize = 0;
+
+  const nativeScrollRef = scrollView.getNativeScrollRef();
+  if (!nativeScrollRef) {
+    return {
+      blockOverflow,
+      inlineOverflow,
+      clientBlockSize,
+      clientInlineSize,
+    };
+  }
+
+  switch (orientation) {
+    case 'top': {
+      blockOverflow =
+        nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+      inlineOverflow =
+        nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+      clientBlockSize = nativeScrollRef.clientHeight;
+      clientInlineSize = nativeScrollRef.clientWidth;
+      break;
+    }
+    case 'right': {
+      if (popoverWritingDirectionMatchesBodyText) {
+        blockOverflow =
+          nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+        inlineOverflow =
+          nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+        clientBlockSize = nativeScrollRef.clientWidth;
+        clientInlineSize = nativeScrollRef.clientHeight;
+      } else {
+        blockOverflow =
+          nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+        inlineOverflow =
+          nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+        clientBlockSize = nativeScrollRef.clientHeight;
+        clientInlineSize = nativeScrollRef.clientWidth;
+      }
+      break;
+    }
+    case 'bottom': {
+      blockOverflow =
+        nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+      inlineOverflow =
+        nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+      clientBlockSize = nativeScrollRef.clientHeight;
+      clientInlineSize = nativeScrollRef.clientWidth;
+      break;
+    }
+    case 'left': {
+      if (popoverWritingDirectionMatchesBodyText) {
+        blockOverflow =
+          nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+        inlineOverflow =
+          nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+        clientBlockSize = nativeScrollRef.clientWidth;
+        clientInlineSize = nativeScrollRef.clientHeight;
+      } else {
+        blockOverflow =
+          nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+        inlineOverflow =
+          nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+        clientBlockSize = nativeScrollRef.clientHeight;
+        clientInlineSize = nativeScrollRef.clientWidth;
+      }
+      break;
     }
   }
 
-  // const stageRect = popoverContent.getBoundingClientRect();
-
-  // // Although the anchor may be fully onscreen, some orientations around it may
-  // // cause the popover to fall offscreen.
-  // let isOverflowingViewport = false;
-  // if (
-  //   stageRect.top < 0 ||
-  //   stageRect.left < 0 ||
-  //   stageRect.bottom > window.innerHeight ||
-  //   stageRect.right > window.innerWidth
-  // ) {
-  //   isOverflowingViewport = true;
-  // }
-
-  // return {
-  //   blockOverflow,
-  //   inlineOverflow,
-  //   clientBlockSize,
-  //   clientInlineSize,
-  //   isOverflowingViewport,
-  //   stageRect,
-  // };
+  return {
+    blockOverflow,
+    inlineOverflow,
+    clientBlockSize,
+    clientInlineSize,
+  };
 }
 
 type Orientation = 'top' | 'right' | 'bottom' | 'left';
