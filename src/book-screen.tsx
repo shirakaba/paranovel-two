@@ -10,11 +10,17 @@ import React, {
 } from 'react';
 import {
   Button,
+  Dimensions,
   SafeAreaView,
+  StyleProp,
   StyleSheet,
   TouchableOpacity,
   useColorScheme,
   View,
+  ViewStyle,
+  Text,
+  Pressable,
+  ScrollView,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
@@ -518,30 +524,314 @@ export default function BookScreen({
 }
 
 function NativePopover({ state }: { state: NativePopupState }) {
-  const {
-    visible,
-    anchorRect: { top, left, width, height },
-    results,
-  } = state;
+  const { visible, anchorRect, results } = state;
+  const { top, left, width, height } = anchorRect;
+
+  const [withShowMoreButton, _setWithShowMoreButton] = useState(false);
 
   console.log('AHOY', state.anchorRect);
 
   // Currently we're reflecting the anchorRect.
   // TODO: see layOutPopover() in `src/source-assets/injected-javascript.wvjs`
   //       and run the multi-try `tryOrientation()` .
+
+  const stageStyles = tryOrientation({ anchorRect, orientation: 'left' });
+
+  const fontScale = 1;
+  const paranovelPopoverDefinitionFontSize = 14 / fontScale;
+
   return (
-    <View
-      style={{
-        backgroundColor: 'cyan',
-        width,
-        height,
-        top,
-        left,
-        position: 'absolute',
-        display: visible ? 'flex' : 'none',
-      }}></View>
+    <>
+      <View
+        // #paranovel-anchor
+        style={{
+          position: 'absolute',
+          pointerEvents: 'none',
+          backgroundColor: 'cyan',
+          width,
+          height,
+          top,
+          left,
+          display: visible ? 'flex' : 'none',
+        }}></View>
+      <View
+        // #paranovel-popover-stage
+        style={{
+          position: 'absolute',
+          backgroundColor: 'rgba(255,255,0,0.5)',
+          inset: 0,
+          padding: 16,
+          alignItems: 'center',
+          ...stageStyles,
+          display: visible ? 'flex' : 'none',
+        }}>
+        <ScrollView
+          // #paranovel-popover-content
+          style={{
+            backgroundColor: 'black',
+            padding: 8,
+            boxSizing: 'border-box',
+            // It doesn't seem to be respecting this
+            // overflow: 'scroll',
+
+            // maxWidth: '100%',
+            // height: 'fit-content',
+            // maxHeight: '100%',
+          }}>
+          {results.map(({ forms, senses }, i) => {
+            const readings = forms
+              .sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0))
+              .filter(({ kana }) => kana);
+
+            return (
+              <View
+                key={i}
+                // .paranovel-result-container
+                style={{
+                  gap: 8,
+                  alignItems: 'stretch',
+                  maxWidth: '100%',
+
+                  // To be inherited:
+                  // color: 'white',
+                  // fontSize: 50 / fontScale,
+                }}>
+                <Text
+                  // .paranovel-headword
+                  style={{
+                    color: 'white',
+                    fontSize: 22 / fontScale,
+                  }}>
+                  {forms
+                    .filter(({ kana }) => !kana)
+                    .map(({ common, form }) => (common ? form : `（${form}）`))
+                    .join('、')}
+                </Text>
+                <Text
+                  // .paranovel-reading-item
+                  style={{
+                    color: 'white',
+                    fontSize: paranovelPopoverDefinitionFontSize,
+                  }}>
+                  {readings
+                    // Could represent uncommon using dice
+                    .map(({ common, form }) => (common ? form : `（${form}）`))
+                    .join('、')}
+                </Text>
+
+                <View
+                  // .paranovel-sense-list
+                  style={{ gap: 16 }}>
+                  {senses.map(({ pos, gloss }, i) => {
+                    return (
+                      <View
+                        key={i}
+                        // .paranovel-sense-item
+                        style={{
+                          alignItems: 'flex-start',
+                          gap: 8,
+                        }}>
+                        <View
+                          // .paranovel-pos-list
+                          style={{ flexDirection: 'row', gap: 8 }}>
+                          {pos.map((p, i) => (
+                            // .paranovel-pos-item
+                            <Text
+                              key={i}
+                              style={{
+                                color: 'white',
+                                borderWidth: 1,
+                                borderStyle: 'solid',
+                                borderColor: 'grey',
+                                borderRadius: 4,
+                                paddingLeft: 4,
+                                paddingRight: 4,
+                                fontSize: paranovelPopoverDefinitionFontSize,
+                              }}>
+                              {p}
+                            </Text>
+                          ))}
+                        </View>
+
+                        <Text
+                          // .paranovel-gloss-item
+                          style={{
+                            color: 'white',
+                            fontSize: paranovelPopoverDefinitionFontSize,
+                          }}>
+                          {`${i + 1}. ${gloss.join('; ')}`}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })}
+
+          <View
+            // .paranovel-show-more-container
+            style={{
+              // TODO: revisit styles for overscroll
+              display: withShowMoreButton ? 'flex' : 'none',
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 34,
+              alignItems: 'center',
+              justifyContent: 'center',
+              /* TODO: base this on var(--paranovel-popover-background-color) */
+              backgroundColor: '#2228',
+            }}>
+            <Pressable
+              style={{
+                backgroundColor: '#bbb',
+                borderRadius: 16,
+                paddingBlock: 2,
+                paddingInline: 16,
+              }}>
+              <Text style={{ color: '#111' }}>Show more</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </View>
+    </>
   );
 }
+
+function tryOrientation({
+  anchorRect,
+  orientation,
+}: {
+  anchorRect: Pick<DOMRect, 'top' | 'right' | 'bottom' | 'left'>;
+  orientation: Orientation;
+}): StyleProp<ViewStyle> {
+  // `anchorRect` is measured entirely from the top-left (i.e. `bottom` is the
+  // number of pixels down from the top; it's equivalent to `top` + `height`).
+  const { top, left, bottom, right } = anchorRect;
+
+  // popoverStage.style.removeProperty('top');
+  // popoverStage.style.removeProperty('right');
+  // popoverStage.style.removeProperty('bottom');
+  // popoverStage.style.removeProperty('left');
+
+  // /**
+  //  * For now, the popover is always formatted as horizontal-lr, even if the
+  //  * ebook is vertical-rl. This is, in chief, because I'm starting with a
+  //  * Japanese-English dictionary, and vertical-rl does not suit English text.
+  //  */
+  // const popoverWritingDirectionMatchesBodyText = false;
+
+  // let blockOverflow = 0;
+  // let inlineOverflow = 0;
+  // let clientBlockSize = 0;
+  // let clientInlineSize = 0;
+
+  // const windowInnerHeight =
+
+  switch (orientation) {
+    case 'top': {
+      return {
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+        bottom: Dimensions.get('window').height - top,
+      };
+
+      // blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
+      // inlineOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      // clientBlockSize = popoverContent.clientHeight;
+      // clientInlineSize = popoverContent.clientWidth;
+      // break;
+    }
+    case 'right': {
+      return {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        left: right,
+      };
+      // if (popoverWritingDirectionMatchesBodyText) {
+      //   blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      //   inlineOverflow =
+      //     popoverContent.scrollHeight - popoverContent.clientHeight;
+      //   clientBlockSize = popoverContent.clientWidth;
+      //   clientInlineSize = popoverContent.clientHeight;
+      // } else {
+      //   blockOverflow =
+      //     popoverContent.scrollHeight - popoverContent.clientHeight;
+      //   inlineOverflow =
+      //     popoverContent.scrollWidth - popoverContent.clientWidth;
+      //   clientBlockSize = popoverContent.clientHeight;
+      //   clientInlineSize = popoverContent.clientWidth;
+      // }
+      // break;
+    }
+    case 'bottom': {
+      return {
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
+        left: bottom,
+      };
+
+      // blockOverflow = popoverContent.scrollHeight - popoverContent.clientHeight;
+      // inlineOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      // clientBlockSize = popoverContent.clientHeight;
+      // clientInlineSize = popoverContent.clientWidth;
+      // break;
+    }
+    case 'left': {
+      return {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        right: Dimensions.get('window').width - left,
+      };
+
+      // popoverStage.style.flexDirection = 'row';
+      // popoverStage.style.justifyContent = 'flex-end';
+      // popoverStage.style.right = `${window.innerWidth - left}px`;
+      // if (popoverWritingDirectionMatchesBodyText) {
+      //   blockOverflow = popoverContent.scrollWidth - popoverContent.clientWidth;
+      //   inlineOverflow =
+      //     popoverContent.scrollHeight - popoverContent.clientHeight;
+      //   clientBlockSize = popoverContent.clientWidth;
+      //   clientInlineSize = popoverContent.clientHeight;
+      // } else {
+      //   blockOverflow =
+      //     popoverContent.scrollHeight - popoverContent.clientHeight;
+      //   inlineOverflow =
+      //     popoverContent.scrollWidth - popoverContent.clientWidth;
+      //   clientBlockSize = popoverContent.clientHeight;
+      //   clientInlineSize = popoverContent.clientWidth;
+      // }
+      // break;
+    }
+  }
+
+  // const stageRect = popoverContent.getBoundingClientRect();
+
+  // // Although the anchor may be fully onscreen, some orientations around it may
+  // // cause the popover to fall offscreen.
+  // let isOverflowingViewport = false;
+  // if (
+  //   stageRect.top < 0 ||
+  //   stageRect.left < 0 ||
+  //   stageRect.bottom > window.innerHeight ||
+  //   stageRect.right > window.innerWidth
+  // ) {
+  //   isOverflowingViewport = true;
+  // }
+
+  // return {
+  //   blockOverflow,
+  //   inlineOverflow,
+  //   clientBlockSize,
+  //   clientInlineSize,
+  //   isOverflowingViewport,
+  //   stageRect,
+  // };
+}
+
+type Orientation = 'top' | 'right' | 'bottom' | 'left';
 
 interface NativePopupState {
   visible: boolean;
@@ -760,6 +1050,11 @@ function onMessage({
         anchorRect,
         results,
       } = parsed;
+      console.log(`[WebView] present-native-popover`, {
+        positionTryOrder,
+        anchorRect,
+        results,
+      });
       setNativePopup({ visible: true, anchorRect, results });
       return;
     }
