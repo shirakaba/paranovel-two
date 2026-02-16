@@ -310,6 +310,8 @@ export default function BookScreen({
       width: 0,
       height: 0,
     },
+    writingMode: 'horizontal-tb',
+    positionTryOrder: ['bottom', 'top'],
     results: [],
   });
 
@@ -520,23 +522,17 @@ export default function BookScreen({
           return false;
         }}
       />
-      <NativePopover state={nativePopup} writingMode="vertical-rl" />
+      <NativePopover state={nativePopup} />
     </SafeAreaView>
   );
 }
 
-function NativePopover({
-  state,
-  writingMode = 'horizontal-tb',
-}: {
-  state: NativePopupState;
-  writingMode?: string;
-}) {
-  const { visible, anchorRect, results } = state;
+function NativePopover({ state }: { state: NativePopupState }) {
+  const { visible, anchorRect, results, positionTryOrder } = state;
   const { top, left, width, height } = anchorRect;
   const [withShowMoreButton, _setWithShowMoreButton] = useState(false);
 
-  const positionTryOrder = getBestPositionTryOrder(writingMode);
+  // const positionTryOrder = getBestPositionTryOrder(writingMode);
 
   console.log('AHOY', results);
 
@@ -1032,6 +1028,13 @@ interface NativePopupState {
     width: number;
     height: number;
   };
+  writingMode:
+    | 'horizontal-tb'
+    | 'vertical-rl'
+    | 'vertical-lr'
+    | 'sideways-lr'
+    | 'sideways-rl';
+  positionTryOrder: ['bottom', 'top'] | ['right', 'left'] | ['left', 'right'];
   results: Array<LookupResult>;
 }
 
@@ -1133,6 +1136,12 @@ function onMessage({
     type: 'present-native-popover';
     id: number;
     anchorRect: DOMRect;
+    writingMode:
+      | 'horizontal-tb'
+      | 'vertical-rl'
+      | 'vertical-lr'
+      | 'sideways-lr'
+      | 'sideways-rl';
     positionTryOrder: ['bottom', 'top'] | ['right', 'left'] | ['left', 'right'];
     results: Array<LookupResult>;
   }
@@ -1236,13 +1245,20 @@ function onMessage({
         positionTryOrder,
         anchorRect,
         results,
+        writingMode,
       } = parsed;
       console.log(`[WebView] present-native-popover`, {
         positionTryOrder,
         anchorRect,
         results,
       });
-      setNativePopup({ visible: true, anchorRect, results });
+      setNativePopup({
+        visible: true,
+        anchorRect,
+        results,
+        positionTryOrder,
+        writingMode,
+      });
       return;
     }
     case 'navigation-request': {

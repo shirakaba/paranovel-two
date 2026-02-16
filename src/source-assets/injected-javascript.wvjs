@@ -200,12 +200,14 @@ function updatePopover({ results, tokenRange, transactionId }) {
     transactionId,
     results,
   });
+
   if (!orientation) {
     onClose();
     return;
   }
-  popoverContent.scrollTop = 0;
-  popover.style.setProperty('visibility', 'visible');
+
+  // popoverContent.scrollTop = 0;
+  // popover.style.setProperty('visibility', 'visible');
 
   /** @param {MouseEvent} event */
   function onClose(event) {
@@ -299,28 +301,13 @@ function layOutPopover({
     }
   }
 
-  const payload = {
-    id: transactionId,
-    positionTryOrder,
-    anchorRect: {
-      top: anchorRect.top,
-      right: anchorRect.right,
-      left: anchorRect.left,
-      bottom: anchorRect.bottom,
-      x: anchorRect.x,
-      y: anchorRect.y,
-      width: anchorRect.width,
-      height: anchorRect.height,
-    },
-    results: results ?? [],
-  };
-
   // TODO: Return here?
   window.ReactNativeWebView.postMessage(
     JSON.stringify({
       type: 'present-native-popover',
       id: transactionId,
       positionTryOrder,
+      writingMode,
       anchorRect: {
         top: anchorRect.top,
         right: anchorRect.right,
@@ -335,87 +322,87 @@ function layOutPopover({
     }),
   );
 
-  /** @type {Array<{ orientation: Orientation, blockOverflow: number, clientInlineSize: number }>} */
-  const solutions = [];
-  /** @type {Orientation} */
-  let lastTried;
-  for (const orientation of positionTryOrder) {
-    lastTried = orientation;
-    const {
-      blockOverflow,
-      inlineOverflow,
-      clientInlineSize,
-      isOverflowingViewport,
-      stageRect,
-    } = tryOrientation({
-      popoverStage,
-      popoverContent,
-      anchorRect,
-      orientation,
-    });
+  // /** @type {Array<{ orientation: Orientation, blockOverflow: number, clientInlineSize: number }>} */
+  // const solutions = [];
+  // /** @type {Orientation} */
+  // let lastTried;
+  // for (const orientation of positionTryOrder) {
+  //   lastTried = orientation;
+  //   const {
+  //     blockOverflow,
+  //     inlineOverflow,
+  //     clientInlineSize,
+  //     isOverflowingViewport,
+  //     stageRect,
+  //   } = tryOrientation({
+  //     popoverStage,
+  //     popoverContent,
+  //     anchorRect,
+  //     orientation,
+  //   });
 
-    if (isOverflowingViewport) {
-      console.log(
-        `Discarding orientation "${orientation}" as it's overflowing the viewport.`,
-        stageRect,
-      );
-      continue;
-    }
-    if (inlineOverflow) {
-      console.log(
-        `Discarding orientation "${orientation}" as it's overflowing in the inline orientation.`,
-        stageRect,
-      );
-      continue;
-    }
+  //   if (isOverflowingViewport) {
+  //     console.log(
+  //       `Discarding orientation "${orientation}" as it's overflowing the viewport.`,
+  //       stageRect,
+  //     );
+  //     continue;
+  //   }
+  //   if (inlineOverflow) {
+  //     console.log(
+  //       `Discarding orientation "${orientation}" as it's overflowing in the inline orientation.`,
+  //       stageRect,
+  //     );
+  //     continue;
+  //   }
 
-    solutions.push({ orientation, blockOverflow, clientInlineSize });
-  }
+  //   solutions.push({ orientation, blockOverflow, clientInlineSize });
+  // }
 
-  const sortedSolutions = solutions.sort((a, b) => {
-    // Sort in descending order of inline size.
-    const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
+  // const sortedSolutions = solutions.sort((a, b) => {
+  //   // Sort in descending order of inline size.
+  //   const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
 
-    // If there's no tie, use that alone as the sorting factor.
-    if (clientInlineSize) {
-      return clientInlineSize;
-    }
+  //   // If there's no tie, use that alone as the sorting factor.
+  //   if (clientInlineSize) {
+  //     return clientInlineSize;
+  //   }
 
-    // Otherwise, sort in ascending order of block overflow.
-    //
-    // (Given that we reserve the same amount of block space for both
-    // orientations, though, this won't actually make any difference unless we
-    // change the layout algorithm in future.)
-    return a.blockOverflow - b.blockOverflow;
-  });
-  const bestSolution = sortedSolutions.at(0)?.orientation;
+  //   // Otherwise, sort in ascending order of block overflow.
+  //   //
+  //   // (Given that we reserve the same amount of block space for both
+  //   // orientations, though, this won't actually make any difference unless we
+  //   // change the layout algorithm in future.)
+  //   return a.blockOverflow - b.blockOverflow;
+  // });
+  // const bestSolution = sortedSolutions.at(0)?.orientation;
 
-  if (!bestSolution) {
-    return;
-  }
+  // if (!bestSolution) {
+  //   return;
+  // }
 
-  if (bestSolution === lastTried) {
-    console.log(
-      `Given solutions ${JSON.stringify(
-        sortedSolutions,
-      )}, picking ${bestSolution} (last tried)`,
-    );
-  } else {
-    console.log(
-      `Given solutions ${JSON.stringify(
-        sortedSolutions,
-      )}, picking ${bestSolution} (redoing layout)`,
-    );
+  // if (bestSolution === lastTried) {
+  //   console.log(
+  //     `Given solutions ${JSON.stringify(
+  //       sortedSolutions,
+  //     )}, picking ${bestSolution} (last tried)`,
+  //   );
+  // } else {
+  //   console.log(
+  //     `Given solutions ${JSON.stringify(
+  //       sortedSolutions,
+  //     )}, picking ${bestSolution} (redoing layout)`,
+  //   );
 
-    tryOrientation({
-      popoverStage,
-      popoverContent,
-      anchorRect,
-      orientation: bestSolution,
-    });
-  }
+  //   tryOrientation({
+  //     popoverStage,
+  //     popoverContent,
+  //     anchorRect,
+  //     orientation: bestSolution,
+  //   });
+  // }
 
-  return bestSolution;
+  // return bestSolution;
 }
 
 /**
