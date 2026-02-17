@@ -106,8 +106,6 @@ function updatePopover({ results, tokenRange, transactionId }) {
   const positionTryOrder = getBestPositionTryOrder(writingMode);
 
   if (popupRenderMode === 'native') {
-    document.body.addEventListener('click', onClose);
-
     window.ReactNativeWebView.postMessage(
       JSON.stringify({
         type: 'present-native-popover',
@@ -275,12 +273,12 @@ function updatePopover({ results, tokenRange, transactionId }) {
   popover.style.setProperty('visibility', 'visible');
 }
 
-/** @param {MouseEvent} event */
+/** @param {MouseEvent} [event] */
 function onClose(event) {
   const popover = document.getElementById('paranovel-popover');
   const popoverContent = document.getElementById('paranovel-popover-content');
 
-  if (popoverContent?.contains(event.target)) {
+  if (event && popoverContent?.contains(event.target)) {
     console.log('contained', event.currentTarget);
     return;
   }
@@ -293,9 +291,13 @@ function onClose(event) {
   __paranovelState.rtIsolationHack?.remove();
 
   // Stop this click propagating to the document-level click handler.
-  event.stopPropagation();
+  event?.stopPropagation();
 
   document.body.classList.remove('modal');
+
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({ type: 'close-native-popover' }),
+  );
 }
 
 /**
@@ -712,6 +714,11 @@ function log(message) {
 async function onClickDocument(event) {
   const { x, y, target } = event;
 
+  if (__paranovelState.nativeModalVisible) {
+    onClose();
+    return;
+  }
+
   if (
     document.getElementById('paranovel-popover')?.contains(target) ||
     document.getElementById('paranovel-prelude')?.contains(target) ||
@@ -722,10 +729,10 @@ async function onClickDocument(event) {
     return;
   }
 
-  const anchor = document.getElementById('paranovel-anchor');
-  if (anchor?.childNodes.length) {
-    dissolveAnchor(anchor);
-  }
+  // const anchor = document.getElementById('paranovel-anchor');
+  // if (anchor?.childNodes.length) {
+  //   dissolveAnchor(anchor);
+  // }
 
   // This rounds to the nearest glyph. That is to say, given the text "abc",
   // your click will be funnelled into "b" if it is:
@@ -735,6 +742,7 @@ async function onClickDocument(event) {
   const caretRange = document.caretRangeFromPoint(x, y);
   if (!caretRange) {
     log('❌ no caret range');
+    onClose();
     return;
   }
 
@@ -744,6 +752,7 @@ async function onClickDocument(event) {
   const surroundingText = getSurroundingText(adjustedRange);
   if (!surroundingText) {
     log('❌ no surrounding text');
+    onClose();
     return;
   }
   // console.log(surroundingText);
@@ -799,6 +808,7 @@ async function onClickDocument(event) {
     endOffset: offsetOfTargetTokenIntoBlockBaseText + tokenLength,
   });
   if (!tokenRange) {
+    onClose();
     return;
   }
 
@@ -837,6 +847,7 @@ async function onClickDocument(event) {
 
   console.log('onClickDocument', { tokenRange });
   window.tokenRange = tokenRange;
+  __paranovelState.wordHighlight.clear();
   __paranovelState.wordHighlight.add(tokenRange);
 
   log(`🔎 Looking up term "${dictionaryForm}"`);
@@ -1412,13 +1423,15 @@ function restoreScroll() {
   }
 }
 
-/** @type {{ wordHighlight: Highlight; tokenizationPromiseCount: number; tokenizationPromiseHandlers: Record<number, { resolve: () => void; reject: (reason?: any) => void; }>; rtIsolationHack: { apply: () => void; remove: () => void; } | undefined }} */
+/** @type {{ wordHighlight: Highlight; tokenizationPromiseCount: number; tokenizationPromiseHandlers: Record<number, { resolve: () => void; reject: (reason?: any) => void; }>; rtIsolationHack: { apply: () => void; remove: () => void; } | undefined; nativeModalVisible: boolean }} */
 const __paranovelState = {
   wordHighlight: new Highlight(),
   tokenizationPromiseCount: 0,
   tokenizationPromiseHandlers: {},
   rtIsolationHack: undefined,
+  nativeModalVisible: false,
 };
+window.__paranovelState = __paranovelState;
 
 /**
  * Necessarily lazy because writing mode can't be correctly resolved until we've

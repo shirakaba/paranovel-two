@@ -355,6 +355,7 @@ export default function BookScreen({
         webviewDebuggingEnabled={true}
         javaScriptEnabled={true}
         onMessage={onMessageCallback}
+        allowsBackForwardNavigationGestures={false}
         style={{
           backgroundColor: scheme === 'dark' ? 'black' : 'white',
         }}
@@ -522,12 +523,32 @@ export default function BookScreen({
           return false;
         }}
       />
-      <NativePopover state={nativePopup} />
+      <NativePopover
+        state={nativePopup}
+        closePopover={() => {
+          setNativePopup(prev => ({
+            ...prev,
+            visible: false,
+          }));
+          // The webViewRef.current?.postMessage() API is fake. Under the hood, it
+          // just calls injectJavaScript() and dispatches a MessageEvent at the
+          // window.
+          webViewRef.current?.injectJavaScript(
+            `console.log('!! close-native-popover', window.__paranovelState); if(window.__paranovelState) {\n  window.__paranovelState.nativeModalVisible = false; __paranovelState.wordHighlight.clear(); __paranovelState.rtIsolationHack?.remove(); \n}`,
+          );
+        }}
+      />
     </SafeAreaView>
   );
 }
 
-function NativePopover({ state }: { state: NativePopupState }) {
+function NativePopover({
+  state,
+  closePopover,
+}: {
+  state: NativePopupState;
+  closePopover: () => void;
+}) {
   const { visible, anchorRect, results, positionTryOrder } = state;
   const { top, left, width, height } = anchorRect;
   const [withShowMoreButton, _setWithShowMoreButton] = useState(false);
@@ -658,6 +679,8 @@ function NativePopover({ state }: { state: NativePopupState }) {
   const fontScale = 1;
   const paranovelPopoverDefinitionFontSize = 14 / fontScale;
 
+  const debugStyles: boolean = false;
+
   return (
     <>
       <View
@@ -670,152 +693,165 @@ function NativePopover({ state }: { state: NativePopupState }) {
           height,
           top,
           left,
-          display: visible ? 'flex' : 'none',
+          display: debugStyles && visible ? 'flex' : 'none',
         }}></View>
-      <View
+      <Pressable
         // #paranovel-popover-stage
         ref={stageRef}
         style={{
           position: 'absolute',
-          backgroundColor: 'rgba(255,255,0,0.5)',
+          backgroundColor: debugStyles ? 'rgba(255,255,0,0.5)' : undefined,
           inset: 0,
           padding: 16,
           alignItems: 'center',
           // ...stageStyles,
           display: visible ? 'flex' : 'none',
+        }}
+        onPress={event => {
+          closePopover();
         }}>
-        <ScrollView
-          ref={scrollViewRef}
-          // #paranovel-popover-content
-          style={{
-            backgroundColor: 'black',
-            padding: 8,
-            boxSizing: 'border-box',
-            // It doesn't seem to be respecting this
-            // overflow: 'scroll',
-
-            // maxWidth: '100%',
-            // height: 'fit-content',
-            // maxHeight: '100%',
+        <Pressable
+          onPress={event => {
+            // The mere presence of the child Pressable effectively prevents the
+            // press event from bubbling to the parent Pressable.
           }}>
-          {results.map(({ forms, senses }, i) => {
-            const readings = forms
-              .sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0))
-              .filter(({ kana }) => kana);
-
-            return (
-              <View
-                key={i}
-                // .paranovel-result-container
-                style={{
-                  gap: 8,
-                  alignItems: 'stretch',
-                  maxWidth: '100%',
-
-                  // To be inherited:
-                  // color: 'white',
-                  // fontSize: 50 / fontScale,
-                }}>
-                <Text
-                  // .paranovel-headword
-                  style={{
-                    color: 'white',
-                    fontSize: 22 / fontScale,
-                  }}>
-                  {forms
-                    .filter(({ kana }) => !kana)
-                    .map(({ common, form }) => (common ? form : `（${form}）`))
-                    .join('、')}
-                </Text>
-                <Text
-                  // .paranovel-reading-item
-                  style={{
-                    color: 'white',
-                    fontSize: paranovelPopoverDefinitionFontSize,
-                  }}>
-                  {readings
-                    // Could represent uncommon using dice
-                    .map(({ common, form }) => (common ? form : `（${form}）`))
-                    .join('、')}
-                </Text>
-
-                <View
-                  // .paranovel-sense-list
-                  style={{ gap: 16 }}>
-                  {senses.map(({ pos, gloss }, i) => {
-                    return (
-                      <View
-                        key={i}
-                        // .paranovel-sense-item
-                        style={{
-                          alignItems: 'flex-start',
-                          gap: 8,
-                        }}>
-                        <View
-                          // .paranovel-pos-list
-                          style={{ flexDirection: 'row', gap: 8 }}>
-                          {pos.map((p, i) => (
-                            // .paranovel-pos-item
-                            <Text
-                              key={i}
-                              style={{
-                                color: 'white',
-                                borderWidth: 1,
-                                borderStyle: 'solid',
-                                borderColor: 'grey',
-                                borderRadius: 4,
-                                paddingLeft: 4,
-                                paddingRight: 4,
-                                fontSize: paranovelPopoverDefinitionFontSize,
-                              }}>
-                              {p}
-                            </Text>
-                          ))}
-                        </View>
-
-                        <Text
-                          // .paranovel-gloss-item
-                          style={{
-                            color: 'white',
-                            fontSize: paranovelPopoverDefinitionFontSize,
-                          }}>
-                          {`${i + 1}. ${gloss.join('; ')}`}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            );
-          })}
-
-          <View
-            // .paranovel-show-more-container
+          <ScrollView
+            ref={scrollViewRef}
+            // #paranovel-popover-content
             style={{
-              // TODO: revisit styles for overscroll
-              display: withShowMoreButton ? 'flex' : 'none',
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 34,
-              alignItems: 'center',
-              justifyContent: 'center',
-              /* TODO: base this on var(--paranovel-popover-background-color) */
-              backgroundColor: '#2228',
+              backgroundColor: 'black',
+              padding: 8,
+              boxSizing: 'border-box',
+              // It doesn't seem to be respecting this
+              // overflow: 'scroll',
+
+              // maxWidth: '100%',
+              // height: 'fit-content',
+              // maxHeight: '100%',
             }}>
-            <Pressable
+            {results.map(({ forms, senses }, i) => {
+              const readings = forms
+                .sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0))
+                .filter(({ kana }) => kana);
+
+              return (
+                <View
+                  key={i}
+                  // .paranovel-result-container
+                  style={{
+                    gap: 8,
+                    alignItems: 'stretch',
+                    maxWidth: '100%',
+
+                    // To be inherited:
+                    // color: 'white',
+                    // fontSize: 50 / fontScale,
+                  }}>
+                  <Text
+                    // .paranovel-headword
+                    style={{
+                      color: 'white',
+                      fontSize: 22 / fontScale,
+                    }}>
+                    {forms
+                      .filter(({ kana }) => !kana)
+                      .map(({ common, form }) =>
+                        common ? form : `（${form}）`,
+                      )
+                      .join('、')}
+                  </Text>
+                  <Text
+                    // .paranovel-reading-item
+                    style={{
+                      color: 'white',
+                      fontSize: paranovelPopoverDefinitionFontSize,
+                    }}>
+                    {readings
+                      // Could represent uncommon using dice
+                      .map(({ common, form }) =>
+                        common ? form : `（${form}）`,
+                      )
+                      .join('、')}
+                  </Text>
+
+                  <View
+                    // .paranovel-sense-list
+                    style={{ gap: 16 }}>
+                    {senses.map(({ pos, gloss }, i) => {
+                      return (
+                        <View
+                          key={i}
+                          // .paranovel-sense-item
+                          style={{
+                            alignItems: 'flex-start',
+                            gap: 8,
+                          }}>
+                          <View
+                            // .paranovel-pos-list
+                            style={{ flexDirection: 'row', gap: 8 }}>
+                            {pos.map((p, i) => (
+                              // .paranovel-pos-item
+                              <Text
+                                key={i}
+                                style={{
+                                  color: 'white',
+                                  borderWidth: 1,
+                                  borderStyle: 'solid',
+                                  borderColor: 'grey',
+                                  borderRadius: 4,
+                                  paddingLeft: 4,
+                                  paddingRight: 4,
+                                  fontSize: paranovelPopoverDefinitionFontSize,
+                                }}>
+                                {p}
+                              </Text>
+                            ))}
+                          </View>
+
+                          <Text
+                            // .paranovel-gloss-item
+                            style={{
+                              color: 'white',
+                              fontSize: paranovelPopoverDefinitionFontSize,
+                            }}>
+                            {`${i + 1}. ${gloss.join('; ')}`}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+
+            <View
+              // .paranovel-show-more-container
               style={{
-                backgroundColor: '#bbb',
-                borderRadius: 16,
-                paddingBlock: 2,
-                paddingInline: 16,
+                // TODO: revisit styles for overscroll
+                display: withShowMoreButton ? 'flex' : 'none',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 34,
+                alignItems: 'center',
+                justifyContent: 'center',
+                /* TODO: base this on var(--paranovel-popover-background-color) */
+                backgroundColor: '#2228',
               }}>
-              <Text style={{ color: '#111' }}>Show more</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </View>
+              <Pressable
+                style={{
+                  backgroundColor: '#bbb',
+                  borderRadius: 16,
+                  paddingBlock: 2,
+                  paddingInline: 16,
+                }}>
+                <Text style={{ color: '#111' }}>Show more</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
     </>
   );
 }
@@ -1102,6 +1138,9 @@ function onMessage({
     positionTryOrder: ['bottom', 'top'] | ['right', 'left'] | ['left', 'right'];
     results: Array<LookupResult>;
   }
+  interface CloseNativePayloadPayload {
+    type: 'close-native-popover';
+  }
   interface TokenizePayload {
     type: 'tokenize';
     id: number;
@@ -1123,6 +1162,7 @@ function onMessage({
     | LogPayload
     | LookUpPayload
     | PresentNativePayloadPayload
+    | CloseNativePayloadPayload
     | TokenizePayload
     | NavigationRequestPayload
     | ProgressPayload;
@@ -1216,6 +1256,24 @@ function onMessage({
         positionTryOrder,
         writingMode,
       });
+      webViewRef.current?.injectJavaScript(
+        `console.log('!! present-native-popover', window.__paranovelState); if(window.__paranovelState) {\n  window.__paranovelState.nativeModalVisible = true;\n}`,
+      );
+      return;
+    }
+    case 'close-native-popover': {
+      console.log(`[WebView] close-native-popover`);
+      setNativePopup(prev => ({
+        ...prev,
+        visible: false,
+      }));
+
+      // The webViewRef.current?.postMessage() API is fake. Under the hood, it
+      // just calls injectJavaScript() and dispatches a MessageEvent at the
+      // window. So we won't bother with an IPC channel in this direction.
+      webViewRef.current?.injectJavaScript(
+        `console.log('!! close-native-popover', window.__paranovelState); if(window.__paranovelState) {\n  window.__paranovelState.nativeModalVisible = false; __paranovelState.wordHighlight.clear(); __paranovelState.rtIsolationHack?.remove(); \n}`,
+      );
       return;
     }
     case 'navigation-request': {
