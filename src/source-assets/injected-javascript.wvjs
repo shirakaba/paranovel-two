@@ -1,6 +1,14 @@
 // Prevent restoring the last-scrolled position from a previous session.
 history.scrollRestoration = 'manual';
 
+/**
+ * Due to WebKit's atrocious support for rendering fixed-position elements in
+ * vertical-rl documents, we render the dictionary on the native side instead.
+ * @type {"web" | "native"}
+ * @see https://bugs.webkit.org/show_bug.cgi?id=298992
+ */
+const popupRenderMode = 'native';
+
 {
   // Insert a viewport meta tag
   const meta = document.createElement('meta');
@@ -21,29 +29,6 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {number} obj.transactionId
  */
 function updatePopover({ results, tokenRange, transactionId }) {
-  /**
-   * We use <dialog> rather than popover mainly because light dismissal is even
-   * more broken in Safari 18 for popovers than it is for dialogs.
-   * @type {HTMLDialogElement}
-   */
-  const popover =
-    document.getElementById('paranovel-popover') ??
-    document.createElement('div');
-  const popoverStage =
-    document.getElementById('paranovel-popover-stage') ??
-    document.createElement('div');
-  const popoverContent =
-    document.getElementById('paranovel-popover-content') ??
-    document.createElement('div');
-  const anchor =
-    document.getElementById('paranovel-anchor') ??
-    document.createElement('div');
-  popover.id = 'paranovel-popover';
-  popoverStage.id = 'paranovel-popover-stage';
-  popoverContent.id = 'paranovel-popover-content';
-  anchor.id = 'paranovel-anchor';
-  popover.classList.remove('with-show-more-button');
-
   const rtsInRange = [...document.querySelectorAll('rt')].filter(
     rt => !tokenRange.intersectsNode(rt),
   );
@@ -73,6 +58,96 @@ function updatePopover({ results, tokenRange, transactionId }) {
     },
   };
 
+  // UI ported over from Paranovel v1's `src/screens/novel/DictView.tsx`.
+  // The container here maps to DictView's `ScrollView`, but we hoist its styles
+  // up to #paranovel-popover's CSS declaration instead.
+
+  // Now that we've got these anchors, we know the nodes and elements
+  // encompassed by the selected tokens. From here, we want to anchor the
+  // popover to them. Safari 26 does implement Anchor Positioning, but
+  // `height: 100%` is practically useless, meaning we would have to do manual
+  // layout to bound the popover height properly (and give up on position-try).
+  //
+  // At that rate, about the only benefit Anchor Positioning would give us would
+  // be the ability to align to the centre of the anchor.
+  //
+  // So, if not Anchor Positioning, what are our options? Now that we've got
+  // element "anchors", we can use HTMLElement.prototype.offsetLeft (etc.)
+  // instead of getBoundingClientRect(), so rather than laying out relative to
+  // the viewport (fixed positioning) we can finally draw relative to the
+  // scroll container (absolute positioning), allowing the popover to scroll
+  // along with the page.
+  //
+  // So, we have that option now. But it's tempting to go with fixed positioning
+  // just so that we can call range.getBoundingClientRect() instead of
+  // maintaining this complex element anchors code. With the new Popover API
+  // (supported in iOS 18), we could block body scroll and make the popover
+  // disappear upon clicking on the backdrop, so there'd be no need to mind
+  // about it scrolling along with the page.
+
+  document.body.classList.add('modal');
+  rtIsolationHack.apply();
+
+  const anchorRect = getEffectiveBoundingClientRect(tokenRange);
+  console.log(
+    `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
+      [...tokenRange.getClientRects()],
+    )}`,
+  );
+
+  const endContainerElement =
+    tokenRange.endContainer instanceof Element
+      ? tokenRange.endContainer
+      : tokenRange.endContainer.parentElement;
+  /** @type {"horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-lr" | "sideways-rl"} */
+  const writingMode =
+    endContainerElement?.computedStyleMap().get('writing-mode').value ??
+    'horizontal-tb';
+  const positionTryOrder = getBestPositionTryOrder(writingMode);
+
+  if (popupRenderMode === 'native') {
+    document.body.addEventListener('click', onClose);
+
+    window.ReactNativeWebView.postMessage(
+      JSON.stringify({
+        type: 'present-native-popover',
+        id: transactionId,
+        positionTryOrder,
+        writingMode,
+        anchorRect: {
+          top: anchorRect.top,
+          right: anchorRect.right,
+          left: anchorRect.left,
+          bottom: anchorRect.bottom,
+          x: anchorRect.x,
+          y: anchorRect.y,
+          width: anchorRect.width,
+          height: anchorRect.height,
+        },
+        results: results ?? [],
+      }),
+    );
+    return;
+  }
+
+  const popover =
+    document.getElementById('paranovel-popover') ??
+    document.createElement('div');
+  const popoverStage =
+    document.getElementById('paranovel-popover-stage') ??
+    document.createElement('div');
+  const popoverContent =
+    document.getElementById('paranovel-popover-content') ??
+    document.createElement('div');
+  const anchor =
+    document.getElementById('paranovel-anchor') ??
+    document.createElement('div');
+  popover.id = 'paranovel-popover';
+  popoverStage.id = 'paranovel-popover-stage';
+  popoverContent.id = 'paranovel-popover-content';
+  anchor.id = 'paranovel-anchor';
+  popover.classList.remove('with-show-more-button');
+
   if (!popover.isConnected) {
     document.body.prepend(popover);
     popover.appendChild(popoverStage);
@@ -84,14 +159,9 @@ function updatePopover({ results, tokenRange, transactionId }) {
     document.body.prepend(anchor);
   }
 
-  // UI ported over from Paranovel v1's `src/screens/novel/DictView.tsx`.
-  // The container here maps to DictView's `ScrollView`, but we hoist its styles
-  // up to #paranovel-popover's CSS declaration instead.
-
-  const defaultFontSize = '14px';
-
   const container = document.createDocumentFragment();
 
+  const defaultFontSize = '14px';
   if (!results?.length) {
     const p = document.createElement('p');
     p.style.margin = '0';
@@ -165,75 +235,8 @@ function updatePopover({ results, tokenRange, transactionId }) {
   container.appendChild(resultsFragment);
   popoverContent.replaceChildren(container);
 
-  // Now that we've got these anchors, we know the nodes and elements
-  // encompassed by the selected tokens. From here, we want to anchor the
-  // popover to them. Safari 26 does implement Anchor Positioning, but
-  // `height: 100%` is practically useless, meaning we would have to do manual
-  // layout to bound the popover height properly (and give up on position-try).
-  //
-  // At that rate, about the only benefit Anchor Positioning would give us would
-  // be the ability to align to the centre of the anchor.
-  //
-  // So, if not Anchor Positioning, what are our options? Now that we've got
-  // element "anchors", we can use HTMLElement.prototype.offsetLeft (etc.)
-  // instead of getBoundingClientRect(), so rather than laying out relative to
-  // the viewport (fixed positioning) we can finally draw relative to the
-  // scroll container (absolute positioning), allowing the popover to scroll
-  // along with the page.
-  //
-  // So, we have that option now. But it's tempting to go with fixed positioning
-  // just so that we can call range.getBoundingClientRect() instead of
-  // maintaining this complex element anchors code. With the new Popover API
-  // (supported in iOS 18), we could block body scroll and make the popover
-  // disappear upon clicking on the backdrop, so there'd be no need to mind
-  // about it scrolling along with the page.
-
-  document.body.classList.add('modal');
-  rtIsolationHack.apply();
   popover.dataset.open = '';
   popover.style.setProperty('visibility', 'hidden');
-
-  const anchorRect = getEffectiveBoundingClientRect(tokenRange);
-  console.log(
-    `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
-      [...tokenRange.getClientRects()],
-    )}`,
-  );
-
-  const endContainerElement =
-    tokenRange.endContainer instanceof Element
-      ? tokenRange.endContainer
-      : tokenRange.endContainer.parentElement;
-  /** @type {"horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-lr" | "sideways-rl"} */
-  const writingMode =
-    endContainerElement?.computedStyleMap().get('writing-mode').value ??
-    'horizontal-tb';
-  const positionTryOrder = getBestPositionTryOrder(writingMode);
-
-  /** @type {"web" | "native"} */
-  const popupRenderMode = 'native';
-  if (popupRenderMode === 'native') {
-    window.ReactNativeWebView.postMessage(
-      JSON.stringify({
-        type: 'present-native-popover',
-        id: transactionId,
-        positionTryOrder,
-        writingMode,
-        anchorRect: {
-          top: anchorRect.top,
-          right: anchorRect.right,
-          left: anchorRect.left,
-          bottom: anchorRect.bottom,
-          x: anchorRect.x,
-          y: anchorRect.y,
-          width: anchorRect.width,
-          height: anchorRect.height,
-        },
-        results: results ?? [],
-      }),
-    );
-    return;
-  }
 
   console.log(
     `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
@@ -273,13 +276,18 @@ function updatePopover({ results, tokenRange, transactionId }) {
 
   /** @param {MouseEvent} event */
   function onClose(event) {
-    if (popoverContent.contains(event.target)) {
+    const popover = document.getElementById('paranovel-popover');
+    const popoverContent = document.getElementById('paranovel-popover-content');
+
+    if (popoverContent?.contains(event.target)) {
       console.log('contained', event.currentTarget);
       return;
     }
     console.log('out!');
 
-    delete popover.dataset.open;
+    if (popover) {
+      delete popover.dataset.open;
+    }
     __paranovelState.wordHighlight.clear();
     rtIsolationHack.remove();
 
