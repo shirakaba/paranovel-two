@@ -192,7 +192,69 @@ function updatePopover({ results, tokenRange, transactionId }) {
   rtIsolationHack.apply();
   popover.dataset.open = '';
   popover.style.setProperty('visibility', 'hidden');
-  const orientation = layOutPopover({
+
+  const anchorRect = getEffectiveBoundingClientRect(tokenRange);
+  console.log(
+    `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
+      [...tokenRange.getClientRects()],
+    )}`,
+  );
+
+  const endContainerElement =
+    tokenRange.endContainer instanceof Element
+      ? tokenRange.endContainer
+      : tokenRange.endContainer.parentElement;
+  /** @type {"horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-lr" | "sideways-rl"} */
+  const writingMode =
+    endContainerElement?.computedStyleMap().get('writing-mode').value ??
+    'horizontal-tb';
+  const positionTryOrder = getBestPositionTryOrder(writingMode);
+
+  /** @type {"web" | "native"} */
+  const popupRenderMode = 'native';
+  if (popupRenderMode === 'native') {
+    window.ReactNativeWebView.postMessage(
+      JSON.stringify({
+        type: 'present-native-popover',
+        id: transactionId,
+        positionTryOrder,
+        writingMode,
+        anchorRect: {
+          top: anchorRect.top,
+          right: anchorRect.right,
+          left: anchorRect.left,
+          bottom: anchorRect.bottom,
+          x: anchorRect.x,
+          y: anchorRect.y,
+          width: anchorRect.width,
+          height: anchorRect.height,
+        },
+        results: results ?? [],
+      }),
+    );
+    return;
+  }
+
+  console.log(
+    `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
+      [...tokenRange.getClientRects()],
+    )}`,
+  );
+  anchor.style.left = `${anchorRect.left}px`;
+  anchor.style.top = `${anchorRect.top}px`;
+  anchor.style.width = `${anchorRect.width}px`;
+  anchor.style.height = `${anchorRect.height}px`;
+
+  if (
+    writingMode === 'lr' ||
+    writingMode === 'lr-tb' ||
+    writingMode === 'rl' ||
+    writingMode === 'horizontal-tb'
+  ) {
+    popoverStage.style.overflow = '';
+  }
+
+  const orientation = determineBestOrientation({
     anchor,
     popoverStage,
     popoverContent,
@@ -206,8 +268,8 @@ function updatePopover({ results, tokenRange, transactionId }) {
     return;
   }
 
-  // popoverContent.scrollTop = 0;
-  // popover.style.setProperty('visibility', 'visible');
+  popoverContent.scrollTop = 0;
+  popover.style.setProperty('visibility', 'visible');
 
   /** @param {MouseEvent} event */
   function onClose(event) {
@@ -230,41 +292,96 @@ function updatePopover({ results, tokenRange, transactionId }) {
 
 /**
  * @param {object} obj
- * @param {HTMLDivElement} obj.anchor
+ * @param {["bottom", "top"] | ["right", "left"] | ["left", "right"]} obj.positionTryOrder
+ * @param {DOMRect} obj.anchorRect
  * @param {HTMLElement} obj.popoverStage
  * @param {HTMLElement} obj.popoverContent
- * @param {Range} obj.tokenRange
- * @param {number} obj.transactionId
- * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
  */
-function layOutPopover({
-  anchor,
+function determineBestOrientation({
+  positionTryOrder,
+  anchorRect,
   popoverStage,
   popoverContent,
-  tokenRange,
-  results,
-  transactionId,
 }) {
-  const anchorRect = getEffectiveBoundingClientRect(tokenRange);
-  console.log(
-    `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
-      [...tokenRange.getClientRects()],
-    )}`,
-  );
-  anchor.style.left = `${anchorRect.left}px`;
-  anchor.style.top = `${anchorRect.top}px`;
-  anchor.style.width = `${anchorRect.width}px`;
-  anchor.style.height = `${anchorRect.height}px`;
+  /** @type {Array<{ orientation: Orientation, blockOverflow: number, clientInlineSize: number }>} */
+  const solutions = [];
+  /** @type {Orientation} */
+  let lastTried;
+  for (const orientation of positionTryOrder) {
+    lastTried = orientation;
+    const {
+      blockOverflow,
+      inlineOverflow,
+      clientInlineSize,
+      isOverflowingViewport,
+      stageRect,
+    } = tryOrientation({
+      popoverStage,
+      popoverContent,
+      anchorRect,
+      orientation,
+    });
+    if (isOverflowingViewport) {
+      console.log(
+        `Discarding orientation "${orientation}" as it's overflowing the viewport.`,
+        stageRect,
+      );
+      continue;
+    }
+    if (inlineOverflow) {
+      console.log(
+        `Discarding orientation "${orientation}" as it's overflowing in the inline orientation.`,
+        stageRect,
+      );
+      continue;
+    }
+    solutions.push({ orientation, blockOverflow, clientInlineSize });
+  }
+  const sortedSolutions = solutions.sort((a, b) => {
+    // Sort in descending order of inline size.
+    const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
+    // If there's no tie, use that alone as the sorting factor.
+    if (clientInlineSize) {
+      return clientInlineSize;
+    }
+    // Otherwise, sort in ascending order of block overflow.
+    //
+    // (Given that we reserve the same amount of block space for both
+    // orientations, though, this won't actually make any difference unless we
+    // change the layout algorithm in future.)
+    return a.blockOverflow - b.blockOverflow;
+  });
+  const bestSolution = sortedSolutions.at(0)?.orientation;
+  if (!bestSolution) {
+    return;
+  }
+  if (bestSolution === lastTried) {
+    console.log(
+      `Given solutions ${JSON.stringify(
+        sortedSolutions,
+      )}, picking ${bestSolution} (last tried)`,
+    );
+  } else {
+    console.log(
+      `Given solutions ${JSON.stringify(
+        sortedSolutions,
+      )}, picking ${bestSolution} (redoing layout)`,
+    );
+    tryOrientation({
+      popoverStage,
+      popoverContent,
+      anchorRect,
+      orientation: bestSolution,
+    });
+  }
+  return bestSolution;
+}
 
-  const endContainerElement =
-    tokenRange.endContainer instanceof Element
-      ? tokenRange.endContainer
-      : tokenRange.endContainer.parentElement;
-  /** @type {"horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-lr" | "sideways-rl"} */
-  const writingMode =
-    endContainerElement?.computedStyleMap().get('writing-mode').value ??
-    'horizontal-tb';
-
+/**
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-lr" | "sideways-rl"} writingMode
+ * @returns {['bottom', 'top'] | ['right', 'left'] | ['left', 'right']}
+ */
+function getBestPositionTryOrder(writingMode) {
   /**
    * A tactic to emulate the following CSS:
    *
@@ -272,18 +389,13 @@ function layOutPopover({
    * position-area: block-end span-all;
    * position-try: most-block-size flip-block;
    * ```
-   *
-   * @type {["bottom", "top"] | ["right", "left"] | ["left", "right"]}
    */
-  let positionTryOrder;
   switch (writingMode) {
     case 'lr':
     case 'lr-tb':
     case 'rl':
     case 'horizontal-tb': {
-      positionTryOrder = ['bottom', 'top'];
-      popoverStage.style.overflow = '';
-      break;
+      return ['bottom', 'top'];
     }
     case 'tb-lr':
     case 'tb-rl':
@@ -291,118 +403,12 @@ function layOutPopover({
     case 'vertical-rl':
     case 'sideways-lr':
     case 'vertical-lr': {
-      positionTryOrder = writingMode.endsWith('rl')
-        ? ['left', 'right']
-        : ['right', 'left'];
-      break;
+      return writingMode.endsWith('rl') ? ['left', 'right'] : ['right', 'left'];
     }
     default: {
       throw new Error(`Unexpected writing mode, ${writingMode}`);
     }
   }
-
-  // TODO: Return here?
-  window.ReactNativeWebView.postMessage(
-    JSON.stringify({
-      type: 'present-native-popover',
-      id: transactionId,
-      positionTryOrder,
-      writingMode,
-      anchorRect: {
-        top: anchorRect.top,
-        right: anchorRect.right,
-        left: anchorRect.left,
-        bottom: anchorRect.bottom,
-        x: anchorRect.x,
-        y: anchorRect.y,
-        width: anchorRect.width,
-        height: anchorRect.height,
-      },
-      results: results ?? [],
-    }),
-  );
-
-  // /** @type {Array<{ orientation: Orientation, blockOverflow: number, clientInlineSize: number }>} */
-  // const solutions = [];
-  // /** @type {Orientation} */
-  // let lastTried;
-  // for (const orientation of positionTryOrder) {
-  //   lastTried = orientation;
-  //   const {
-  //     blockOverflow,
-  //     inlineOverflow,
-  //     clientInlineSize,
-  //     isOverflowingViewport,
-  //     stageRect,
-  //   } = tryOrientation({
-  //     popoverStage,
-  //     popoverContent,
-  //     anchorRect,
-  //     orientation,
-  //   });
-
-  //   if (isOverflowingViewport) {
-  //     console.log(
-  //       `Discarding orientation "${orientation}" as it's overflowing the viewport.`,
-  //       stageRect,
-  //     );
-  //     continue;
-  //   }
-  //   if (inlineOverflow) {
-  //     console.log(
-  //       `Discarding orientation "${orientation}" as it's overflowing in the inline orientation.`,
-  //       stageRect,
-  //     );
-  //     continue;
-  //   }
-
-  //   solutions.push({ orientation, blockOverflow, clientInlineSize });
-  // }
-
-  // const sortedSolutions = solutions.sort((a, b) => {
-  //   // Sort in descending order of inline size.
-  //   const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
-
-  //   // If there's no tie, use that alone as the sorting factor.
-  //   if (clientInlineSize) {
-  //     return clientInlineSize;
-  //   }
-
-  //   // Otherwise, sort in ascending order of block overflow.
-  //   //
-  //   // (Given that we reserve the same amount of block space for both
-  //   // orientations, though, this won't actually make any difference unless we
-  //   // change the layout algorithm in future.)
-  //   return a.blockOverflow - b.blockOverflow;
-  // });
-  // const bestSolution = sortedSolutions.at(0)?.orientation;
-
-  // if (!bestSolution) {
-  //   return;
-  // }
-
-  // if (bestSolution === lastTried) {
-  //   console.log(
-  //     `Given solutions ${JSON.stringify(
-  //       sortedSolutions,
-  //     )}, picking ${bestSolution} (last tried)`,
-  //   );
-  // } else {
-  //   console.log(
-  //     `Given solutions ${JSON.stringify(
-  //       sortedSolutions,
-  //     )}, picking ${bestSolution} (redoing layout)`,
-  //   );
-
-  //   tryOrientation({
-  //     popoverStage,
-  //     popoverContent,
-  //     anchorRect,
-  //     orientation: bestSolution,
-  //   });
-  // }
-
-  // return bestSolution;
 }
 
 /**

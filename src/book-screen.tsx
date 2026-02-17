@@ -532,10 +532,6 @@ function NativePopover({ state }: { state: NativePopupState }) {
   const { top, left, width, height } = anchorRect;
   const [withShowMoreButton, _setWithShowMoreButton] = useState(false);
 
-  // const positionTryOrder = getBestPositionTryOrder(writingMode);
-
-  console.log('AHOY', results);
-
   const stageRef = useRef<View | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
   useEffect(() => {
@@ -822,45 +818,6 @@ function NativePopover({ state }: { state: NativePopupState }) {
       </View>
     </>
   );
-}
-
-/**
- * For now, the popover is always formatted as horizontal-lr, even if the
- * ebook is vertical-rl. This is, in chief, because I'm starting with a
- * Japanese-English dictionary, and vertical-rl does not suit English text.
- */
-const popoverWritingDirectionMatchesBodyText: boolean = false;
-
-function getBestPositionTryOrder(
-  writingMode: string,
-): ['bottom', 'top'] | ['right', 'left'] | ['left', 'right'] {
-  /**
-   * A tactic to emulate the following CSS:
-   *
-   * ```css
-   * position-area: block-end span-all;
-   * position-try: most-block-size flip-block;
-   * ```
-   */
-  switch (writingMode) {
-    case 'lr':
-    case 'lr-tb':
-    case 'rl':
-    case 'horizontal-tb': {
-      return ['bottom', 'top'];
-    }
-    case 'tb-lr':
-    case 'tb-rl':
-    case 'sideways-rl':
-    case 'vertical-rl':
-    case 'sideways-lr':
-    case 'vertical-lr': {
-      return writingMode.endsWith('rl') ? ['left', 'right'] : ['right', 'left'];
-    }
-    default: {
-      throw new Error(`Unexpected writing mode, ${writingMode}`);
-    }
-  }
 }
 
 function tryOrientation({
