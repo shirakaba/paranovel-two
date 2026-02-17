@@ -43,7 +43,7 @@ function updatePopover({ results, tokenRange, transactionId }) {
    * would have equally worked:
    * @see https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Understanding_z-index/Stacking_context
    */
-  const rtIsolationHack = {
+  __paranovelState.rtIsolationHack = {
     // It would be more intuitive to opt in to isolation rather than opt out,
     // but opting in leads to a visible flash on the anchor <rt>.
     apply: () => {
@@ -86,7 +86,7 @@ function updatePopover({ results, tokenRange, transactionId }) {
   // about it scrolling along with the page.
 
   document.body.classList.add('modal');
-  rtIsolationHack.apply();
+  __paranovelState.rtIsolationHack.apply();
 
   const anchorRect = getEffectiveBoundingClientRect(tokenRange);
   console.log(
@@ -273,29 +273,29 @@ function updatePopover({ results, tokenRange, transactionId }) {
 
   popoverContent.scrollTop = 0;
   popover.style.setProperty('visibility', 'visible');
+}
 
-  /** @param {MouseEvent} event */
-  function onClose(event) {
-    const popover = document.getElementById('paranovel-popover');
-    const popoverContent = document.getElementById('paranovel-popover-content');
+/** @param {MouseEvent} event */
+function onClose(event) {
+  const popover = document.getElementById('paranovel-popover');
+  const popoverContent = document.getElementById('paranovel-popover-content');
 
-    if (popoverContent?.contains(event.target)) {
-      console.log('contained', event.currentTarget);
-      return;
-    }
-    console.log('out!');
-
-    if (popover) {
-      delete popover.dataset.open;
-    }
-    __paranovelState.wordHighlight.clear();
-    rtIsolationHack.remove();
-
-    // Stop this click propagating to the document-level click handler.
-    event.stopPropagation();
-
-    document.body.classList.remove('modal');
+  if (popoverContent?.contains(event.target)) {
+    console.log('contained', event.currentTarget);
+    return;
   }
+  console.log('out!');
+
+  if (popover) {
+    delete popover.dataset.open;
+  }
+  __paranovelState.wordHighlight.clear();
+  __paranovelState.rtIsolationHack?.remove();
+
+  // Stop this click propagating to the document-level click handler.
+  event.stopPropagation();
+
+  document.body.classList.remove('modal');
 }
 
 /**
@@ -1412,10 +1412,12 @@ function restoreScroll() {
   }
 }
 
+/** @type {{ wordHighlight: Highlight; tokenizationPromiseCount: number; tokenizationPromiseHandlers: Record<number, { resolve: () => void; reject: (reason?: any) => void; }>; rtIsolationHack: { apply: () => void; remove: () => void; } | undefined }} */
 const __paranovelState = {
   wordHighlight: new Highlight(),
   tokenizationPromiseCount: 0,
   tokenizationPromiseHandlers: {},
+  rtIsolationHack: undefined,
 };
 
 /**
