@@ -760,6 +760,11 @@ function NativePopover({
             return;
           }
 
+          // FIXME: The scroll offset from previous render will persist.
+          // Both scrollTo() and setNativeProps(), are getting ignored.
+          // We may need to remove it from the view tree altogether (rather than
+          // setting `display: none`) just to reset the state.
+
           closePopover();
         }}>
         <ScrollView
