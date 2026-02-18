@@ -552,134 +552,128 @@ function NativePopover({
   const { visible, anchorRect, results, positionTryOrder } = state;
   const { top, left, width, height } = anchorRect;
   const [withShowMoreButton, _setWithShowMoreButton] = useState(false);
+  const debugStyles: boolean = false;
 
   const stageRef = useRef<View | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
   useEffect(() => {
-    const scrollView = scrollViewRef.current;
-    const stage = stageRef.current;
-    const parent = stage?.parentElement;
-    if (!stage || !scrollView || !parent) {
-      return;
-    }
-
-    const solutions = new Array<{
-      orientation: Orientation;
-      blockOverflow: number;
-      clientInlineSize: number;
-    }>();
-
-    let lastTried: Orientation = positionTryOrder[0];
-
-    // FIXME: In the no-results case, 'left' will win over 'right' in
-    //        vertical-rl texts no matter how cramped, just because the
-    //        clientInlineSize (the clientHeight) is equal between the two.
-    //
-    //        This might be resolvable (for the wrong reasons) by just
-    //        implementing the "no results" text and, if possible, a minimum
-    //        width.
-    for (const orientation of positionTryOrder) {
-      lastTried = orientation;
-
-      const style = tryOrientation({ anchorRect, orientation, parent });
-      stage.setNativeProps({ style });
-      const {
-        blockOverflow,
-        inlineOverflow,
-        clientBlockSize,
-        clientInlineSize,
-      } = getOverflow({ scrollView, orientation });
-
-      const typedStyle = style as {
-        top: number;
-        right: number;
-        bottom: number;
-        left: number;
-      };
-
-      // On the Web, we compared the bounding client rect to the window's
-      // innerWidth/innerHeight. In React Native, the bounding client rect seems
-      // to stay diligently inside the parent no matter what impossible
-      // constraint you asked for, so the non-computed style gets closer to my
-      // intention of checking whether we asked for a stage that begins outside
-      // of the viewport.
-      let isOverflowingViewport = false;
-      if (
-        typedStyle.left > parent.clientWidth ||
-        typedStyle.right > parent.clientWidth ||
-        typedStyle.top < 0 ||
-        typedStyle.bottom < 0 ||
-        typedStyle.top > parent.clientHeight ||
-        typedStyle.bottom > parent.clientHeight
-      ) {
-        isOverflowingViewport = true;
+    const asyncEffect = async () => {
+      const scrollView = scrollViewRef.current;
+      const stage = stageRef.current;
+      const parent = stage?.parentElement;
+      if (!stage || !scrollView || !parent) {
+        return;
       }
 
-      if (isOverflowingViewport) {
-        console.log(
-          `Discarding orientation "${orientation}" as it's overflowing the viewport.`,
-        );
-        continue;
+      const solutions = new Array<{
+        orientation: Orientation;
+        blockOverflow: number;
+        clientInlineSize: number;
+        clientBlockSize: number;
+      }>();
+
+      let lastTried: Orientation = positionTryOrder[0];
+      for (const orientation of positionTryOrder) {
+        lastTried = orientation;
+
+        const style = tryOrientation({ anchorRect, orientation, parent });
+        stage.setNativeProps({
+          style: { ...style, opacity: debugStyles ? 1 : 0 },
+        });
+        // We need to wait an animation frame for the clientWidth, clientHeight,
+        // etc. to be recalculated.
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const {
+          blockOverflow,
+          inlineOverflow,
+          clientBlockSize,
+          clientInlineSize,
+        } = getOverflow({ scrollView, orientation });
+
+        const boundingClientRect = stage.getBoundingClientRect();
+        console.log(`Orientation ${orientation} got style`, {
+          clientInlineSize,
+          clientBlockSize,
+          boundingClientRect,
+        });
+
+        // Handles the majority of cases where the popover should be
+        // disqualified for being too cramped. For now, assumes the popover is
+        // horizontal-tb.
+        if (boundingClientRect.width < clientInlineSize) {
+          console.log(
+            `Discarding orientation "${orientation}" as it's unable to satisfy the minimum width constraint.`,
+          );
+          continue;
+        }
+
+        // Presumably due to rounding errors, it's normal for the inlineOverflow
+        // to be exactly 1 (despite not apparently overflowing).
+        if (inlineOverflow > 1) {
+          console.log(
+            `Discarding orientation "${orientation}" as it's overflowing in the inline orientation by ${inlineOverflow}.`,
+          );
+          continue;
+        }
+
+        solutions.push({
+          orientation,
+          blockOverflow,
+          clientInlineSize,
+          clientBlockSize,
+        });
       }
 
-      if (inlineOverflow) {
-        console.log(
-          `Discarding orientation "${orientation}" as it's overflowing in the inline orientation.`,
-        );
-        continue;
-      }
+      const sortedSolutions = solutions.sort((a, b) => {
+        // Sort in descending order of inline size (i.e. 'width', so long as our
+        // popover continues to be horizontal-tb).
+        const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
 
-      solutions.push({ orientation, blockOverflow, clientInlineSize });
-    }
+        // If there's no tie, use that alone as the sorting factor.
+        if (clientInlineSize) {
+          return clientInlineSize;
+        }
 
-    const sortedSolutions = solutions.sort((a, b) => {
-      // Sort in descending order of inline size.
-      const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
-
-      // If there's no tie, use that alone as the sorting factor.
-      if (clientInlineSize) {
-        return clientInlineSize;
-      }
-
-      // Otherwise, sort in ascending order of block overflow.
-      //
-      // (Given that we reserve the same amount of block space for both
-      // orientations, though, this won't actually make any difference unless we
-      // change the layout algorithm in future.)
-      return a.blockOverflow - b.blockOverflow;
-    });
-    const bestSolution = sortedSolutions.at(0)?.orientation;
-
-    if (!bestSolution) {
-      return;
-    }
-
-    if (bestSolution === lastTried) {
-      console.log(
-        `Given solutions ${JSON.stringify(
-          sortedSolutions,
-        )}, picking ${bestSolution} (last tried)`,
-      );
-    } else {
-      console.log(
-        `Given solutions ${JSON.stringify(
-          sortedSolutions,
-        )}, picking ${bestSolution} (redoing layout)`,
-      );
-
-      const style = tryOrientation({
-        anchorRect,
-        orientation: bestSolution,
-        parent,
+        // Otherwise, sort in ascending order of block overflow.
+        //
+        // (Given that we reserve the same amount of block space for both
+        // orientations, though, this won't actually make any difference unless we
+        // change the layout algorithm in future.)
+        return a.blockOverflow - b.blockOverflow;
       });
-      stage.setNativeProps({ style });
-    }
-  }, [anchorRect, results]);
+      const bestSolution = sortedSolutions.at(0)?.orientation;
+
+      if (!bestSolution) {
+        return;
+      }
+
+      if (bestSolution === lastTried) {
+        console.log(
+          `Given solutions ${JSON.stringify(
+            sortedSolutions,
+          )}, picking ${bestSolution} (last tried)`,
+        );
+        stage.setNativeProps({ style: { opacity: 1 } });
+      } else {
+        console.log(
+          `Given solutions ${JSON.stringify(
+            sortedSolutions,
+          )}, picking ${bestSolution} (redoing layout)`,
+        );
+
+        const style = tryOrientation({
+          anchorRect,
+          orientation: bestSolution,
+          parent,
+        });
+        stage.setNativeProps({ style: { ...style, opacity: 1 } });
+      }
+    };
+    asyncEffect();
+  }, [anchorRect, results, debugStyles]);
 
   const fontScale = 1;
   const paranovelPopoverDefinitionFontSize = 14 / fontScale;
-
-  const debugStyles: boolean = false;
   const touchState = useRef<{ type: 'idle' } | { type: 'start' }>({
     type: 'idle',
   });
@@ -780,6 +774,7 @@ function NativePopover({
               // maxWidth: '100%',
               // height: 'fit-content',
               // maxHeight: '100%',
+              minWidth: 100,
             }}>
             {results.map(({ forms, senses }, i) => {
               const readings = forms
