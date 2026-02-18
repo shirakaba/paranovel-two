@@ -4,16 +4,25 @@ import React, {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 import {
   Button,
+  Dimensions,
   SafeAreaView,
+  StyleProp,
   StyleSheet,
   TouchableOpacity,
   useColorScheme,
+  View,
+  ViewStyle,
+  Text,
+  Pressable,
+  ScrollView,
+  ReadOnlyElement,
 } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
@@ -27,7 +36,7 @@ import {
   parseNCX,
   parseOPF,
 } from '@/utils/epub-parsing';
-import { lookUpTerm } from '@/utils/look-up-term';
+import { LookupResult, lookUpTerm } from '@/utils/look-up-term';
 import type { RootStackParamList } from './navigation.types';
 import injectedCss from './source-assets/injected-css.wvcss';
 import mainScript from './source-assets/injected-javascript.wvjs';
@@ -289,6 +298,23 @@ export default function BookScreen({
     });
   }, [navigation, params, spine, toc]);
 
+  const [nativePopup, setNativePopup] = useState<NativePopupState>({
+    visible: false,
+    anchorRect: {
+      top: 0,
+      right: 0,
+      left: 0,
+      bottom: 0,
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+    },
+    writingMode: 'horizontal-tb',
+    positionTryOrder: ['bottom', 'top'],
+    results: [],
+  });
+
   const onMessageCallback = useCallback((event: WebViewMessageEvent) => {
     onMessage({
       event,
@@ -299,6 +325,7 @@ export default function BookScreen({
       webViewUriRef,
       setWebViewUri,
       pageDetailsQueryDataRef,
+      setNativePopup,
     });
   }, []);
 
@@ -328,6 +355,7 @@ export default function BookScreen({
         webviewDebuggingEnabled={true}
         javaScriptEnabled={true}
         onMessage={onMessageCallback}
+        allowsBackForwardNavigationGestures={false}
         style={{
           backgroundColor: scheme === 'dark' ? 'black' : 'white',
         }}
@@ -495,8 +523,572 @@ export default function BookScreen({
           return false;
         }}
       />
+      <NativePopover
+        state={nativePopup}
+        closePopover={() => {
+          setNativePopup(prev => ({
+            ...prev,
+            visible: false,
+          }));
+          // The webViewRef.current?.postMessage() API is fake. Under the hood, it
+          // just calls injectJavaScript() and dispatches a MessageEvent at the
+          // window.
+          webViewRef.current?.injectJavaScript(
+            `console.log('!! close-native-popover', window.__paranovelState); if(window.__paranovelState) {\n  window.__paranovelState.nativeModalVisible = false; __paranovelState.wordHighlight.clear(); __paranovelState.rtIsolationHack?.remove(); \n}`,
+          );
+        }}
+      />
     </SafeAreaView>
   );
+}
+
+function NativePopover({
+  state,
+  closePopover,
+}: {
+  state: NativePopupState;
+  closePopover: () => void;
+}) {
+  const { visible, anchorRect, results, positionTryOrder } = state;
+  const { top, left, width, height } = anchorRect;
+  const [withShowMoreButton, _setWithShowMoreButton] = useState(false);
+  const debugStyles: boolean = false;
+
+  const stageRef = useRef<View | null>(null);
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  useEffect(() => {
+    const asyncEffect = async () => {
+      const scrollView = scrollViewRef.current;
+      const stage = stageRef.current;
+      const parent = stage?.parentElement;
+      if (!stage || !scrollView || !parent) {
+        return;
+      }
+
+      const solutions = new Array<{
+        orientation: Orientation;
+        blockOverflow: number;
+        clientInlineSize: number;
+        clientBlockSize: number;
+      }>();
+
+      let lastTried: Orientation = positionTryOrder[0];
+      for (const orientation of positionTryOrder) {
+        lastTried = orientation;
+
+        const style = tryOrientation({ anchorRect, orientation, parent });
+        stage.setNativeProps({
+          style: { ...style, opacity: debugStyles ? 1 : 0 },
+        });
+        // We need to wait an animation frame for the clientWidth, clientHeight,
+        // etc. to be recalculated.
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        const {
+          blockOverflow,
+          inlineOverflow,
+          clientBlockSize,
+          clientInlineSize,
+        } = getOverflow({ scrollView, orientation });
+
+        const boundingClientRect = stage.getBoundingClientRect();
+        console.log(`Orientation ${orientation} got style`, {
+          clientInlineSize,
+          clientBlockSize,
+          boundingClientRect,
+        });
+
+        // Handles the majority of cases where the popover should be
+        // disqualified for being too cramped. For now, assumes the popover is
+        // horizontal-tb.
+        if (boundingClientRect.width < clientInlineSize) {
+          console.log(
+            `Discarding orientation "${orientation}" as it's unable to satisfy the minimum width constraint.`,
+          );
+          continue;
+        }
+
+        // Presumably due to rounding errors, it's normal for the inlineOverflow
+        // to be exactly 1 (despite not apparently overflowing).
+        if (inlineOverflow > 1) {
+          console.log(
+            `Discarding orientation "${orientation}" as it's overflowing in the inline orientation by ${inlineOverflow}.`,
+          );
+          continue;
+        }
+
+        solutions.push({
+          orientation,
+          blockOverflow,
+          clientInlineSize,
+          clientBlockSize,
+        });
+      }
+
+      const sortedSolutions = solutions.sort((a, b) => {
+        // Sort in descending order of inline size (i.e. 'width', so long as our
+        // popover continues to be horizontal-tb).
+        const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
+
+        // If there's no tie, use that alone as the sorting factor.
+        if (clientInlineSize) {
+          return clientInlineSize;
+        }
+
+        // Otherwise, sort in ascending order of block overflow.
+        //
+        // (Given that we reserve the same amount of block space for both
+        // orientations, though, this won't actually make any difference unless we
+        // change the layout algorithm in future.)
+        return a.blockOverflow - b.blockOverflow;
+      });
+      const bestSolution = sortedSolutions.at(0)?.orientation;
+
+      if (!bestSolution) {
+        return;
+      }
+
+      if (bestSolution === lastTried) {
+        console.log(
+          `Given solutions ${JSON.stringify(
+            sortedSolutions,
+          )}, picking ${bestSolution} (last tried)`,
+        );
+        stage.setNativeProps({ style: { opacity: 1 } });
+      } else {
+        console.log(
+          `Given solutions ${JSON.stringify(
+            sortedSolutions,
+          )}, picking ${bestSolution} (redoing layout)`,
+        );
+
+        const style = tryOrientation({
+          anchorRect,
+          orientation: bestSolution,
+          parent,
+        });
+        stage.setNativeProps({ style: { ...style, opacity: 1 } });
+      }
+    };
+    asyncEffect();
+  }, [anchorRect, results, debugStyles]);
+
+  const fontScale = 1;
+  const paranovelPopoverDefinitionFontSize = 14 / fontScale;
+  const touchState = useRef<{ type: 'idle' } | { type: 'start' }>({
+    type: 'idle',
+  });
+
+  return (
+    <>
+      <View
+        // #paranovel-anchor
+        style={{
+          position: 'absolute',
+          pointerEvents: 'none',
+          backgroundColor: 'cyan',
+          width,
+          height,
+          top,
+          left,
+          display: debugStyles && visible ? 'flex' : 'none',
+        }}></View>
+      {/*
+        When toggling visibility, we make sure to unmount, as it resets the
+        scroll offset for free (I did try scrollTo() and setNativeProps(), but
+        they don't seem to have any effect for some reason).
+      */}
+      {visible && (
+        <View
+          // #paranovel-popover-stage
+          ref={stageRef}
+          style={{
+            position: 'absolute',
+            backgroundColor: debugStyles ? 'rgba(255,255,0,0.5)' : undefined,
+            inset: 0,
+            padding: 16,
+            alignItems: 'center',
+            // ...stageStyles,
+          }}
+          onTouchStart={({ nativeEvent: { pageX, pageY } }) => {
+            const rect = scrollViewRef.current
+              ?.getNativeScrollRef()
+              ?.getBoundingClientRect();
+            if (!rect) {
+              return;
+            }
+
+            const { top, right, bottom, left } = rect;
+            if (
+              pageX >= left &&
+              pageX <= right &&
+              pageY >= top &&
+              pageY <= bottom
+            ) {
+              // The touch upon the stage fell inside the ScrollView.
+              return;
+            }
+
+            touchState.current = { type: 'start' };
+          }}
+          onTouchCancel={() => {
+            touchState.current = { type: 'idle' };
+          }}
+          onTouchEnd={({ nativeEvent: { pageX, pageY } }) => {
+            const initialState = touchState.current;
+            touchState.current = { type: 'idle' };
+
+            if (initialState.type !== 'start') {
+              return;
+            }
+
+            const rect = scrollViewRef.current
+              ?.getNativeScrollRef()
+              ?.getBoundingClientRect();
+            if (!rect) {
+              return;
+            }
+
+            const { top, right, bottom, left } = rect;
+            if (
+              pageX >= left &&
+              pageX <= right &&
+              pageY >= top &&
+              pageY <= bottom
+            ) {
+              // The touch upon the stage fell inside the ScrollView.
+              return;
+            }
+
+            closePopover();
+          }}>
+          <ScrollView
+            ref={scrollViewRef}
+            // #paranovel-popover-content
+            style={{
+              backgroundColor: 'black',
+              padding: 8,
+              boxSizing: 'border-box',
+              // It doesn't seem to be respecting this
+              // overflow: 'scroll',
+
+              // maxWidth: '100%',
+              // height: 'fit-content',
+              // maxHeight: '100%',
+              minWidth: 100,
+            }}>
+            {!results.length && (
+              <Text
+                style={{
+                  // Can't identify why, but "No results" always fills the full
+                  // width. There's nothing like `inline-size: fit-content`.
+                  textAlign: 'center',
+                  color: 'white',
+                  fontSize: paranovelPopoverDefinitionFontSize,
+                }}>
+                No results.
+              </Text>
+            )}
+
+            {results.map(({ forms, senses }, i) => {
+              const readings = forms
+                .sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0))
+                .filter(({ kana }) => kana);
+
+              return (
+                <View
+                  key={i}
+                  // .paranovel-result-container
+                  style={{
+                    gap: 8,
+                    alignItems: 'stretch',
+                    maxWidth: '100%',
+
+                    // To be inherited:
+                    // color: 'white',
+                    // fontSize: 50 / fontScale,
+                  }}>
+                  <Text
+                    // .paranovel-headword
+                    style={{
+                      color: 'white',
+                      fontSize: 22 / fontScale,
+                    }}>
+                    {forms
+                      .filter(({ kana }) => !kana)
+                      .map(({ common, form }) =>
+                        common ? form : `（${form}）`,
+                      )
+                      .join('、')}
+                  </Text>
+                  <Text
+                    // .paranovel-reading-item
+                    style={{
+                      color: 'white',
+                      fontSize: paranovelPopoverDefinitionFontSize,
+                    }}>
+                    {readings
+                      // Could represent uncommon using dice
+                      .map(({ common, form }) =>
+                        common ? form : `（${form}）`,
+                      )
+                      .join('、')}
+                  </Text>
+
+                  <View
+                    // .paranovel-sense-list
+                    style={{ gap: 16 }}>
+                    {senses.map(({ pos, gloss }, i) => {
+                      return (
+                        <View
+                          key={i}
+                          // .paranovel-sense-item
+                          style={{
+                            alignItems: 'flex-start',
+                            gap: 8,
+                          }}>
+                          <View
+                            // .paranovel-pos-list
+                            style={{ flexDirection: 'row', gap: 8 }}>
+                            {pos.map((p, i) => (
+                              // .paranovel-pos-item
+                              <Text
+                                key={i}
+                                style={{
+                                  color: 'white',
+                                  borderWidth: 1,
+                                  borderStyle: 'solid',
+                                  borderColor: 'grey',
+                                  borderRadius: 4,
+                                  paddingLeft: 4,
+                                  paddingRight: 4,
+                                  fontSize: paranovelPopoverDefinitionFontSize,
+                                }}>
+                                {p}
+                              </Text>
+                            ))}
+                          </View>
+
+                          <Text
+                            // .paranovel-gloss-item
+                            style={{
+                              color: 'white',
+                              fontSize: paranovelPopoverDefinitionFontSize,
+                            }}>
+                            {`${i + 1}. ${gloss.join('; ')}`}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+
+            <View
+              // .paranovel-show-more-container
+              style={{
+                // TODO: revisit styles for overscroll
+                display: withShowMoreButton ? 'flex' : 'none',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 34,
+                alignItems: 'center',
+                justifyContent: 'center',
+                /* TODO: base this on var(--paranovel-popover-background-color) */
+                backgroundColor: '#2228',
+              }}>
+              <Pressable
+                style={{
+                  backgroundColor: '#bbb',
+                  borderRadius: 16,
+                  paddingBlock: 2,
+                  paddingInline: 16,
+                }}>
+                <Text style={{ color: '#111' }}>Show more</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </View>
+      )}
+    </>
+  );
+}
+
+function tryOrientation({
+  anchorRect,
+  orientation,
+  parent,
+}: {
+  anchorRect: Pick<DOMRect, 'top' | 'right' | 'bottom' | 'left'>;
+  orientation: Orientation;
+  parent: ReadOnlyElement;
+}): StyleProp<ViewStyle> {
+  // `anchorRect` is measured entirely from the top-left (i.e. `bottom` is the
+  // number of pixels down from the top; it's equivalent to `top` + `height`).
+  const { top, left, bottom, right } = anchorRect;
+
+  switch (orientation) {
+    case 'top': {
+      return {
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+        top: 0,
+        right: 0,
+        bottom: parent.clientHeight - top,
+        left: 0,
+      };
+    }
+    case 'right': {
+      return {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: right,
+      };
+    }
+    case 'bottom': {
+      return {
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: bottom,
+      };
+    }
+    case 'left': {
+      return {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        top: 0,
+        right: parent.clientWidth - left,
+        bottom: 0,
+        left: 0,
+      };
+    }
+  }
+}
+
+function getOverflow({
+  scrollView,
+  orientation,
+}: {
+  scrollView: ScrollView;
+  orientation: Orientation;
+}) {
+  /**
+   * For now, the popover is always formatted as horizontal-lr, even if the
+   * ebook is vertical-rl. This is, in chief, because I'm starting with a
+   * Japanese-English dictionary, and vertical-rl does not suit English text.
+   */
+  const popoverWritingDirectionMatchesBodyText = false;
+
+  let blockOverflow = 0;
+  let inlineOverflow = 0;
+  let clientBlockSize = 0;
+  let clientInlineSize = 0;
+
+  const nativeScrollRef = scrollView.getNativeScrollRef();
+  if (!nativeScrollRef) {
+    return {
+      blockOverflow,
+      inlineOverflow,
+      clientBlockSize,
+      clientInlineSize,
+    };
+  }
+
+  switch (orientation) {
+    case 'top': {
+      blockOverflow =
+        nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+      inlineOverflow =
+        nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+      clientBlockSize = nativeScrollRef.clientHeight;
+      clientInlineSize = nativeScrollRef.clientWidth;
+      break;
+    }
+    case 'right': {
+      if (popoverWritingDirectionMatchesBodyText) {
+        blockOverflow =
+          nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+        inlineOverflow =
+          nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+        clientBlockSize = nativeScrollRef.clientWidth;
+        clientInlineSize = nativeScrollRef.clientHeight;
+      } else {
+        blockOverflow =
+          nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+        inlineOverflow =
+          nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+        clientBlockSize = nativeScrollRef.clientHeight;
+        clientInlineSize = nativeScrollRef.clientWidth;
+      }
+      break;
+    }
+    case 'bottom': {
+      blockOverflow =
+        nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+      inlineOverflow =
+        nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+      clientBlockSize = nativeScrollRef.clientHeight;
+      clientInlineSize = nativeScrollRef.clientWidth;
+      break;
+    }
+    case 'left': {
+      if (popoverWritingDirectionMatchesBodyText) {
+        blockOverflow =
+          nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+        inlineOverflow =
+          nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+        clientBlockSize = nativeScrollRef.clientWidth;
+        clientInlineSize = nativeScrollRef.clientHeight;
+      } else {
+        blockOverflow =
+          nativeScrollRef.scrollHeight - nativeScrollRef.clientHeight;
+        inlineOverflow =
+          nativeScrollRef.scrollWidth - nativeScrollRef.clientWidth;
+        clientBlockSize = nativeScrollRef.clientHeight;
+        clientInlineSize = nativeScrollRef.clientWidth;
+      }
+      break;
+    }
+  }
+
+  return {
+    blockOverflow,
+    inlineOverflow,
+    clientBlockSize,
+    clientInlineSize,
+  };
+}
+
+type Orientation = 'top' | 'right' | 'bottom' | 'left';
+
+interface NativePopupState {
+  visible: boolean;
+  anchorRect: {
+    top: number;
+    right: number;
+    left: number;
+    bottom: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  writingMode:
+    | 'horizontal-tb'
+    | 'vertical-rl'
+    | 'vertical-lr'
+    | 'sideways-lr'
+    | 'sideways-rl';
+  positionTryOrder: ['bottom', 'top'] | ['right', 'left'] | ['left', 'right'];
+  results: Array<LookupResult>;
 }
 
 function stringDiff(a: string, b: string) {
@@ -552,6 +1144,7 @@ function onMessage({
   paramsRef,
   webViewUriRef,
   setWebViewUri,
+  setNativePopup,
   pageDetailsQueryDataRef,
 }: {
   event: WebViewMessageEvent;
@@ -567,6 +1160,7 @@ function onMessage({
   paramsRef: React.MutableRefObject<Readonly<BookScreenProps>>;
   webViewUriRef: React.MutableRefObject<string>;
   setWebViewUri: React.Dispatch<React.SetStateAction<string>>;
+  setNativePopup: React.Dispatch<React.SetStateAction<NativePopupState>>;
   pageDetailsQueryDataRef: React.MutableRefObject<
     | {
         pageType: 'toc';
@@ -591,6 +1185,22 @@ function onMessage({
     id: number;
     term: string;
   }
+  interface PresentNativePayloadPayload {
+    type: 'present-native-popover';
+    id: number;
+    anchorRect: DOMRect;
+    writingMode:
+      | 'horizontal-tb'
+      | 'vertical-rl'
+      | 'vertical-lr'
+      | 'sideways-lr'
+      | 'sideways-rl';
+    positionTryOrder: ['bottom', 'top'] | ['right', 'left'] | ['left', 'right'];
+    results: Array<LookupResult>;
+  }
+  interface CloseNativePayloadPayload {
+    type: 'close-native-popover';
+  }
   interface TokenizePayload {
     type: 'tokenize';
     id: number;
@@ -611,6 +1221,8 @@ function onMessage({
   type Payload =
     | LogPayload
     | LookUpPayload
+    | PresentNativePayloadPayload
+    | CloseNativePayloadPayload
     | TokenizePayload
     | NavigationRequestPayload
     | ProgressPayload;
@@ -682,6 +1294,46 @@ function onMessage({
             }"`,
           );
         });
+      return;
+    }
+    case 'present-native-popover': {
+      const {
+        id: _transactionId,
+        positionTryOrder,
+        anchorRect,
+        results,
+        writingMode,
+      } = parsed;
+      console.log(`[WebView] present-native-popover`, {
+        positionTryOrder,
+        anchorRect,
+        results,
+      });
+      setNativePopup({
+        visible: true,
+        anchorRect,
+        results,
+        positionTryOrder,
+        writingMode,
+      });
+      webViewRef.current?.injectJavaScript(
+        `console.log('!! present-native-popover', window.__paranovelState); if(window.__paranovelState) {\n  window.__paranovelState.nativeModalVisible = true;\n}`,
+      );
+      return;
+    }
+    case 'close-native-popover': {
+      console.log(`[WebView] close-native-popover`);
+      setNativePopup(prev => ({
+        ...prev,
+        visible: false,
+      }));
+
+      // The webViewRef.current?.postMessage() API is fake. Under the hood, it
+      // just calls injectJavaScript() and dispatches a MessageEvent at the
+      // window. So we won't bother with an IPC channel in this direction.
+      webViewRef.current?.injectJavaScript(
+        `console.log('!! close-native-popover', window.__paranovelState); if(window.__paranovelState) {\n  window.__paranovelState.nativeModalVisible = false; __paranovelState.wordHighlight.clear(); __paranovelState.rtIsolationHack?.remove(); \n}`,
+      );
       return;
     }
     case 'navigation-request': {

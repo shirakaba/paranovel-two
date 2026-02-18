@@ -1,6 +1,14 @@
 // Prevent restoring the last-scrolled position from a previous session.
 history.scrollRestoration = 'manual';
 
+/**
+ * Due to WebKit's atrocious support for rendering fixed-position elements in
+ * vertical-rl documents, we render the dictionary on the native side instead.
+ * @type {"web" | "native"}
+ * @see https://bugs.webkit.org/show_bug.cgi?id=298992
+ */
+const popupRenderMode = 'native';
+
 {
   // Insert a viewport meta tag
   const meta = document.createElement('meta');
@@ -18,13 +26,108 @@ wrapRubyBaseTextsWithRb(document.body);
  * @param {object} obj
  * @param {Array<import("../../utils/look-up-term").LookupResult>} [obj.results]
  * @param {Range} obj.tokenRange
+ * @param {number} obj.transactionId
  */
-function updatePopover({ results, tokenRange }) {
+function updatePopover({ results, tokenRange, transactionId }) {
+  const rtsInRange = [...document.querySelectorAll('rt')].filter(
+    rt => !tokenRange.intersectsNode(rt),
+  );
+
   /**
-   * We use <dialog> rather than popover mainly because light dismissal is even
-   * more broken in Safari 18 for popovers than it is for dialogs.
-   * @type {HTMLDialogElement}
+   * Workaround for a horrible WebKit-only bug, affecting both macOS Safari 17.6
+   * and the Safari shipped with iOS 18.1 (both WebKit 605.1.15), whereby an
+   * opaque highlight is composited over the <rt>, completely obscuring it.
+   *
+   * By using isolation: isolate, we force a new stacking context. This is a
+   * vital alternative to z-index, which was not working - though opacity 0.999
+   * would have equally worked:
+   * @see https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Understanding_z-index/Stacking_context
    */
+  __paranovelState.rtIsolationHack = {
+    // It would be more intuitive to opt in to isolation rather than opt out,
+    // but opting in leads to a visible flash on the anchor <rt>.
+    apply: () => {
+      rtsInRange.forEach(rt => {
+        rt.style.setProperty('isolation', 'auto');
+      });
+    },
+    remove: () => {
+      rtsInRange.forEach(rt => {
+        rt.style.removeProperty('isolation');
+      });
+    },
+  };
+
+  // UI ported over from Paranovel v1's `src/screens/novel/DictView.tsx`.
+  // The container here maps to DictView's `ScrollView`, but we hoist its styles
+  // up to #paranovel-popover's CSS declaration instead.
+
+  // Now that we've got these anchors, we know the nodes and elements
+  // encompassed by the selected tokens. From here, we want to anchor the
+  // popover to them. Safari 26 does implement Anchor Positioning, but
+  // `height: 100%` is practically useless, meaning we would have to do manual
+  // layout to bound the popover height properly (and give up on position-try).
+  //
+  // At that rate, about the only benefit Anchor Positioning would give us would
+  // be the ability to align to the centre of the anchor.
+  //
+  // So, if not Anchor Positioning, what are our options? Now that we've got
+  // element "anchors", we can use HTMLElement.prototype.offsetLeft (etc.)
+  // instead of getBoundingClientRect(), so rather than laying out relative to
+  // the viewport (fixed positioning) we can finally draw relative to the
+  // scroll container (absolute positioning), allowing the popover to scroll
+  // along with the page.
+  //
+  // So, we have that option now. But it's tempting to go with fixed positioning
+  // just so that we can call range.getBoundingClientRect() instead of
+  // maintaining this complex element anchors code. With the new Popover API
+  // (supported in iOS 18), we could block body scroll and make the popover
+  // disappear upon clicking on the backdrop, so there'd be no need to mind
+  // about it scrolling along with the page.
+
+  document.body.classList.add('modal');
+  __paranovelState.rtIsolationHack.apply();
+
+  const anchorRect = getEffectiveBoundingClientRect(tokenRange);
+  console.log(
+    `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
+      [...tokenRange.getClientRects()],
+    )}`,
+  );
+
+  const endContainerElement =
+    tokenRange.endContainer instanceof Element
+      ? tokenRange.endContainer
+      : tokenRange.endContainer.parentElement;
+  /** @type {"horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-lr" | "sideways-rl"} */
+  const writingMode =
+    endContainerElement?.computedStyleMap().get('writing-mode').value ??
+    'horizontal-tb';
+  const positionTryOrder = getBestPositionTryOrder(writingMode);
+
+  if (popupRenderMode === 'native') {
+    window.ReactNativeWebView.postMessage(
+      JSON.stringify({
+        type: 'present-native-popover',
+        id: transactionId,
+        positionTryOrder,
+        writingMode,
+        anchorRect: {
+          top: anchorRect.top,
+          right: anchorRect.right,
+          left: anchorRect.left,
+          bottom: anchorRect.bottom,
+          x: anchorRect.x,
+          y: anchorRect.y,
+          width: anchorRect.width,
+          height: anchorRect.height,
+        },
+        results: results ?? [],
+      }),
+    );
+    return;
+  }
+
   const popover =
     document.getElementById('paranovel-popover') ??
     document.createElement('div');
@@ -43,35 +146,6 @@ function updatePopover({ results, tokenRange }) {
   anchor.id = 'paranovel-anchor';
   popover.classList.remove('with-show-more-button');
 
-  const rtsInRange = [...document.querySelectorAll('rt')].filter(
-    rt => !tokenRange.intersectsNode(rt),
-  );
-
-  /**
-   * Workaround for a horrible WebKit-only bug, affecting both macOS Safari 17.6
-   * and the Safari shipped with iOS 18.1 (both WebKit 605.1.15), whereby an
-   * opaque highlight is composited over the <rt>, completely obscuring it.
-   *
-   * By using isolation: isolate, we force a new stacking context. This is a
-   * vital alternative to z-index, which was not working - though opacity 0.999
-   * would have equally worked:
-   * @see https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Understanding_z-index/Stacking_context
-   */
-  const rtIsolationHack = {
-    // It would be more intuitive to opt in to isolation rather than opt out,
-    // but opting in leads to a visible flash on the anchor <rt>.
-    apply: () => {
-      rtsInRange.forEach(rt => {
-        rt.style.setProperty('isolation', 'auto');
-      });
-    },
-    remove: () => {
-      rtsInRange.forEach(rt => {
-        rt.style.removeProperty('isolation');
-      });
-    },
-  };
-
   if (!popover.isConnected) {
     document.body.prepend(popover);
     popover.appendChild(popoverStage);
@@ -83,14 +157,9 @@ function updatePopover({ results, tokenRange }) {
     document.body.prepend(anchor);
   }
 
-  // UI ported over from Paranovel v1's `src/screens/novel/DictView.tsx`.
-  // The container here maps to DictView's `ScrollView`, but we hoist its styles
-  // up to #paranovel-popover's CSS declaration instead.
-
-  const defaultFontSize = '14px';
-
   const container = document.createDocumentFragment();
 
+  const defaultFontSize = '14px';
   if (!results?.length) {
     const p = document.createElement('p');
     p.style.margin = '0';
@@ -164,74 +233,9 @@ function updatePopover({ results, tokenRange }) {
   container.appendChild(resultsFragment);
   popoverContent.replaceChildren(container);
 
-  // Now that we've got these anchors, we know the nodes and elements
-  // encompassed by the selected tokens. From here, we want to anchor the
-  // popover to them. Safari 26 does implement Anchor Positioning, but
-  // `height: 100%` is practically useless, meaning we would have to do manual
-  // layout to bound the popover height properly (and give up on position-try).
-  //
-  // At that rate, about the only benefit Anchor Positioning would give us would
-  // be the ability to align to the centre of the anchor.
-  //
-  // So, if not Anchor Positioning, what are our options? Now that we've got
-  // element "anchors", we can use HTMLElement.prototype.offsetLeft (etc.)
-  // instead of getBoundingClientRect(), so rather than laying out relative to
-  // the viewport (fixed positioning) we can finally draw relative to the
-  // scroll container (absolute positioning), allowing the popover to scroll
-  // along with the page.
-  //
-  // So, we have that option now. But it's tempting to go with fixed positioning
-  // just so that we can call range.getBoundingClientRect() instead of
-  // maintaining this complex element anchors code. With the new Popover API
-  // (supported in iOS 18), we could block body scroll and make the popover
-  // disappear upon clicking on the backdrop, so there'd be no need to mind
-  // about it scrolling along with the page.
-
-  document.body.classList.add('modal');
-  rtIsolationHack.apply();
   popover.dataset.open = '';
   popover.style.setProperty('visibility', 'hidden');
-  const orientation = layOutPopover({
-    anchor,
-    popoverStage,
-    popoverContent,
-    tokenRange,
-  });
-  if (!orientation) {
-    onClose();
-    return;
-  }
-  popoverContent.scrollTop = 0;
-  popover.style.setProperty('visibility', 'visible');
 
-  /** @param {MouseEvent} event */
-  function onClose(event) {
-    if (popoverContent.contains(event.target)) {
-      console.log('contained', event.currentTarget);
-      return;
-    }
-    console.log('out!');
-
-    delete popover.dataset.open;
-    __paranovelState.wordHighlight.clear();
-    rtIsolationHack.remove();
-
-    // Stop this click propagating to the document-level click handler.
-    event.stopPropagation();
-
-    document.body.classList.remove('modal');
-  }
-}
-
-/**
- * @param {object} obj
- * @param {HTMLDivElement} obj.anchor
- * @param {HTMLElement} obj.popoverStage
- * @param {HTMLElement} obj.popoverContent
- * @param {Range} obj.tokenRange
- */
-function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
-  const anchorRect = getEffectiveBoundingClientRect(tokenRange);
   console.log(
     `Anchor:\n- bounds:${JSON.stringify(anchorRect.toJSON())}\n${JSON.stringify(
       [...tokenRange.getClientRects()],
@@ -242,51 +246,73 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
   anchor.style.width = `${anchorRect.width}px`;
   anchor.style.height = `${anchorRect.height}px`;
 
-  const endContainerElement =
-    tokenRange.endContainer instanceof Element
-      ? tokenRange.endContainer
-      : tokenRange.endContainer.parentElement;
-  /** @type {"horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-lr" | "sideways-rl"} */
-  const writingMode =
-    endContainerElement?.computedStyleMap().get('writing-mode').value ??
-    'horizontal-tb';
-
-  /**
-   * A tactic to emulate the following CSS:
-   *
-   * ```css
-   * position-area: block-end span-all;
-   * position-try: most-block-size flip-block;
-   * ```
-   *
-   * @type {["bottom", "top"] | ["right", "left"] | ["left", "right"]}
-   */
-  let positionTryOrder;
-  switch (writingMode) {
-    case 'lr':
-    case 'lr-tb':
-    case 'rl':
-    case 'horizontal-tb': {
-      positionTryOrder = ['bottom', 'top'];
-      popoverStage.style.overflow = '';
-      break;
-    }
-    case 'tb-lr':
-    case 'tb-rl':
-    case 'sideways-rl':
-    case 'vertical-rl':
-    case 'sideways-lr':
-    case 'vertical-lr': {
-      positionTryOrder = writingMode.endsWith('rl')
-        ? ['left', 'right']
-        : ['right', 'left'];
-      break;
-    }
-    default: {
-      throw new Error(`Unexpected writing mode, ${writingMode}`);
-    }
+  if (
+    writingMode === 'lr' ||
+    writingMode === 'lr-tb' ||
+    writingMode === 'rl' ||
+    writingMode === 'horizontal-tb'
+  ) {
+    popoverStage.style.overflow = '';
   }
 
+  const orientation = determineBestOrientation({
+    anchor,
+    popoverStage,
+    popoverContent,
+    tokenRange,
+    transactionId,
+    results,
+  });
+
+  if (!orientation) {
+    onClose();
+    return;
+  }
+
+  popoverContent.scrollTop = 0;
+  popover.style.setProperty('visibility', 'visible');
+}
+
+/** @param {MouseEvent} [event] */
+function onClose(event) {
+  const popover = document.getElementById('paranovel-popover');
+  const popoverContent = document.getElementById('paranovel-popover-content');
+
+  if (event && popoverContent?.contains(event.target)) {
+    console.log('contained', event.currentTarget);
+    return;
+  }
+  console.log('out!');
+
+  if (popover) {
+    delete popover.dataset.open;
+  }
+  __paranovelState.wordHighlight.clear();
+  __paranovelState.rtIsolationHack?.remove();
+
+  // Stop this click propagating to the document-level click handler.
+  event?.stopPropagation();
+
+  document.body.classList.remove('modal');
+
+  window.ReactNativeWebView.postMessage(
+    JSON.stringify({ type: 'close-native-popover' }),
+  );
+}
+
+/**
+ * @param {object} obj
+ * @param {["bottom", "top"] | ["right", "left"] | ["left", "right"]} obj.positionTryOrder
+ * @param {DOMRect} obj.anchorRect
+ * @param {HTMLElement} obj.popoverStage
+ * @param {HTMLElement} obj.popoverContent
+ */
+function determineBestOrientation({
+  positionTryOrder,
+  anchorRect,
+  popoverStage,
+  popoverContent,
+}) {
   /** @type {Array<{ orientation: Orientation, blockOverflow: number, clientInlineSize: number }>} */
   const solutions = [];
   /** @type {Orientation} */
@@ -305,7 +331,6 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
       anchorRect,
       orientation,
     });
-
     if (isOverflowingViewport) {
       console.log(
         `Discarding orientation "${orientation}" as it's overflowing the viewport.`,
@@ -320,19 +345,15 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
       );
       continue;
     }
-
     solutions.push({ orientation, blockOverflow, clientInlineSize });
   }
-
   const sortedSolutions = solutions.sort((a, b) => {
     // Sort in descending order of inline size.
     const clientInlineSize = b.clientInlineSize - a.clientInlineSize;
-
     // If there's no tie, use that alone as the sorting factor.
     if (clientInlineSize) {
       return clientInlineSize;
     }
-
     // Otherwise, sort in ascending order of block overflow.
     //
     // (Given that we reserve the same amount of block space for both
@@ -341,11 +362,9 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
     return a.blockOverflow - b.blockOverflow;
   });
   const bestSolution = sortedSolutions.at(0)?.orientation;
-
   if (!bestSolution) {
     return;
   }
-
   if (bestSolution === lastTried) {
     console.log(
       `Given solutions ${JSON.stringify(
@@ -358,7 +377,6 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
         sortedSolutions,
       )}, picking ${bestSolution} (redoing layout)`,
     );
-
     tryOrientation({
       popoverStage,
       popoverContent,
@@ -366,8 +384,41 @@ function layOutPopover({ anchor, popoverStage, popoverContent, tokenRange }) {
       orientation: bestSolution,
     });
   }
-
   return bestSolution;
+}
+
+/**
+ * @param {"horizontal-tb" | "vertical-rl" | "vertical-lr" | "sideways-lr" | "sideways-rl"} writingMode
+ * @returns {['bottom', 'top'] | ['right', 'left'] | ['left', 'right']}
+ */
+function getBestPositionTryOrder(writingMode) {
+  /**
+   * A tactic to emulate the following CSS:
+   *
+   * ```css
+   * position-area: block-end span-all;
+   * position-try: most-block-size flip-block;
+   * ```
+   */
+  switch (writingMode) {
+    case 'lr':
+    case 'lr-tb':
+    case 'rl':
+    case 'horizontal-tb': {
+      return ['bottom', 'top'];
+    }
+    case 'tb-lr':
+    case 'tb-rl':
+    case 'sideways-rl':
+    case 'vertical-rl':
+    case 'sideways-lr':
+    case 'vertical-lr': {
+      return writingMode.endsWith('rl') ? ['left', 'right'] : ['right', 'left'];
+    }
+    default: {
+      throw new Error(`Unexpected writing mode, ${writingMode}`);
+    }
+  }
 }
 
 /**
@@ -663,6 +714,11 @@ function log(message) {
 async function onClickDocument(event) {
   const { x, y, target } = event;
 
+  if (__paranovelState.nativeModalVisible) {
+    onClose();
+    return;
+  }
+
   if (
     document.getElementById('paranovel-popover')?.contains(target) ||
     document.getElementById('paranovel-prelude')?.contains(target) ||
@@ -673,10 +729,10 @@ async function onClickDocument(event) {
     return;
   }
 
-  const anchor = document.getElementById('paranovel-anchor');
-  if (anchor?.childNodes.length) {
-    dissolveAnchor(anchor);
-  }
+  // const anchor = document.getElementById('paranovel-anchor');
+  // if (anchor?.childNodes.length) {
+  //   dissolveAnchor(anchor);
+  // }
 
   // This rounds to the nearest glyph. That is to say, given the text "abc",
   // your click will be funnelled into "b" if it is:
@@ -686,6 +742,7 @@ async function onClickDocument(event) {
   const caretRange = document.caretRangeFromPoint(x, y);
   if (!caretRange) {
     log('❌ no caret range');
+    onClose();
     return;
   }
 
@@ -695,6 +752,7 @@ async function onClickDocument(event) {
   const surroundingText = getSurroundingText(adjustedRange);
   if (!surroundingText) {
     log('❌ no surrounding text');
+    onClose();
     return;
   }
   // console.log(surroundingText);
@@ -750,6 +808,7 @@ async function onClickDocument(event) {
     endOffset: offsetOfTargetTokenIntoBlockBaseText + tokenLength,
   });
   if (!tokenRange) {
+    onClose();
     return;
   }
 
@@ -788,6 +847,7 @@ async function onClickDocument(event) {
 
   console.log('onClickDocument', { tokenRange });
   window.tokenRange = tokenRange;
+  __paranovelState.wordHighlight.clear();
   __paranovelState.wordHighlight.add(tokenRange);
 
   log(`🔎 Looking up term "${dictionaryForm}"`);
@@ -1042,6 +1102,7 @@ async function lookUpTerm({ dictionaryForm, tokenRange }) {
   updatePopover({
     results: response,
     tokenRange,
+    transactionId: id,
   });
 }
 
@@ -1362,11 +1423,15 @@ function restoreScroll() {
   }
 }
 
+/** @type {{ wordHighlight: Highlight; tokenizationPromiseCount: number; tokenizationPromiseHandlers: Record<number, { resolve: () => void; reject: (reason?: any) => void; }>; rtIsolationHack: { apply: () => void; remove: () => void; } | undefined; nativeModalVisible: boolean }} */
 const __paranovelState = {
   wordHighlight: new Highlight(),
   tokenizationPromiseCount: 0,
   tokenizationPromiseHandlers: {},
+  rtIsolationHack: undefined,
+  nativeModalVisible: false,
 };
+window.__paranovelState = __paranovelState;
 
 /**
  * Necessarily lazy because writing mode can't be correctly resolved until we've

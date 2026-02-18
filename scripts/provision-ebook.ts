@@ -70,7 +70,7 @@ async function main() {
   for (const [_simulator, { deviceName, storagePath }] of simulators) {
     console.log(`Syncing ${deviceName}...`);
 
-    const stdout = await syncEbooks({
+    await syncEbooks({
       source: '/Users/jamie/Library/Mobile Documents/com~apple~CloudDocs/epubs',
       dest: path.resolve(storagePath, 'epubs'),
       extraFlags: [
@@ -81,7 +81,6 @@ async function main() {
         '--exclude=AZW3 to EPUB.app',
       ],
     });
-    console.log(stdout);
   }
 }
 
@@ -129,7 +128,7 @@ function syncEbooks({
   dest: string;
   extraFlags?: Array<string>;
 }) {
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     const command = [
       'rsync',
       [
@@ -182,7 +181,7 @@ function syncEbooks({
         return;
       }
 
-      resolve(stdout);
+      resolve();
     });
   });
 }

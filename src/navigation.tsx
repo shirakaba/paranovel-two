@@ -24,7 +24,11 @@ export function RootStack() {
         component={LibraryScreen}
         options={{ headerShown: false, headerTitle: 'Library' }}
       />
-      <Stack.Screen name="Book" component={BookScreen} />
+      <Stack.Screen
+        name="Book"
+        component={BookScreen}
+        options={{ gestureEnabled: false }}
+      />
       <Stack.Screen name="ToC" component={ToCScreen} />
     </Stack.Navigator>
   );
