@@ -698,207 +698,212 @@ function NativePopover({
           left,
           display: debugStyles && visible ? 'flex' : 'none',
         }}></View>
-      <View
-        // #paranovel-popover-stage
-        ref={stageRef}
-        style={{
-          position: 'absolute',
-          backgroundColor: debugStyles ? 'rgba(255,255,0,0.5)' : undefined,
-          inset: 0,
-          padding: 16,
-          alignItems: 'center',
-          // ...stageStyles,
-          display: visible ? 'flex' : 'none',
-        }}
-        onTouchStart={({ nativeEvent: { pageX, pageY } }) => {
-          const rect = scrollViewRef.current
-            ?.getNativeScrollRef()
-            ?.getBoundingClientRect();
-          if (!rect) {
-            return;
-          }
-
-          const { top, right, bottom, left } = rect;
-          if (
-            pageX >= left &&
-            pageX <= right &&
-            pageY >= top &&
-            pageY <= bottom
-          ) {
-            // The touch upon the stage fell inside the ScrollView.
-            return;
-          }
-
-          touchState.current = { type: 'start' };
-        }}
-        onTouchCancel={() => {
-          touchState.current = { type: 'idle' };
-        }}
-        onTouchEnd={({ nativeEvent: { pageX, pageY } }) => {
-          const initialState = touchState.current;
-          touchState.current = { type: 'idle' };
-
-          if (initialState.type !== 'start') {
-            return;
-          }
-
-          const rect = scrollViewRef.current
-            ?.getNativeScrollRef()
-            ?.getBoundingClientRect();
-          if (!rect) {
-            return;
-          }
-
-          const { top, right, bottom, left } = rect;
-          if (
-            pageX >= left &&
-            pageX <= right &&
-            pageY >= top &&
-            pageY <= bottom
-          ) {
-            // The touch upon the stage fell inside the ScrollView.
-            return;
-          }
-
-          // FIXME: The scroll offset from previous render will persist.
-          // Both scrollTo() and setNativeProps(), are getting ignored.
-          // We may need to remove it from the view tree altogether (rather than
-          // setting `display: none`) just to reset the state.
-
-          closePopover();
-        }}>
-        <ScrollView
-          ref={scrollViewRef}
-          // #paranovel-popover-content
+      {/*
+        When toggling visibility, we make sure to unmount, as it resets the
+        scroll offset for free (I did try scrollTo() and setNativeProps(), but
+        they don't seem to have any effect for some reason).
+      */}
+      {visible && (
+        <View
+          // #paranovel-popover-stage
+          ref={stageRef}
           style={{
-            backgroundColor: 'black',
-            padding: 8,
-            boxSizing: 'border-box',
-            // It doesn't seem to be respecting this
-            // overflow: 'scroll',
+            position: 'absolute',
+            backgroundColor: debugStyles ? 'rgba(255,255,0,0.5)' : undefined,
+            inset: 0,
+            padding: 16,
+            alignItems: 'center',
+            // ...stageStyles,
+          }}
+          onTouchStart={({ nativeEvent: { pageX, pageY } }) => {
+            const rect = scrollViewRef.current
+              ?.getNativeScrollRef()
+              ?.getBoundingClientRect();
+            if (!rect) {
+              return;
+            }
 
-            // maxWidth: '100%',
-            // height: 'fit-content',
-            // maxHeight: '100%',
+            const { top, right, bottom, left } = rect;
+            if (
+              pageX >= left &&
+              pageX <= right &&
+              pageY >= top &&
+              pageY <= bottom
+            ) {
+              // The touch upon the stage fell inside the ScrollView.
+              return;
+            }
+
+            touchState.current = { type: 'start' };
+          }}
+          onTouchCancel={() => {
+            touchState.current = { type: 'idle' };
+          }}
+          onTouchEnd={({ nativeEvent: { pageX, pageY } }) => {
+            const initialState = touchState.current;
+            touchState.current = { type: 'idle' };
+
+            if (initialState.type !== 'start') {
+              return;
+            }
+
+            const rect = scrollViewRef.current
+              ?.getNativeScrollRef()
+              ?.getBoundingClientRect();
+            if (!rect) {
+              return;
+            }
+
+            const { top, right, bottom, left } = rect;
+            if (
+              pageX >= left &&
+              pageX <= right &&
+              pageY >= top &&
+              pageY <= bottom
+            ) {
+              // The touch upon the stage fell inside the ScrollView.
+              return;
+            }
+
+            closePopover();
           }}>
-          {results.map(({ forms, senses }, i) => {
-            const readings = forms
-              .sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0))
-              .filter(({ kana }) => kana);
-
-            return (
-              <View
-                key={i}
-                // .paranovel-result-container
-                style={{
-                  gap: 8,
-                  alignItems: 'stretch',
-                  maxWidth: '100%',
-
-                  // To be inherited:
-                  // color: 'white',
-                  // fontSize: 50 / fontScale,
-                }}>
-                <Text
-                  // .paranovel-headword
-                  style={{
-                    color: 'white',
-                    fontSize: 22 / fontScale,
-                  }}>
-                  {forms
-                    .filter(({ kana }) => !kana)
-                    .map(({ common, form }) => (common ? form : `（${form}）`))
-                    .join('、')}
-                </Text>
-                <Text
-                  // .paranovel-reading-item
-                  style={{
-                    color: 'white',
-                    fontSize: paranovelPopoverDefinitionFontSize,
-                  }}>
-                  {readings
-                    // Could represent uncommon using dice
-                    .map(({ common, form }) => (common ? form : `（${form}）`))
-                    .join('、')}
-                </Text>
-
-                <View
-                  // .paranovel-sense-list
-                  style={{ gap: 16 }}>
-                  {senses.map(({ pos, gloss }, i) => {
-                    return (
-                      <View
-                        key={i}
-                        // .paranovel-sense-item
-                        style={{
-                          alignItems: 'flex-start',
-                          gap: 8,
-                        }}>
-                        <View
-                          // .paranovel-pos-list
-                          style={{ flexDirection: 'row', gap: 8 }}>
-                          {pos.map((p, i) => (
-                            // .paranovel-pos-item
-                            <Text
-                              key={i}
-                              style={{
-                                color: 'white',
-                                borderWidth: 1,
-                                borderStyle: 'solid',
-                                borderColor: 'grey',
-                                borderRadius: 4,
-                                paddingLeft: 4,
-                                paddingRight: 4,
-                                fontSize: paranovelPopoverDefinitionFontSize,
-                              }}>
-                              {p}
-                            </Text>
-                          ))}
-                        </View>
-
-                        <Text
-                          // .paranovel-gloss-item
-                          style={{
-                            color: 'white',
-                            fontSize: paranovelPopoverDefinitionFontSize,
-                          }}>
-                          {`${i + 1}. ${gloss.join('; ')}`}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            );
-          })}
-
-          <View
-            // .paranovel-show-more-container
+          <ScrollView
+            ref={scrollViewRef}
+            // #paranovel-popover-content
             style={{
-              // TODO: revisit styles for overscroll
-              display: withShowMoreButton ? 'flex' : 'none',
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 34,
-              alignItems: 'center',
-              justifyContent: 'center',
-              /* TODO: base this on var(--paranovel-popover-background-color) */
-              backgroundColor: '#2228',
+              backgroundColor: 'black',
+              padding: 8,
+              boxSizing: 'border-box',
+              // It doesn't seem to be respecting this
+              // overflow: 'scroll',
+
+              // maxWidth: '100%',
+              // height: 'fit-content',
+              // maxHeight: '100%',
             }}>
-            <Pressable
+            {results.map(({ forms, senses }, i) => {
+              const readings = forms
+                .sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0))
+                .filter(({ kana }) => kana);
+
+              return (
+                <View
+                  key={i}
+                  // .paranovel-result-container
+                  style={{
+                    gap: 8,
+                    alignItems: 'stretch',
+                    maxWidth: '100%',
+
+                    // To be inherited:
+                    // color: 'white',
+                    // fontSize: 50 / fontScale,
+                  }}>
+                  <Text
+                    // .paranovel-headword
+                    style={{
+                      color: 'white',
+                      fontSize: 22 / fontScale,
+                    }}>
+                    {forms
+                      .filter(({ kana }) => !kana)
+                      .map(({ common, form }) =>
+                        common ? form : `（${form}）`,
+                      )
+                      .join('、')}
+                  </Text>
+                  <Text
+                    // .paranovel-reading-item
+                    style={{
+                      color: 'white',
+                      fontSize: paranovelPopoverDefinitionFontSize,
+                    }}>
+                    {readings
+                      // Could represent uncommon using dice
+                      .map(({ common, form }) =>
+                        common ? form : `（${form}）`,
+                      )
+                      .join('、')}
+                  </Text>
+
+                  <View
+                    // .paranovel-sense-list
+                    style={{ gap: 16 }}>
+                    {senses.map(({ pos, gloss }, i) => {
+                      return (
+                        <View
+                          key={i}
+                          // .paranovel-sense-item
+                          style={{
+                            alignItems: 'flex-start',
+                            gap: 8,
+                          }}>
+                          <View
+                            // .paranovel-pos-list
+                            style={{ flexDirection: 'row', gap: 8 }}>
+                            {pos.map((p, i) => (
+                              // .paranovel-pos-item
+                              <Text
+                                key={i}
+                                style={{
+                                  color: 'white',
+                                  borderWidth: 1,
+                                  borderStyle: 'solid',
+                                  borderColor: 'grey',
+                                  borderRadius: 4,
+                                  paddingLeft: 4,
+                                  paddingRight: 4,
+                                  fontSize: paranovelPopoverDefinitionFontSize,
+                                }}>
+                                {p}
+                              </Text>
+                            ))}
+                          </View>
+
+                          <Text
+                            // .paranovel-gloss-item
+                            style={{
+                              color: 'white',
+                              fontSize: paranovelPopoverDefinitionFontSize,
+                            }}>
+                            {`${i + 1}. ${gloss.join('; ')}`}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+
+            <View
+              // .paranovel-show-more-container
               style={{
-                backgroundColor: '#bbb',
-                borderRadius: 16,
-                paddingBlock: 2,
-                paddingInline: 16,
+                // TODO: revisit styles for overscroll
+                display: withShowMoreButton ? 'flex' : 'none',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 34,
+                alignItems: 'center',
+                justifyContent: 'center',
+                /* TODO: base this on var(--paranovel-popover-background-color) */
+                backgroundColor: '#2228',
               }}>
-              <Text style={{ color: '#111' }}>Show more</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </View>
+              <Pressable
+                style={{
+                  backgroundColor: '#bbb',
+                  borderRadius: 16,
+                  paddingBlock: 2,
+                  paddingInline: 16,
+                }}>
+                <Text style={{ color: '#111' }}>Show more</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </View>
+      )}
     </>
   );
 }
