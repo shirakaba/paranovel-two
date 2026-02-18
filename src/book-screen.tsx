@@ -776,6 +776,19 @@ function NativePopover({
               // maxHeight: '100%',
               minWidth: 100,
             }}>
+            {!results.length && (
+              <Text
+                style={{
+                  // Can't identify why, but "No results" always fills the full
+                  // width. There's nothing like `inline-size: fit-content`.
+                  textAlign: 'center',
+                  color: 'white',
+                  fontSize: paranovelPopoverDefinitionFontSize,
+                }}>
+                No results.
+              </Text>
+            )}
+
             {results.map(({ forms, senses }, i) => {
               const readings = forms
                 .sort((a, b) => (b.common ? 1 : 0) - (a.common ? 1 : 0))
