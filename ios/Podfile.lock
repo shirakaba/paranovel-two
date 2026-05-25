@@ -3,7 +3,7 @@ PODS:
     - ExpoModulesCore
   - EXConstants (55.0.3):
     - ExpoModulesCore
-  - Expo (55.0.0-preview.9):
+  - Expo (55.0.26):
     - ExpoModulesCore
     - hermes-engine
     - RCTRequired
@@ -28,23 +28,23 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ExpoAsset (55.0.3):
+  - ExpoAsset (55.0.17):
     - ExpoModulesCore
-  - ExpoDomWebView (55.0.2):
+  - ExpoDomWebView (55.0.6):
     - ExpoModulesCore
   - ExpoFileSystem (55.0.4):
     - ExpoModulesCore
   - ExpoFont (55.0.3):
     - ExpoModulesCore
-  - ExpoKeepAwake (55.0.2):
+  - ExpoKeepAwake (55.0.8):
     - ExpoModulesCore
-  - ExpoLogBox (55.0.5):
+  - ExpoLogBox (55.0.12):
     - React-Core
   - ExpoMecab (1.0.0):
     - ExpoModulesCore
     - mecab-ko
     - mecab-naist-jdic-utf-8
-  - ExpoModulesCore (55.0.7):
+  - ExpoModulesCore (55.0.25):
     - ExpoModulesJSI
     - hermes-engine
     - RCTRequired
@@ -68,9 +68,10 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ExpoModulesJSI (55.0.7):
+  - ExpoModulesJSI (55.0.25):
     - hermes-engine
     - React-Core
+    - React-runtimescheduler
     - ReactCommon
   - ExpoSplashScreen (55.0.4):
     - ExpoModulesCore
@@ -2363,16 +2364,16 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Bookmarks: 10db85d793e93b40583a0729e948c5165739d349
   EXConstants: f1806fa0b1c512b88083d0031242eeb496eca244
-  Expo: 6cd4a4e45264ce76ebedac7859894d12de536757
-  ExpoAsset: 0220499c42b1e3d973d379862a54b102504d32b5
-  ExpoDomWebView: 2cb9e9bed46799fa8f36b6284ce7799f1dbff297
+  Expo: ea98ca15b0f07634bbfc6ee60080a627b276d70a
+  ExpoAsset: 9d035bcc19d8688e9ddb2c579c50c8f83824188e
+  ExpoDomWebView: 317a0d188cfdb850fc6fd2a43a2fc132dfd171ee
   ExpoFileSystem: 060c840182e3424df82a137974a45bf845e5ebd9
   ExpoFont: 4e2967170d6ee7316c5efd62dd06aabd7b4593d2
-  ExpoKeepAwake: fa30695ff813ea45747d5ef78b75d6c9b4b73faa
-  ExpoLogBox: f382ea273f1ac0cacb13e976758a02bdfb3fee91
+  ExpoKeepAwake: 45e456e29335bbd400554646a2f29e628c24072e
+  ExpoLogBox: 81d123959f6f1fc9926e4298bbc439c31b1b07ad
   ExpoMecab: 0303572109456dfd5321d7f20d01bc7f69e02036
-  ExpoModulesCore: 78a6f4da13d8587c29073852328770188717388e
-  ExpoModulesJSI: e0daca70b42ae5f0fb4b93c0b6cfe8865b590c36
+  ExpoModulesCore: 78d42c809becc85798b5d102af2673e054cd796b
+  ExpoModulesJSI: 52db434b6c7f626a4613974b2bd05f9816c07224
   ExpoSplashScreen: a5c6c9c62288e8fc0371fbd4436478b8d782f73b
   ExpoSymbols: 2b9f642101c1a462db600d2da0fa180ffc116bb8
   FBLazyVector: 3a7ea85f6009224ad89f7daeda516f189e6b5759
